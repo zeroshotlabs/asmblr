@@ -1,0 +1,316 @@
+<?php
+
+require('/var/www/framewire/Load.inc');
+
+
+
+// asmblr console - standard framewire application
+class fwApp extends \fw\App
+{
+    public $SysOp = 'asmblr@stackware.com';
+    public $LogPublic = FALSE;
+    public $BaseURL = '';
+
+    public function Go()
+    {
+        // perhaps we should check that we're actually running under the console domain
+
+        $page = new \fw\KeyValueSet;
+        $page->Title = 'asmblr Console';
+        $page->Description = 'asmblr Console';
+
+        $ps = new \fw\PageSet;
+        $html = new \fw\enUSHTMLSet;
+        $lp = new \fw\LinkPage($ps,$this->SiteURL);
+        $ls = new \fw\LinkSet(\fw\Hostname::ToString($this->Request['Hostname']));
+        $msg = new \fw\Messager;
+        $vr = new \fw\ValidationReport('error');
+
+        $mongo = new \fw\Mongo("mongodb://localhost",$I2);
+        $asmdb = $mongo->Alias('asmblr','asmdb');
+
+        $this->Wire(array('page'=>$page,'ps'=>$ps,'html'=>$html,'lp'=>$lp,'ls'=>$ls,
+                          'msg'=>$msg,'vr'=>$vr,'asmdb'=>$asmdb));
+
+        // problem because done in __construct
+        // $SH = new \fw\SessionStoreMongoDB($asmdb->Session);
+        // session_set_save_handler($SH);
+        // session_start();
+
+        $html->ConnectWireables($page,$lp,$ls,$msg,$vr);
+
+        \fw\Inc::Dir('Routines');
+
+        $html->LoadDir('HTML');
+
+        $ps->Create('Account','/account/','\asm\AAPI::Account');
+        $ps->Create('Site','/site/','\asm\AAPI::Site');
+
+        $ps->Create('AccountCreate','/account/create','\asm\AccountAPI::Create');
+        $ps->Create('AccountAuthenticate','/account/authenticate','\asm\AccountAPI::Authenticate');
+        $ps->Create('AccountRead','/account/read','\asm\AccountAPI::Read');
+
+        $ps->Create('SiteCreate','/site/create','\asm\SiteAPI::Create');
+        $ps->Create('SiteRead','/site/read','\asm\SiteAPI::Read');
+
+
+        $ps->Create('Home','/','Request::Home');
+
+        $ps->Create('Examples','/examples','Request::Examples',
+                    array('html,Article,examples_Home',
+                          'html,RightAside,ajf_examples-aside',
+                    array('page','Title',"Examples Forms - {$page->Title}")));
+
+        $ps->Create('CSS','/css/','Request::CSSHandler');
+        $ps->Create('JS','/js/','Request::JSHandler');
+
+        $ps->Create('JSON','/json/','JSON');
+        $ps->Create('AjaxFrags','/ajf/','AjaxFrags');
+
+//        fw('html')->SetRoutine('ajf_examples-aside','Internal::ExamplesAside');
+
+
+        $OrderedMatch = NULL;
+        if( $this->MatchPath['IsRoot'] === FALSE )
+        {
+            foreach( \fw\Path::Order($this->MatchPath) as $V )
+            {
+                if( ($OrderedMatch = $ps->Match($V)) !== NULL )
+                {
+                    $ps->Execute($OrderedMatch);
+                    break;
+                }
+            }
+        }
+
+        if( ($ExactMatch = $ps->Match(\fw\Path::ToString($this->MatchPath))) !== NULL )
+            $ps->Execute($ExactMatch);
+
+        if( $ExactMatch === NULL && $OrderedMatch === NULL )
+            $this->NoPageHandler();
+
+        $html->Base();
+    }
+
+    public function NoPageHandler()
+    {
+        \fw\HTTP::_404();
+
+        if( isset($this->html) )
+        {
+            $this->html->ReMap('Article','Error404');
+
+            $this->html->Base();
+        }
+
+        exit;
+    }
+
+    public function UncaughtExceptionHandler( \Exception $E = NULL )
+    {
+        $LastOutput = ob_get_clean();
+
+        ob_start();
+
+        // Optionally email the error.
+        // \fw\Log::Email((string)$E,'ERROR');
+
+        if( $this->html !== NULL && isset($this->html->Error500) )
+        {
+            $this->html->ReMap('Base','Error500');
+            $this->html->Base();
+        }
+        else
+            echo 'Critical Error.';
+
+        $Buf = array('Exception'=>(string)$E,'LastOutput'=>$LastOutput,'$_SERVER'=>$_SERVER);
+
+        llog($Buf,'ERROR',$E->getTrace());
+
+        \fw\HTTP::_500();
+    }
+}
+
+// asmblr site
+class asmSite extends \fw\App
+{
+    protected $asmdb;
+
+    public $SysOp = 'asmblr@stackware.com';
+    public $LogPublic = FALSE;
+
+
+    public function __construct()
+    {
+        define('DOC_ROOT',getcwd().DIRECTORY_SEPARATOR);
+        define('APP_ROOT',str_replace('DOC_ROOT','APP_ROOT',DOC_ROOT));
+
+        // NOTE: should $this be set global, or that from the matched site?
+        $GLOBALS['FWAPP'] = $this;
+
+
+        // this should probably be protected somehow too
+        // need to get config too
+        $mongo = new \fw\Mongo("mongodb://localhost",$I2);
+        $this->asmdb = $mongo->Alias('asmblr','asmdb');
+
+        $SH = new \fw\SessionStoreMongoDB($this->asmdb->Session);
+        session_set_save_handler($SH);
+        session_start();
+
+
+        // now do more site specific stuff
+        // TODO: these may become configurable in Site['Config']
+        set_error_handler(array($this,'ErrorHandler'));
+        set_exception_handler(array($this,'UncaughtExceptionHandler'));
+        register_shutdown_function(array($this,'FatalErrorHandler'));
+
+        // TODO: optimize via .ini or make configurable and consider with locale Templates (enUSHTMLSet).
+        // problematic with media serving
+        HTTP::ContentType('text/html','utf-8');
+        mb_http_output('UTF-8');
+        ini_set('zlib.output_compression',TRUE);
+    }
+
+
+    /**
+     * Lookup a Site by it's Domain.
+     *
+     * Only one or none Sites will match.
+     *
+     * @param string $Domain The domain/hostname to exact match.
+     * @retval array The Site Struct.
+     */
+    public function Match( $Domain )
+    {
+//         if( isset($_SERVER[$this->DebugToken]) === TRUE )
+//             $this->DebugDump('MATCH',\fw\URL::ToString($T),empty($S)?NULL:$S['Name']);
+
+        return $this->asmdb->findOne(array('Domain'=>$Domain));
+    }
+
+    // Executing a site involves:
+    //  - adding config parameters to this asmSite object
+    //  - applying directives (same as PageSet)
+    //  - executing the routine (same as PageSet)
+    //  - add site templates
+    //  - match and execute a page
+    //  - render
+    // TODO: handle lib code
+    public function Execute( $Site )
+    {
+//        if( isset($_SERVER[$this->DebugToken]) === TRUE )
+//            $this->DebugDump('EXECUTE',$Site['URL'],$Domain);
+
+        foreach( $Site['Config'] as $K => $V )
+            $this->{$K} = $V;
+
+        $this->CalcURLs();
+
+//            else if( $V['Token'] === 'self' )
+//                $this->ApplyDirective($V['Key'],$V['Value']);
+
+        // this is hardwired though could be done via config/directives
+        $page = new \fw\KeyValueSet;
+
+        $ps = new \asm\PageSet($this->asmdb);
+        $html = new \asm\TemplateSet($this->asmdb,$Site['Domain']);
+
+        $lp = new \fw\LinkPage($ps,$this->SiteURL);
+        $ls = new \fw\LinkSet($Site['Domain']);
+        $msg = new \fw\Messager;
+//        $vr = new \fw\ValidationReport('error');
+
+        $this->Wire(array('page'=>$page,'ps'=>$ps,'html'=>$html,'lp'=>$lp,'ls'=>$ls,'msg'=>$msg));
+
+        $html->ConnectWireables($page,$lp,$ls,$msg);
+
+        foreach( $Site['Directives'] as $V )
+        {
+            if( ($W = $this->{$V['Name']}) === NULL )
+                throw new Exception("Directive object {$V['Name']}' doesn't exist while executing Site '{$Site['Domain']}'.");
+            else
+                $W->ApplyDirective($V['Key'],$V['Value']);
+        }
+
+        if( empty($Site['Routine']) === FALSE )
+        {
+            if( $Site['Routine']['Type'] === 'Pointer' )
+                return $Site['Routine'][0]::$Site['Routine'][1]();
+            else
+                return eval($Site['Routine'][0]);
+        }
+
+        $OrderedMatch = NULL;
+        if( $this->MatchPath['IsRoot'] === FALSE )
+        {
+            foreach( \fw\Path::Order($this->MatchPath) as $V )
+            {
+                if( ($OrderedMatch = $ps->Match($V)) !== NULL )
+                {
+                    $ps->Execute($OrderedMatch);
+                    break;
+                }
+            }
+        }
+
+        if( ($ExactMatch = $ps->Match(\fw\Path::ToString($this->MatchPath))) !== NULL )
+            $ps->Execute($ExactMatch);
+
+        if( $ExactMatch === NULL && $OrderedMatch === NULL )
+            $this->NoPageHandler();
+
+        $html->Base();
+
+//        else if( isset($_SERVER[$this->DebugToken]) )
+//            throw new \fw\Exception("Page '$Domain' or last match '{$this->Matched['Domain']}' doesn't exist for execution in SiteSet '{$this->WiredAs}'.");
+    }
+
+    // TODO: fully implement/document
+    public function OpenbaseDir( $Path = '' )
+    {
+        if( empty($Path) )
+        {
+            if( static::IsWindows() )
+                ini_set('open_basedir',DOC_ROOT.'../;'.FW_ROOT.';C:/Windows/Temp/');
+            else
+                ini_set('open_basedir',DOC_ROOT.'../:'.FW_ROOT.':/tmp:/var/www/lib');
+        }
+        else
+            ini_set('open_basedir',$Path);
+    }
+}
+
+
+\fw\Inc::Ext('Mongo.inc');
+
+\fw\Inc::Dir('asmblr');
+
+// probably need Mongo connect info here
+
+$Domain = \fw\Hostname::ToString(Request::Init()['Hostname']);
+
+
+if( $Domain === 'asm1.stackop.com' )
+{
+    $FW = new fwApp;
+    $FW->Go();
+}
+else
+{
+    $ASM = new asmSite;
+
+    if( ($Site = $ASM->Match($Domain)) !== NULL )
+    {
+        $ASM->Execute($Site);
+    }
+    else
+    {
+        echo 'Invalid request';
+        \fw\HTTP::_404();
+    }
+}
+
+
+define('TIME_TO_BUILD',round((microtime(TRUE)-START_TIME),4)*1000.000);
+
