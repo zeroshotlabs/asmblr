@@ -27,26 +27,6 @@ abstract class Account extends MongoStruct
 // to be updated separately; update search, other dependencies?
 class AccountSet extends MongoSet
 {
-    public function Create( &$A )
-    {
-        $this->MDC->insert($A);
-    }
-
-    public function Read( \MongoId $A )
-    {
-        return $this->MDC->findOne(array('_id'=>$A));
-    }
-
-    public function Delete( $A )
-    {
-        return $this->MDC->remove(array('_id'=>$A['_id'],'CurrentTS'=>$A['CurrentTS']))['n'];
-    }
-
-    public function SetStatus( $Status,&$A )
-    {
-        return $this->SetKV('Status',$Status,'_id',$A);
-    }
-
     public function SetPassword( $Password,&$A )
     {
         return $this->SetKV('Password',md5($Password),'_id',$A);
@@ -65,6 +45,30 @@ class AccountSet extends MongoSet
     public function Auth( $Email,$Password )
     {
         return $this->MDC->findOne(array('Email'=>$Email,'Password'=>md5($Password)));
+    }
+
+    // private API
+    public function Create( &$A )
+    {
+        $this->MDC->insert($A);
+    }
+
+    // private API
+    public function Read( \MongoId $A )
+    {
+        return $this->MDC->findOne(array('_id'=>$A));
+    }
+
+    // private API
+    public function Delete( $A )
+    {
+        return $this->MDC->remove(array('_id'=>$A['_id'],'CurrentTS'=>$A['CurrentTS']))['n'];
+    }
+
+    // private API
+    public function SetStatus( $Status,&$A )
+    {
+        return $this->SetKV('Status',$Status,'_id',$A);
     }
 }
 
