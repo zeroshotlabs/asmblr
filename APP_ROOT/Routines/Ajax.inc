@@ -77,22 +77,12 @@ abstract class JSONResponse extends \fw\Struct
 }
 
 
-/**
- * Handle JSON Ajax requests.
- *
- * These methods use data from jQueryRequest and the last path
- * segment of the requested URL to execute a Routine.  They
- * respond with a JSON array (ajf/JSONResponse.tpl).
- */
 abstract class JSON extends \fw\RoutineSet
 {
-    // jQueryRequest and JSONResponse Structs
     public static $Request;
     public static $Response;
 
 
-    // Page Name: JSON
-    //  Page URL: /json/  (hierarchy)
     public static function Execute()
     {
         static::$Request = jQueryRequest::Init();

@@ -1,24 +1,50 @@
 <?php
+namespace asm;
 
 require('/var/www/framewire/Load.inc');
 
+/**
+ * asmblr has three main parts:
+ *   - Console: standard Framewire app front-end for managing sites (REST + direct)
+ *       $ConsoleURL:  https://asm1.stackop.com/
+ *
+ *   - REST API: specialized Framewire app for manipulating hosted sites
+ *       $RESTURL:  https://asm1.stackop.com/restv1/
+ *
+ *   - Asmblr Server: specialized asmblr app CMS and cloud site hosting
+ *       not configurable, i.e.
+ *       http://any.thing.com/
+ *       http://anythingcom.asm1.stackop.com/
+ *
+ * And so LiveEdit?!?!?
+ */
 
-
-// asmblr console - standard framewire application
-class fwApp extends \fw\App
+// asmblr console, REST, and multi-site server
+class asmblr extends \fw\App
 {
     public $SysOp = 'asmblr@stackware.com';
     public $LogPublic = FALSE;
     public $BaseURL = '';
 
-    public function Go()
+    public $ConsoleURL = 'http://asmblr.local/';
+    public $RESTURL = 'https://asmblr.local/restv1/';
+
+
+    public function __construct()
     {
-        // perhaps we should check that we're actually running under the console domain
+        $this->ConsoleURL = URL::Init($this->ConsoleURL);
+        $this->RESTURL = URL::Init($this->RESTURL);
+    }
+
+    public function GoConsole()
+    {
+
+        // general framewire application startup using our Console URL
+        $this->NoName();
+        $this->BaseURL = URL::ToString($this->ConsoleURL);
+        $this->CalcURLs();
 
         $page = new \fw\KeyValueSet;
-        $page->Title = 'asmblr Console';
-        $page->Description = 'asmblr Console';
-
         $ps = new \fw\PageSet;
         $html = new \fw\enUSHTMLSet;
         $lp = new \fw\LinkPage($ps,$this->SiteURL);
@@ -26,22 +52,23 @@ class fwApp extends \fw\App
         $msg = new \fw\Messager;
         $vr = new \fw\ValidationReport('error');
 
-        $mongo = new \fw\Mongo("mongodb://localhost",$I2);
-        $asmdb = $mongo->Alias('asmblr','asmdb');
+        $asmps = new PageSet(fw('asmdb'));
+        $asmhtml = new enUSHTMLSet(fw('asmdb'));
+        $asmss = new SiteSet(fw('asmthey db'));
 
         $this->Wire(array('page'=>$page,'ps'=>$ps,'html'=>$html,'lp'=>$lp,'ls'=>$ls,
-                          'msg'=>$msg,'vr'=>$vr,'asmdb'=>$asmdb));
-
-        // problem because done in __construct
-        // $SH = new \fw\SessionStoreMongoDB($asmdb->Session);
-        // session_set_save_handler($SH);
-        // session_start();
+                          'msg'=>$msg,'vr'=>$vr));
 
         $html->ConnectWireables($page,$lp,$ls,$msg,$vr);
 
-        \fw\Inc::Dir('Routines');
 
+        $page->Title = URL::Hostname($this->ConsoleURL).' Console';
+        $page->Description = 'asmblr Console';
+        \fw\Inc::Dir('Routines');
         $html->LoadDir('HTML');
+
+
+        $ps->Create('RESTv1','/restv1/','\asm\REST::v1');
 
         $ps->Create('Account','/account/','\asm\AAPI::Account');
         $ps->Create('Site','/site/','\asm\AAPI::Site');
@@ -92,6 +119,36 @@ class fwApp extends \fw\App
         $html->Base();
     }
 
+    public function GoREST()
+    {
+        echo 'REST';
+    }
+
+    public function Go()
+    {
+        echo 'These aren\'t the droids you\'re looking for.';
+    }
+
+
+    public function NoName()
+    {
+        // NOTE: should $this be set global, or that from the matched site?
+        $GLOBALS['FWAPP'] = $this;
+
+        // now do more site specific stuff
+        // TODO: these may become configurable in Site['Config']
+        set_error_handler(array($this,'ErrorHandler'));
+        set_exception_handler(array($this,'UncaughtExceptionHandler'));
+        register_shutdown_function(array($this,'FatalErrorHandler'));
+
+        // TODO: optimize via .ini or make configurable and consider with locale Templates (enUSHTMLSet).
+        // problematic with media serving
+        \fw\HTTP::ContentType('text/html','utf-8');
+        mb_http_output('UTF-8');
+        ini_set('zlib.output_compression',TRUE);
+
+    }
+
     public function NoPageHandler()
     {
         \fw\HTTP::_404();
@@ -129,49 +186,6 @@ class fwApp extends \fw\App
 
         \fw\HTTP::_500();
     }
-}
-
-// asmblr site
-class asmSite extends \fw\App
-{
-    protected $asmdb;
-
-    public $SysOp = 'asmblr@stackware.com';
-    public $LogPublic = FALSE;
-
-
-    public function __construct()
-    {
-        define('DOC_ROOT',getcwd().DIRECTORY_SEPARATOR);
-        define('APP_ROOT',str_replace('DOC_ROOT','APP_ROOT',DOC_ROOT));
-
-        // NOTE: should $this be set global, or that from the matched site?
-        $GLOBALS['FWAPP'] = $this;
-
-
-        // this should probably be protected somehow too
-        // need to get config too
-        $mongo = new \fw\Mongo("mongodb://localhost",$I2);
-        $this->asmdb = $mongo->Alias('asmblr','asmdb');
-
-        $SH = new \fw\SessionStoreMongoDB($this->asmdb->Session);
-        session_set_save_handler($SH);
-        session_start();
-
-
-        // now do more site specific stuff
-        // TODO: these may become configurable in Site['Config']
-        set_error_handler(array($this,'ErrorHandler'));
-        set_exception_handler(array($this,'UncaughtExceptionHandler'));
-        register_shutdown_function(array($this,'FatalErrorHandler'));
-
-        // TODO: optimize via .ini or make configurable and consider with locale Templates (enUSHTMLSet).
-        // problematic with media serving
-        HTTP::ContentType('text/html','utf-8');
-        mb_http_output('UTF-8');
-        ini_set('zlib.output_compression',TRUE);
-    }
-
 
     /**
      * Lookup a Site by it's Domain.
@@ -282,24 +296,37 @@ class asmSite extends \fw\App
 }
 
 
-\fw\Inc::Ext('Mongo.inc');
+define('DOC_ROOT',getcwd().DIRECTORY_SEPARATOR);
+define('APP_ROOT',str_replace('DOC_ROOT','APP_ROOT',DOC_ROOT));
 
+\fw\Inc::Ext('Mongo.inc');
 \fw\Inc::Dir('asmblr');
 
-// probably need Mongo connect info here
+$asm = new asmblr;
 
-$Domain = \fw\Hostname::ToString(Request::Init()['Hostname']);
+$mongo = new \fw\Mongo;
+$asmdb = $mongo->Alias('asmblr','asmdb');
+$asm->Wire($asmdb,'asmdb');
 
+$SH = new SessionStoreMongoDB($asmdb);
+session_set_save_handler($SH);
+session_start();
 
-if( $Domain === 'asm1.stackop.com' )
+$Domain = Request::Hostname();
+
+if( $Domain === URL::Hostname($asm->ConsoleURL) )
 {
-    $FW = new fwApp;
-    $FW->Go();
+    if( Request::Top() === URL::Top($asm->RESTURL) )
+    {
+        $asm->GoREST();
+    }
+    else
+    {
+        $asm->GoConsole();
+    }
 }
 else
 {
-    $ASM = new asmSite;
-
     if( ($Site = $ASM->Match($Domain)) !== NULL )
     {
         $ASM->Execute($Site);

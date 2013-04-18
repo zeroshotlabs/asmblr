@@ -27,7 +27,7 @@ abstract class Template extends MongoStruct
 // note the big difference from FW standard templates - this is not Content
 class TemplateSet extends MongoSet
 {
-    use TemplateTraits;
+    use \fw\TemplateTraits;
 
 
     public function Load( \MongoId $S )
@@ -66,6 +66,10 @@ class TemplateSet extends MongoSet
     }
 }
 
+class enUSHTMLSet extends TemplateSet
+{
+    use \fw\enUSHTMLTraits;
+}
 
 
 /**

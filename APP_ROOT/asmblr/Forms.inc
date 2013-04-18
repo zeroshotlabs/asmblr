@@ -1,10 +1,17 @@
 <?php
-
 namespace asm;
 
 
-abstract class enUS extends \fw\enUS
+abstract class v extends \fw\enUS
 {
+    public static function Name( $N,&$H )
+    {
+        if( static::Text($N,$H) && strlen($H[$N]) < 50 )
+            return TRUE;
+        else
+            return FALSE;
+    }
+
     public static function Domain( $N,&$H )
     {
         if( static::Text($N,$H) )
@@ -15,6 +22,11 @@ abstract class enUS extends \fw\enUS
         else
             return FALSE;
     }
+
+}
+
+abstract class enUS extends \fw\enUS
+{
 
     // primary key from x-editable:  id_CurrentTS
     // returns PK as array or NULL
@@ -39,7 +51,7 @@ abstract class enUS extends \fw\enUS
 
 
 
-abstract class AsmForms extends \fw\USValidate
+abstract class AsmForms extends \fw\enUS
 {
     public static function Token( $Label,&$Src )
     {

@@ -2,6 +2,54 @@
 namespace asm;
 
 
+abstract class URL extends \fw\URL
+{
+    public static function Hostname( $URL )
+    {
+        return \fw\Hostname::ToString($URL['Hostname']);
+    }
+
+    public static function Path( $URL )
+    {
+        return \fw\Path::ToString($URL['Path']);
+    }
+
+    public static function Bottom( $URL )
+    {
+        return \fw\Path::Bottom($URL['Path']);
+    }
+
+    public static function Top( $URL )
+    {
+        return \fw\Path::Top($URL['Path']);
+    }
+}
+
+
+abstract class Request extends \fw\Request
+{
+    public static function Hostname()
+    {
+        return \fw\Hostname::ToString(static::Init()['Hostname']);
+    }
+
+    public static function Path()
+    {
+        return \fw\Path::ToString(static::Init()['Path']);
+    }
+
+    public static function Bottom()
+    {
+        return \fw\Path::Bottom(static::Init()['Path']);
+    }
+
+    public static function Top()
+    {
+        return \fw\Path::Top(static::Init()['Path']);
+    }
+}
+
+
 abstract class MongoStruct extends \fw\Struct
 {
     // retrieve the created TS which is part of _id's MongoId
@@ -13,7 +61,6 @@ abstract class MongoStruct extends \fw\Struct
             return NULL;
     }
 }
-
 
 
 // generic mongo setter - base for storing in mongo

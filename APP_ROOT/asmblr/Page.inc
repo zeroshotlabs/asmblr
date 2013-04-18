@@ -26,7 +26,7 @@ abstract class Page extends MongoStruct
 // Execute?
 class PageSet extends MongoSet
 {
-    use PageTraits;
+    use \fw\PageTraits;
 
 
     public function Create( &$P )
