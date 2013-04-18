@@ -12,9 +12,8 @@ require('/var/www/framewire/Load.inc');
  *       $RESTURL:  https://asm1.stackop.com/restv1/
  *
  *   - Asmblr Server: specialized asmblr app CMS and cloud site hosting
- *       not configurable, i.e.
- *       http://any.thing.com/
- *       http://anythingcom.asm1.stackop.com/
+ *       not configurable, i.e. http://any.thing.com/
+ *       or automatically available via http://anythingcom.asm1.stackop.com/
  *
  * And so LiveEdit?!?!?
  */
@@ -32,29 +31,152 @@ class asmblr extends \fw\App
 
     public function __construct()
     {
+        $mongo = new \fw\Mongo;
+        $asmdb = $mongo->Alias('asmblr','asmdb');
+
+        $SH = new SessionStoreMongoDB($asmdb);
+        session_set_save_handler($SH);
+        session_start();
+
+        $page = new \fw\KeyValueSet;
+
+        // always bring our asmblr/mongo sets online - if it turns out our request
+        // if for the console/api, we'll bring those standard FW sets online too
+
+        $ps = new PageSet($asmdb);
+        $html = new enUSHTMLSet($asmdb);
+        $ss = new SiteSet($asmdb);
+        // does asmdb and ss need to be wired, or atleast publicly accessible?
+        // what about connecting into $html?
+        $this->Wire(array('asmdb'=>$asmdb,'page'=>$page,'ps'=>$ps,'html'=>$html,'ss'=>$ss));
+
+
+        // take a peek into our request to see if we're console, REST, or serving a site
+        $this->Request = Request::Init();
+
         $this->ConsoleURL = URL::Init($this->ConsoleURL);
         $this->RESTURL = URL::Init($this->RESTURL);
+
+        $Domain = Request::Hostname();
+
+        // we'll be serving the console or REST API
+        if( $Domain === URL::Hostname($this->ConsoleURL) )
+        {
+            if( Request::Top() === URL::Top($this->RESTURL) )
+            {
+                $CU = $this->CalcURLs($this->RESTURL,$this->Request);
+                $Go = 'GoREST';
+            }
+            else
+            {
+                $CU = $this->CalcURLs($this->ConsoleURL,$this->Request);
+                $Go = 'GoConsole';
+            }
+
+            $this->SiteURL = $CU['SiteURL'];
+            $this->MatchPath = $CU['MatchPath'];
+            $this->IsBaseScheme = $CU['IsBaseScheme'];
+            $this->IsBaseHostname = $CU['IsBaseHostname'];
+            $this->IsBasePort = $CU['IsBasePort'];
+            $this->IsBasePath = $CU['IsBasePath'];
+
+            // our linkers must be created here so they know the URLs to deal with
+            // probably will be required for serving a site
+            $conlp = new \fw\LinkPage($conps,$this->SiteURL);
+            $conls = new \fw\LinkSet($Domain);
+
+            $this->$Go();
+        }
+        // we'll be serving an actual site
+        else
+        {
+            if( ($Site = $ASM->Match($Domain)) !== NULL )
+            {
+                $ASM->Execute($Site);
+            }
+            else
+            {
+                echo 'Invalid request';
+                \fw\HTTP::_404();
+            }
+        }
+    }
+
+    public function CalcURLs( $BaseURL,$Request )
+    {
+        $SiteURL = $Request;
+        Path::Lower($SiteURL['Path']);
+        $MatchPath = array();
+
+        $IsBaseScheme = $IsBaseHostname = $IsBasePort = $IsBasePath = TRUE;
+
+        if( empty($BaseURL) )
+        {
+            $MatchPath = $SiteURL['Path'];
+            $MatchPath['IsDir'] = FALSE;
+            $SiteURL['Path'] = Path::Init('/');
+        }
+        else
+        {
+            // sort of a hack in case we get a URL struct as a BaseURL which we often do
+            // if it's a struct, we assume no asterisk replace is needed, which is
+            // probably wrong to do
+            if( !is_array($BaseURL) )
+            {
+                $BaseURL = URL::Init(str_replace('*',Hostname::ToString($SiteURL['Hostname']),$BaseURL));
+            }
+
+            if( !empty($BaseURL['Scheme']) )
+            {
+                $IsBaseScheme = ($BaseURL['Scheme'] === $SiteURL['Scheme']);
+                URL::SetScheme($BaseURL['Scheme'],$SiteURL);
+            }
+
+            if( !empty($BaseURL['Hostname']) )
+            {
+                $IsBaseHostname = ($BaseURL['Hostname'] === $SiteURL['Hostname']);
+                URL::SetHostname($BaseURL['Hostname'],$SiteURL);
+            }
+
+            if( !empty($BaseURL['Port']) )
+            {
+                $IsBasePort = ($BaseURL['Port'] === $SiteURL['Port']);
+                URL::SetPort($BaseURL['Port'],$SiteURL);
+            }
+
+            $MatchPath = $SiteURL['Path'];
+            $MatchPath['IsDir'] = FALSE;
+
+            if( $BaseURL['Path']['IsRoot'] === FALSE )
+            {
+                // @todo More efficient way of doing this...?
+                foreach( $BaseURL['Path']['Segments'] as $K => $V )
+                    $IsBasePath = isset($SiteURL['Path']['Segments'][$K]) && $SiteURL['Path']['Segments'][$K] === $V;
+
+                URL::SetPath($BaseURL['Path'],$SiteURL);
+                Path::Mask($SiteURL['Path'],$MatchPath);
+            }
+            else
+                $SiteURL['Path'] = Path::Init('/');
+        }
+
+        return array('SiteURL'=>$SiteURL,'MatchPath'=>$MatchPath,
+                     'IsBaseScheme'=>$IsBaseScheme,'IsBaseHostname'=>$IsBaseHostname,
+                     'IsBasePort'=>$IsBasePort,'IsBasePath'=>$IsBasePath);
     }
 
     public function GoConsole()
     {
-
         // general framewire application startup using our Console URL
         $this->NoName();
-        $this->BaseURL = URL::ToString($this->ConsoleURL);
-        $this->CalcURLs();
 
-        $page = new \fw\KeyValueSet;
-        $ps = new \fw\PageSet;
-        $html = new \fw\enUSHTMLSet;
-        $lp = new \fw\LinkPage($ps,$this->SiteURL);
-        $ls = new \fw\LinkSet(\fw\Hostname::ToString($this->Request['Hostname']));
-        $msg = new \fw\Messager;
-        $vr = new \fw\ValidationReport('error');
-
-        $asmps = new PageSet(fw('asmdb'));
-        $asmhtml = new enUSHTMLSet(fw('asmdb'));
-        $asmss = new SiteSet(fw('asmthey db'));
+        $conpage = new \fw\KeyValueSet;
+        $conps = new \fw\PageSet;
+        $conhtml = new \fw\enUSHTMLSet;
+        $conlp = new \fw\LinkPage($ps,$this->SiteURL);
+        $conls = new \fw\LinkSet(\fw\Hostname::ToString($this->Request['Hostname']));
+        $conmsg = new \fw\Messager;
+        $convr = new \fw\ValidationReport('error');
 
         $this->Wire(array('page'=>$page,'ps'=>$ps,'html'=>$html,'lp'=>$lp,'ls'=>$ls,
                           'msg'=>$msg,'vr'=>$vr));
@@ -303,40 +425,6 @@ define('APP_ROOT',str_replace('DOC_ROOT','APP_ROOT',DOC_ROOT));
 \fw\Inc::Dir('asmblr');
 
 $asm = new asmblr;
-
-$mongo = new \fw\Mongo;
-$asmdb = $mongo->Alias('asmblr','asmdb');
-$asm->Wire($asmdb,'asmdb');
-
-$SH = new SessionStoreMongoDB($asmdb);
-session_set_save_handler($SH);
-session_start();
-
-$Domain = Request::Hostname();
-
-if( $Domain === URL::Hostname($asm->ConsoleURL) )
-{
-    if( Request::Top() === URL::Top($asm->RESTURL) )
-    {
-        $asm->GoREST();
-    }
-    else
-    {
-        $asm->GoConsole();
-    }
-}
-else
-{
-    if( ($Site = $ASM->Match($Domain)) !== NULL )
-    {
-        $ASM->Execute($Site);
-    }
-    else
-    {
-        echo 'Invalid request';
-        \fw\HTTP::_404();
-    }
-}
 
 
 define('TIME_TO_BUILD',round((microtime(TRUE)-START_TIME),4)*1000.000);
