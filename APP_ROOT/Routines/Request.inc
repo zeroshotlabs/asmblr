@@ -13,6 +13,98 @@
 
 abstract class Request extends \fw\RoutineSet
 {
+    protected static function StartCURL( $UP,$URL,$Request )
+    {
+        $CH = curl_init();
+        curl_setopt($CH,CURLOPT_URL,$URL);
+        curl_setopt($CH,CURLOPT_RETURNTRANSFER,TRUE);
+        curl_setopt($CH,CURLINFO_HEADER_OUT,TRUE);
+//        curl_setopt($CH,CURLOPT_HEADER,TRUE);
+//        curl_setopt($CH,CURLOPT_VERBOSE,TRUE);
+
+        curl_setopt($CH,CURLOPT_HTTPHEADER,array('Expect:'));
+
+//        curl_setopt($CH,CURLOPT_SSL_VERIFYPEER,FALSE);
+//        curl_setopt($CH,CURLOPT_SSL_VERIFYHOST,1);
+
+        curl_setopt($CH,CURLOPT_POST,TRUE);
+        curl_setopt($CH,CURLOPT_POSTFIELDS,$Request);
+
+        curl_setopt($CH,CURLOPT_USERPWD,$UP);
+
+        return $CH;
+    }
+
+    public static function Test()
+    {
+//        $Request = array('Email'=>'h22z@stackware.com','Password'=>'t3st1ng','Name'=>'Hans Zaunere');
+//        $CH = static::StartCURL('fff:eee',"http://asmblr.local/restv1/account/create",$Request);
+//        $Response = curl_exec($CH);
+//        $R = json_decode($Response,TRUE);
+//        var_dump($R);
+/*
+        $Request = array('Domain'=>'zaunere.com','Site_id'=>'5171a1dda9bf37bd40000027');
+        $CH = static::StartCURL('51717d16a9bf37b74000000d:t3st1ng',"http://asmblr.local/restv1/site/create",$Request);
+        $Response = curl_exec($CH);
+        $R = json_decode($Response,TRUE);
+        var_dump($R);
+        var_dump(curl_getinfo($CH)['http_code']);
+        return;
+*/
+
+
+        $Request = array('Directives'=>json_encode(array('page,Title,Hello World!',array('html','Base','Home'))),'Site_id'=>'5171a1dda9bf37bd40000027');
+        $Request = array('Routine'=>'echo "hello world";','Site_id'=>'5171a1dda9bf37bd40000027');
+        $Request = array('Config'=>json_encode(array('BaseURL'=>'Pointless?','FirstName'=>'Hans')),'Site_id'=>'5171a1dda9bf37bd40000027');
+
+        $CH = static::StartCURL('51717d16a9bf37b74000000d:t3st1ng',"http://asmblr.local/restv1/site/set-config",$Request);
+        $Response = curl_exec($CH);
+//       var_dump($Response);
+        $R = json_decode($Response,TRUE);
+        var_dump($R);
+        var_dump(curl_getinfo($CH)['http_code']);
+
+//         $CH = static::StartCURL('fff:eee',"http://asmblr.local/restv1/account/read/51717ceba9bf37bd4000000b",array());
+//         $Response = curl_exec($CH);
+//         $R = json_decode($Response,TRUE);
+//         var_dump($R);
+
+        return;
+
+        $Request = array('Email'=>'hz@stackware.com','Password'=>'t3st1ng');
+        $CH = static::StartCURL("http://api.asmblr.local/v1/account/authenticate",$Request);
+        $Response = curl_exec($CH);
+//        var_dump($Response);
+        $R = json_decode($Response,TRUE);
+        var_dump($R);
+        $AAID = $R['Data']['AAID'];
+
+
+        $Request = array('AAID'=>$AAID);
+        $CH = static::StartCURL("http://api.asmblr.local/v1/account/read",$Request);
+        $Response = curl_exec($CH);
+        $Account = json_decode($Response,TRUE);
+
+        $Domain = 'test.stackware.com';
+
+        $Request = array('AAID'=>$AAID,'Domain'=>$Domain,'Routine'=>'Something::Somewhere',
+                                       'TemplateURL'=>'/something',
+                                       'Directives'=>array('html,Article,Home','page,Title,Hello'));
+        $CH = static::StartCURL('http://api.asmblr.local/v1/site/create',$Request);
+        $Response = curl_exec($CH);
+        $R = json_decode($Response,TRUE);
+        var_dump($R);
+        $Domain = $Domain;
+
+        $Request = array('AAID'=>$AAID,'Domain'=>$Domain);
+        $CH = static::StartCURL('http://api.asmblr.local/v1/site/read',$Request);
+        $Response = curl_exec($CH);
+        $Site = json_decode($Response,TRUE);
+
+        var_dump($Account);
+        var_dump($Site);
+    }
+
     // Page Name: Home
     //  Page URL: /
     public static function Home()

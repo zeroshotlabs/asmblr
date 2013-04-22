@@ -42,14 +42,22 @@ class AccountSet extends MongoSet
         return $this->SetKV('Company',$Company,'Email',$A);
     }
 
+    // user "login"
     public function Auth( $Email,$Password )
     {
         return $this->MDC->findOne(array('Email'=>$Email,'Password'=>md5($Password)));
     }
 
+//     // internal auth for REST request
+//     public function AuthI( \MongoId $AAID,$Password )
+//     {
+//         return $this->MDC->findOne(array('_id'=>$AAID,'Password'=>md5($Password)));
+//     }
+
     // private API
     public function Create( &$A )
     {
+        $A['_id'] = new \MongoId;
         $this->MDC->insert($A);
     }
 

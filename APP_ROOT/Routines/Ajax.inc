@@ -39,42 +39,6 @@ abstract class jQueryRequest extends \fw\Struct
 }
 
 
-/**
- * A JSON response array.
- */
-abstract class JSONResponse extends \fw\Struct
-{
-    protected static $Skel = array('Method'=>'','Status'=>TRUE,'Msg'=>'','Data'=>'');
-
-    /**
-     * Initialize a successful response.
-     *
-     * @param mixed $Data Payload to include in response.
-     * @retval array Response.
-     */
-    public static function Ok( $Data )
-    {
-        $R = static::$Skel;
-        $R['Method'] = \fw\Path::ToURLString(fw()->Request['Path']);
-        $R['Data'] = $Data;
-        return $R;
-    }
-
-    /**
-     * Initialize a failed response.
-     *
-     * @param string $Msg Error message.
-     * @retval array Response.
-     */
-    public static function Fail( $Msg )
-    {
-        $R = static::$Skel;
-        $R['Method'] = \fw\Path::ToURLString(fw()->Request['Path']);
-        $R['Status'] = FALSE;
-        $R['Msg'] = $Msg;
-        return $R;
-    }
-}
 
 
 abstract class JSON extends \fw\RoutineSet

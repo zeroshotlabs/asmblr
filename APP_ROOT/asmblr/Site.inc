@@ -30,6 +30,7 @@ class SiteSet extends MongoSet
 {
     public function Create( &$S )
     {
+        $S['_id'] = new \MongoId;
         $this->MDC->insert($S);
     }
 
@@ -77,12 +78,6 @@ class SiteSet extends MongoSet
     {
         // $Fields = array('Path'=>1,'Domain'=>1,'Name'=>1,'Status'=>1,'CreateTS'=>1,'UpdateTS'=>1);
         return iterator_to_array($this->MDC->find(array('AAID'=>$AAID)));
-    }
-
-    // TODO: debugging
-    public function Match( $Domain )
-    {
-        return $this->MDC->findOne(array('Domain'=>$Domain));
     }
 }
 

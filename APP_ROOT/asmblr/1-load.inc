@@ -74,23 +74,33 @@ class MongoSet extends \fw\WireableBase
     {
         $this->MDB = $MDB;
         if( empty($Collection) )
-            $Collection = __CLASS__;
+            $Collection = str_replace('asm\\','',get_class($this));
 
         $this->MDC = $MDB->$Collection;
     }
 
+    // CurrentTS isn't doing much of anything right now
+    // it'd have to be provided by the request - maybe we don't even need it,
+    // except for big settings like directives?
     protected function SetKV( $Key,$Value,$PK,&$H )
     {
-        $R = $this->MDC->update(((array)$PK)+array('CurrentTS'=>$H['CurrentTS']),
-                                array('$set'=>array($Key=>$Value)));
+        $R = $this->MDC->update(array($PK=>$H[$PK],'CurrentTS'=>$H['CurrentTS']),
+                                array('$set'=>array($Key=>$Value)),
+                                array('multiple'=>FALSE));
 
-        if( empty($R['err']) )
+        if( empty($R['err']) && $R['n'] === 1 )
         {
-            $H[$K] = $Value;
+            $H[$Key] = $Value;
             return TRUE;
         }
         else
             return FALSE;
+    }
+
+    public function IsDupeE( \Exception $E,$Key = NULL )
+    {
+        $MDB = $this->MDB;
+        return $MDB::IsDupeE($E,$Key);
     }
 }
 
@@ -141,3 +151,39 @@ class SessionStoreMongoDB implements \SessionHandlerInterface
 }
 
 
+/**
+ * A JSON response array.
+ */
+abstract class JSONResponse extends \fw\Struct
+{
+    protected static $Skel = array('Method'=>'','Status'=>TRUE,'Msg'=>'','Data'=>'');
+
+    /**
+     * Initialize a successful response.
+     *
+     * @param mixed $Data Payload to include in response.
+     * @retval array Response.
+     */
+    public static function Ok( $Data )
+    {
+        $R = static::$Skel;
+        $R['Method'] = \fw\Path::ToURLString(fw()->Request['Path']);
+        $R['Data'] = $Data;
+        return $R;
+    }
+
+    /**
+     * Initialize a failed response.
+     *
+     * @param string $Msg Error message.
+     * @retval array Response.
+     */
+    public static function Fail( $Msg )
+    {
+        $R = static::$Skel;
+        $R['Method'] = \fw\Path::ToURLString(fw()->Request['Path']);
+        $R['Status'] = FALSE;
+        $R['Msg'] = $Msg;
+        return $R;
+    }
+}

@@ -31,6 +31,7 @@ class PageSet extends MongoSet
 
     public function Create( &$P )
     {
+        $P['_id'] = new \MongoId;
         $this->MDC->insert($P);
     }
 
@@ -46,22 +47,22 @@ class PageSet extends MongoSet
 
     public function SetStatus( $Status,&$P )
     {
-        return $this->SetKV('Status',$Status,array('Site_id','Path'),$P);
+        return $this->SetKV('Status',$Status,'_id',$P);
     }
 
     public function SetName( $Name,&$P )
     {
-        return $this->SetKV('Name',$Name,array('Site_id','Path'),$P);
+        return $this->SetKV('Name',$Name,'_id',$P);
     }
 
     public function SetRoutine( $Routine,&$P )
     {
-        return $this->SetKV('Routine',$Routine,array('Site_id','Path'),$P);
+        return $this->SetKV('Routine',$Routine,'_id',$P);
     }
 
     public function SetDirectives( $Directives,&$P )
     {
-        return $this->SetKV('Directives',$Directives,array('Site_id','Path'),$P);
+        return $this->SetKV('Directives',$Directives,'_id',$P);
     }
 
     public function Listing( \MongoId $S )

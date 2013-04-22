@@ -16,92 +16,256 @@ require('/var/www/framewire/Load.inc');
  *       or automatically available via http://anythingcom.asm1.stackop.com/
  *
  * And so LiveEdit?!?!?
+ *
+ * Do we want a asm() function to replace fw()  ?
+ *
+ * Asmblr Startup
+
+	1. Connect Mongo + sessions
+	2. If request hostname matches ConsoleURL hostname
+		a. Instantiate Console app object, Go()
+			i. CalcURLs
+			ii. Create FW \fw\PageSet, \fw\TemplateSet, \fw\LinkSet, etc.
+			iii. Wire
+			iv. If bottom-domain matches domain, live-edit/serving magic???
+				1) Create/connect \asm\PageSet, \asm\TemplateSet
+			v. If Match() REST URL
+				1) Handoff to REST controller routine
+					a) Create REST handling routines
+					b) Route and execute
+			vi. Otherwise a standard FW app as console
+				1) NoName
+				2) OrderedMatch/Match for console UI and execute
+				3) Render
+	3. Otherwise we have to serve an asmblr site
+		a. If Asmblr::Match(Domain)
+			i. CalcURLs
+			ii. Create/connect \asm\PageSet, asm\TemplateSet
+			iii. Wire
+			iv. Execute
+		b. Site not found/invalid request (same as http://www.srvr.co/)
  */
 
-// asmblr console, REST, and multi-site server
 class asmblr extends \fw\App
 {
     public $SysOp = 'asmblr@stackware.com';
     public $LogPublic = FALSE;
     public $BaseURL = '';
 
-    public $ConsoleURL = 'http://asmblr.local/';
-    public $RESTURL = 'https://asmblr.local/restv1/';
+    // must be only a domain
+    public $ConsoleDomain = 'asmblr.local';
+    // the mongo db to use
+    public $MongoDB = 'asmblr';
+
+    protected $asmdb;
 
 
     public function __construct()
     {
+        define('DOC_ROOT',getcwd().DIRECTORY_SEPARATOR);
+        define('APP_ROOT',str_replace('DOC_ROOT','APP_ROOT',DOC_ROOT));
+
+        \fw\Inc::Ext('Mongo.inc');
+        \fw\Inc::Dir('asmblr');
+    }
+
+    public function Go()
+    {
         $mongo = new \fw\Mongo;
-        $asmdb = $mongo->Alias('asmblr','asmdb');
-
-        $SH = new SessionStoreMongoDB($asmdb);
-        session_set_save_handler($SH);
-        session_start();
-
-        $page = new \fw\KeyValueSet;
-
-        // always bring our asmblr/mongo sets online - if it turns out our request
-        // if for the console/api, we'll bring those standard FW sets online too
-
-        $ps = new PageSet($asmdb);
-        $html = new enUSHTMLSet($asmdb);
-        $ss = new SiteSet($asmdb);
-        // does asmdb and ss need to be wired, or atleast publicly accessible?
-        // what about connecting into $html?
-        $this->Wire(array('asmdb'=>$asmdb,'page'=>$page,'ps'=>$ps,'html'=>$html,'ss'=>$ss));
-
-
-        // take a peek into our request to see if we're console, REST, or serving a site
-        $this->Request = Request::Init();
-
-        $this->ConsoleURL = URL::Init($this->ConsoleURL);
-        $this->RESTURL = URL::Init($this->RESTURL);
+        $this->asmdb = $mongo->Alias($this->MongoDB,'asmdb');
+        $this->Wire($this->asmdb,'asmdb');
 
         $Domain = Request::Hostname();
 
-        // we'll be serving the console or REST API
-        if( $Domain === URL::Hostname($this->ConsoleURL) )
+        if( $this->ConsoleDomain === $Domain )
         {
-            if( Request::Top() === URL::Top($this->RESTURL) )
-            {
-                $CU = $this->CalcURLs($this->RESTURL,$this->Request);
-                $Go = 'GoREST';
-            }
-            else
-            {
-                $CU = $this->CalcURLs($this->ConsoleURL,$this->Request);
-                $Go = 'GoConsole';
-            }
+            $this->BaseURL = "http://{$this->ConsoleDomain}";
+            $this->CalcURLs();
 
-            $this->SiteURL = $CU['SiteURL'];
-            $this->MatchPath = $CU['MatchPath'];
-            $this->IsBaseScheme = $CU['IsBaseScheme'];
-            $this->IsBaseHostname = $CU['IsBaseHostname'];
-            $this->IsBasePort = $CU['IsBasePort'];
-            $this->IsBasePath = $CU['IsBasePath'];
-
-            // our linkers must be created here so they know the URLs to deal with
-            // probably will be required for serving a site
-            $conlp = new \fw\LinkPage($conps,$this->SiteURL);
-            $conls = new \fw\LinkSet($Domain);
-
-            $this->$Go();
+            $this->Console();
         }
-        // we'll be serving an actual site
+        else if( ($Site = $this->Match($Domain)) !== NULL )
+        {
+            $this->BaseURL = $Site['BaseURL'];
+            $this->CalcURLs();
+
+            $this->Srv($Site);
+        }
         else
         {
-            if( ($Site = $ASM->Match($Domain)) !== NULL )
-            {
-                $ASM->Execute($Site);
-            }
-            else
-            {
-                echo 'Invalid request';
-                \fw\HTTP::_404();
-            }
+            echo 'Invalid request';
+            \fw\HTTP::_404();
         }
     }
 
+    public function Console()
+    {
+        $this->NoName();
+
+        $page = new \fw\KeyValueSet;
+        $ps = new \fw\PageSet;
+        $html = new \fw\enUSHTMLSet;
+        $lp = new \fw\LinkPage($ps,$this->SiteURL);
+        $ls = new \fw\LinkSet(Request::Hostname());
+        $msg = new \fw\Messager;
+        $vr = new \fw\ValidationReport('error');
+
+        $this->Wire(array('page'=>$page,'ps'=>$ps,'html'=>$html,'lp'=>$lp,'ls'=>$ls,
+                          'msg'=>$msg,'vr'=>$vr));
+
+        $html->ConnectWireables($page,$lp,$ls,$msg,$vr);
+
+        $page->Title = 'asmblr Console';
+        $page->Description = 'asmblr Console';
+
+        \fw\Inc::Dir('Routines');
+        $html->LoadDir('HTML');
+
+        if( \fw\Path::Top($this->MatchPath) === 'restv1' )
+        {
+            \fw\HTTP::ContentType('json');
+            $as = new AccountSet($this->asmdb);
+            $ss = new SiteSet($this->asmdb);
+            $this->Wire(array('as'=>$as,'ss'=>$ss));
+
+            REST::v1($this->MatchPath);
+            $html->ajf_JSONResponse();
+            return;
+        }
+
+        $SH = new SessionStoreMongoDB($this->asmdb);
+        session_set_save_handler($SH);
+        session_start();
+
+
+        $ps->Create('Home','/','Request::Home');
+        $ps->Create('Test','/test','Request::Test');
+
+        $ps->Create('CSS','/css/','Request::CSSHandler');
+        $ps->Create('JS','/js/','Request::JSHandler');
+        $ps->Create('AjaxFrags','/ajf/','AjaxFrags');
+
+        $OrderedMatch = NULL;
+        if( $this->MatchPath['IsRoot'] === FALSE )
+        {
+            foreach( \fw\Path::Order($this->MatchPath) as $V )
+            {
+                if( ($OrderedMatch = $ps->Match($V)) !== NULL )
+                {
+                    $ps->Execute($OrderedMatch);
+                    break;
+                }
+            }
+        }
+
+        if( ($ExactMatch = $ps->Match(\fw\Path::ToString($this->MatchPath))) !== NULL )
+            $ps->Execute($ExactMatch);
+
+        if( $ExactMatch === NULL && $OrderedMatch === NULL )
+            $this->NoPageHandler();
+
+        $html->Base();
+    }
+
+    /**
+     * Lookup a Site by it's Domain.
+     *
+     * Only one or none Sites will match.
+     *
+     * @param string $Domain The domain/hostname to exact match.
+     * @retval array The Site Struct.
+     */
+    public function Match( $Domain )
+    {
+        return $this->asmdb->findOne(array('Domain'=>$Domain));
+    }
+
+    // Executing a site involves:
+    //  - adding config parameters to this asmblr object
+    //  - applying directives (same as PageSet)
+    //  - executing the routine (same as PageSet)
+    //  - add site templates
+    //  - match and execute a page
+    //  - render
+    // TODO: handle lib code
+    public function Srv( $Site )
+    {
+        foreach( $Site['Config'] as $K => $V )
+            $this->{$K} = $V;
+
+        $this->NoName();
+
+        $ps = new PageSet($this->asmdb);
+
+        $html = new enUSHTMLSet($this->asmdb);
+        $html->Load($Site['_id']);
+
+        $lp = new \fw\LinkPage($ps,$this->SiteURL);
+        $ls = new \fw\LinkSet($Site['Domain']);
+
+        $this->Wire(array('ps'=>$ps,'html'=>$html,'lp'=>$lp,'ls'=>$ls));
+
+        $html->ConnectWireables($lp,$ls);
+
+        foreach( $Site['Directives'] as $V )
+        {
+            if( ($W = $this->{$V['Name']}) === NULL )
+                throw new Exception("Directive object {$V['Name']}' doesn't exist while executing Site '{$Site['Domain']}'.");
+            else
+                $W->ApplyDirective($V['Key'],$V['Value']);
+        }
+
+        if( empty($Site['Routine']) === FALSE )
+        {
+            if( $Site['Routine']['Type'] === 'Pointer' )
+                $Site['Routine'][0]::$Site['Routine'][1]();
+            else
+                eval($Site['Routine'][0]);
+        }
+
+        $OrderedMatch = NULL;
+        if( $this->MatchPath['IsRoot'] === FALSE )
+        {
+            foreach( \fw\Path::Order($this->MatchPath) as $V )
+            {
+                if( ($OrderedMatch = $ps->Match($V)) !== NULL )
+                {
+                    $ps->Execute($OrderedMatch);
+                    break;
+                }
+            }
+        }
+
+        if( ($ExactMatch = $ps->Match(\fw\Path::ToString($this->MatchPath))) !== NULL )
+            $ps->Execute($ExactMatch);
+
+        if( $ExactMatch === NULL && $OrderedMatch === NULL )
+            $this->NoPageHandler();
+
+        $html->Base();
+    }
+
+    protected function NoName()
+    {
+        // NOTE: should $this be set global, or that from the matched site?
+        $GLOBALS['FWAPP'] = $this;
+
+        // now do more site specific stuff
+        // TODO: these may become configurable in Site['Config']
+        set_error_handler(array($this,'ErrorHandler'));
+        set_exception_handler(array($this,'UncaughtExceptionHandler'));
+        register_shutdown_function(array($this,'FatalErrorHandler'));
+
+        // TODO: optimize via .ini or make configurable and consider with locale Templates (enUSHTMLSet).
+        // problematic with media serving
+        \fw\HTTP::ContentType('text/html','utf-8');
+        mb_http_output('UTF-8');
+        ini_set('zlib.output_compression',TRUE);
+
+    }
+
+
+    /*
     public function CalcURLs( $BaseURL,$Request )
     {
         $SiteURL = $Request;
@@ -164,243 +328,8 @@ class asmblr extends \fw\App
                      'IsBaseScheme'=>$IsBaseScheme,'IsBaseHostname'=>$IsBaseHostname,
                      'IsBasePort'=>$IsBasePort,'IsBasePath'=>$IsBasePath);
     }
+    */
 
-    public function GoConsole()
-    {
-        // general framewire application startup using our Console URL
-        $this->NoName();
-
-        $conpage = new \fw\KeyValueSet;
-        $conps = new \fw\PageSet;
-        $conhtml = new \fw\enUSHTMLSet;
-        $conlp = new \fw\LinkPage($ps,$this->SiteURL);
-        $conls = new \fw\LinkSet(\fw\Hostname::ToString($this->Request['Hostname']));
-        $conmsg = new \fw\Messager;
-        $convr = new \fw\ValidationReport('error');
-
-        $this->Wire(array('page'=>$page,'ps'=>$ps,'html'=>$html,'lp'=>$lp,'ls'=>$ls,
-                          'msg'=>$msg,'vr'=>$vr));
-
-        $html->ConnectWireables($page,$lp,$ls,$msg,$vr);
-
-
-        $page->Title = URL::Hostname($this->ConsoleURL).' Console';
-        $page->Description = 'asmblr Console';
-        \fw\Inc::Dir('Routines');
-        $html->LoadDir('HTML');
-
-
-        $ps->Create('RESTv1','/restv1/','\asm\REST::v1');
-
-        $ps->Create('Account','/account/','\asm\AAPI::Account');
-        $ps->Create('Site','/site/','\asm\AAPI::Site');
-
-        $ps->Create('AccountCreate','/account/create','\asm\AccountAPI::Create');
-        $ps->Create('AccountAuthenticate','/account/authenticate','\asm\AccountAPI::Authenticate');
-        $ps->Create('AccountRead','/account/read','\asm\AccountAPI::Read');
-
-        $ps->Create('SiteCreate','/site/create','\asm\SiteAPI::Create');
-        $ps->Create('SiteRead','/site/read','\asm\SiteAPI::Read');
-
-
-        $ps->Create('Home','/','Request::Home');
-
-        $ps->Create('Examples','/examples','Request::Examples',
-                    array('html,Article,examples_Home',
-                          'html,RightAside,ajf_examples-aside',
-                    array('page','Title',"Examples Forms - {$page->Title}")));
-
-        $ps->Create('CSS','/css/','Request::CSSHandler');
-        $ps->Create('JS','/js/','Request::JSHandler');
-
-        $ps->Create('JSON','/json/','JSON');
-        $ps->Create('AjaxFrags','/ajf/','AjaxFrags');
-
-//        fw('html')->SetRoutine('ajf_examples-aside','Internal::ExamplesAside');
-
-
-        $OrderedMatch = NULL;
-        if( $this->MatchPath['IsRoot'] === FALSE )
-        {
-            foreach( \fw\Path::Order($this->MatchPath) as $V )
-            {
-                if( ($OrderedMatch = $ps->Match($V)) !== NULL )
-                {
-                    $ps->Execute($OrderedMatch);
-                    break;
-                }
-            }
-        }
-
-        if( ($ExactMatch = $ps->Match(\fw\Path::ToString($this->MatchPath))) !== NULL )
-            $ps->Execute($ExactMatch);
-
-        if( $ExactMatch === NULL && $OrderedMatch === NULL )
-            $this->NoPageHandler();
-
-        $html->Base();
-    }
-
-    public function GoREST()
-    {
-        echo 'REST';
-    }
-
-    public function Go()
-    {
-        echo 'These aren\'t the droids you\'re looking for.';
-    }
-
-
-    public function NoName()
-    {
-        // NOTE: should $this be set global, or that from the matched site?
-        $GLOBALS['FWAPP'] = $this;
-
-        // now do more site specific stuff
-        // TODO: these may become configurable in Site['Config']
-        set_error_handler(array($this,'ErrorHandler'));
-        set_exception_handler(array($this,'UncaughtExceptionHandler'));
-        register_shutdown_function(array($this,'FatalErrorHandler'));
-
-        // TODO: optimize via .ini or make configurable and consider with locale Templates (enUSHTMLSet).
-        // problematic with media serving
-        \fw\HTTP::ContentType('text/html','utf-8');
-        mb_http_output('UTF-8');
-        ini_set('zlib.output_compression',TRUE);
-
-    }
-
-    public function NoPageHandler()
-    {
-        \fw\HTTP::_404();
-
-        if( isset($this->html) )
-        {
-            $this->html->ReMap('Article','Error404');
-
-            $this->html->Base();
-        }
-
-        exit;
-    }
-
-    public function UncaughtExceptionHandler( \Exception $E = NULL )
-    {
-        $LastOutput = ob_get_clean();
-
-        ob_start();
-
-        // Optionally email the error.
-        // \fw\Log::Email((string)$E,'ERROR');
-
-        if( $this->html !== NULL && isset($this->html->Error500) )
-        {
-            $this->html->ReMap('Base','Error500');
-            $this->html->Base();
-        }
-        else
-            echo 'Critical Error.';
-
-        $Buf = array('Exception'=>(string)$E,'LastOutput'=>$LastOutput,'$_SERVER'=>$_SERVER);
-
-        llog($Buf,'ERROR',$E->getTrace());
-
-        \fw\HTTP::_500();
-    }
-
-    /**
-     * Lookup a Site by it's Domain.
-     *
-     * Only one or none Sites will match.
-     *
-     * @param string $Domain The domain/hostname to exact match.
-     * @retval array The Site Struct.
-     */
-    public function Match( $Domain )
-    {
-//         if( isset($_SERVER[$this->DebugToken]) === TRUE )
-//             $this->DebugDump('MATCH',\fw\URL::ToString($T),empty($S)?NULL:$S['Name']);
-
-        return $this->asmdb->findOne(array('Domain'=>$Domain));
-    }
-
-    // Executing a site involves:
-    //  - adding config parameters to this asmSite object
-    //  - applying directives (same as PageSet)
-    //  - executing the routine (same as PageSet)
-    //  - add site templates
-    //  - match and execute a page
-    //  - render
-    // TODO: handle lib code
-    public function Execute( $Site )
-    {
-//        if( isset($_SERVER[$this->DebugToken]) === TRUE )
-//            $this->DebugDump('EXECUTE',$Site['URL'],$Domain);
-
-        foreach( $Site['Config'] as $K => $V )
-            $this->{$K} = $V;
-
-        $this->CalcURLs();
-
-//            else if( $V['Token'] === 'self' )
-//                $this->ApplyDirective($V['Key'],$V['Value']);
-
-        // this is hardwired though could be done via config/directives
-        $page = new \fw\KeyValueSet;
-
-        $ps = new \asm\PageSet($this->asmdb);
-        $html = new \asm\TemplateSet($this->asmdb,$Site['Domain']);
-
-        $lp = new \fw\LinkPage($ps,$this->SiteURL);
-        $ls = new \fw\LinkSet($Site['Domain']);
-        $msg = new \fw\Messager;
-//        $vr = new \fw\ValidationReport('error');
-
-        $this->Wire(array('page'=>$page,'ps'=>$ps,'html'=>$html,'lp'=>$lp,'ls'=>$ls,'msg'=>$msg));
-
-        $html->ConnectWireables($page,$lp,$ls,$msg);
-
-        foreach( $Site['Directives'] as $V )
-        {
-            if( ($W = $this->{$V['Name']}) === NULL )
-                throw new Exception("Directive object {$V['Name']}' doesn't exist while executing Site '{$Site['Domain']}'.");
-            else
-                $W->ApplyDirective($V['Key'],$V['Value']);
-        }
-
-        if( empty($Site['Routine']) === FALSE )
-        {
-            if( $Site['Routine']['Type'] === 'Pointer' )
-                return $Site['Routine'][0]::$Site['Routine'][1]();
-            else
-                return eval($Site['Routine'][0]);
-        }
-
-        $OrderedMatch = NULL;
-        if( $this->MatchPath['IsRoot'] === FALSE )
-        {
-            foreach( \fw\Path::Order($this->MatchPath) as $V )
-            {
-                if( ($OrderedMatch = $ps->Match($V)) !== NULL )
-                {
-                    $ps->Execute($OrderedMatch);
-                    break;
-                }
-            }
-        }
-
-        if( ($ExactMatch = $ps->Match(\fw\Path::ToString($this->MatchPath))) !== NULL )
-            $ps->Execute($ExactMatch);
-
-        if( $ExactMatch === NULL && $OrderedMatch === NULL )
-            $this->NoPageHandler();
-
-        $html->Base();
-
-//        else if( isset($_SERVER[$this->DebugToken]) )
-//            throw new \fw\Exception("Page '$Domain' or last match '{$this->Matched['Domain']}' doesn't exist for execution in SiteSet '{$this->WiredAs}'.");
-    }
 
     // TODO: fully implement/document
     public function OpenbaseDir( $Path = '' )
@@ -415,16 +344,46 @@ class asmblr extends \fw\App
         else
             ini_set('open_basedir',$Path);
     }
+
+
+    public function NoPageHandler()
+    {
+        \fw\HTTP::_404();
+        if( isset($this->html) )
+        {
+            $this->html->ReMap('Article','Error404');
+            $this->html->Base();
+        }
+        exit;
+    }
+
+    public function UncaughtExceptionHandler( \Exception $E = NULL )
+    {
+        $LastOutput = ob_get_clean();
+        ob_start();
+
+        // Optionally email the error.
+        // \fw\Log::Email((string)$E,'ERROR');
+
+        if( $this->html !== NULL && isset($this->html->Error500) )
+        {
+            $this->html->ReMap('Base','Error500');
+            $this->html->Base();
+        }
+        else
+            echo 'Critical Error.';
+
+        $Buf = array('Exception'=>(string)$E,'LastOutput'=>$LastOutput,'$_SERVER'=>$_SERVER);
+        llog($Buf,'ERROR',$E->getTrace());
+        \fw\HTTP::_500();
+    }
+
 }
 
 
-define('DOC_ROOT',getcwd().DIRECTORY_SEPARATOR);
-define('APP_ROOT',str_replace('DOC_ROOT','APP_ROOT',DOC_ROOT));
-
-\fw\Inc::Ext('Mongo.inc');
-\fw\Inc::Dir('asmblr');
-
+// that's it!  we're so encapsulated
 $asm = new asmblr;
+$asm->Go();
 
 
 define('TIME_TO_BUILD',round((microtime(TRUE)-START_TIME),4)*1000.000);

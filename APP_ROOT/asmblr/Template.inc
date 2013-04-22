@@ -44,9 +44,9 @@ class TemplateSet extends MongoSet
         $this->Templates[$T['Name']] = $T;
     }
 
-    public function Read( $Name )
+    public function Read( \MongoId $T )
     {
-        return isset($this->Templates[$Name])?$this->Templates[$Name]:NULL;
+        return $this->MDC->findOne(array('_id'=>$T));
     }
 
     public function Delete( $T )
@@ -56,7 +56,7 @@ class TemplateSet extends MongoSet
 
     public function SetRoutine( $Routine,&$T )
     {
-        return $this->SetKV('Routine',$Routine,array('Site_id','Name'),$T);
+        return $this->SetKV('Routine',$Routine,'_id',$T);
     }
 
     public function Listing( \MongoId $S )

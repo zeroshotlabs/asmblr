@@ -1,7 +1,7 @@
 <?php
 namespace asm;
 
-
+// asmblr specific validators
 abstract class v extends \fw\enUS
 {
     public static function Name( $N,&$H )
@@ -23,142 +23,184 @@ abstract class v extends \fw\enUS
             return FALSE;
     }
 
-}
-
-abstract class enUS extends \fw\enUS
-{
-
-    // primary key from x-editable:  id_CurrentTS
-    // returns PK as array or NULL
-    public static function PK( $R )
+    public static function Path( $N,&$H )
     {
-        if( static::Text('pk',$R) )
+        if( static::Text($N,$H) && ($P = \fw\Path::Init($H[$N])) )
         {
-            $PK = explode('_',$R['pk']);
-
-            if( count($PK) === 2 && ctype_digit($PK[1]) )
-            {
-                $PK[1] = (int) $PK[1];
-                return $PK;
-            }
-            else
-                return NULL;
-        }
-        else
-            return NULL;
-    }
-}
-
-
-
-abstract class AsmForms extends \fw\enUS
-{
-    public static function Token( $Label,&$Src )
-    {
-        return \fw\IsToken($Src[$Label]);
-    }
-
-//     public static function Fragment( \fw\ValidationReport $vr,&$Data )
-//     {
-//         $vr->Token = static::Token('Token',$Data);
-//         $vr->FragmentBody = static::Textarea('FragmentBody',$Data,FALSE);
-//     }
-
-//     public static function FrameURL( $Label,&$Src )
-//     {
-//         if( static::Text($Label,$Src) )
-//         {
-//             $Src[$Label] = ltrim($Src[$Label],'/');
-//             return TRUE;
-//         }
-//         else
-//             return FALSE;
-//     }
-
-    public static function Site( \fw\ValidationReport $vr,&$Data )
-    {
-        $vr->Domain = static::Text('Domain',$Data);
-
-        static::Directives('Directives',$Data,$vr);
-
-        $vr->RoutineBody = static::RoutineBody('RoutineBody',$Data);
-    }
-
-    // should be combined with Site form stuff?  partially at least
-    public static function Page( \fw\ValidationReport $vr,&$Data )
-    {
-        $vr->Name = static::Token('Name',$Data);
-        $vr->Domain = static::Text('Domain',$Data);
-        $vr->Path = static::Text('Path',$Data);
-
-        static::Directives('Directives',$Data,$vr);
-
-        $vr->RoutineBody = static::RoutineBody('RoutineBody',$Data);
-    }
-
-    public static function Directives( $Label,&$Data,\fw\ValidationReport $vr )
-    {
-        $NewD = $Results = array();
-        if( isset($Data['Directives']) && is_array($Data['Directives']) )
-        {
-            foreach( $Data['Directives'] as $K => $D )
-            {
-                if( \fw\Struct::Get('Token',$D) === '' )
-                    continue;
-                try
-                {
-                    $T = \fw\Directive::Init($D);
-                    $NewD[] = $D;
-                    $vr->{"Directive{$K}"} = TRUE;
-                }
-                catch( \Exception $E )
-                {
-                    $vr->{"Directive{$K}"} = FALSE;
-                }
-            }
-        }
-        $Data['Directives'] = $NewD;
-    }
-
-    public static function Template( \fw\ValidationReport $vr,&$Data )
-    {
-        $vr->Name = static::Token('Name',$Data);
-        $vr->ContentType = static::SingleSelect('ContentType',array('text/html','text/css','text/javascript'),$Data,FALSE);
-
-        $vr->Body = static::Textarea('Body',$Data);
-    }
-
-    // need to catch if PHP or HTML is in - otherwise hard to find parse errors happen
-    public static function RoutineBody( $Label,&$Src )
-    {
-        if( !static::Textarea($Label,$Src,FALSE) )
-            return FALSE;
-
-        try
-        {
-            $T = \fw\Routine::Init($Src[$Label]);
+            $H[$N] = \fw\Path::ToString($P);
             return TRUE;
         }
-        catch( \Exception $E )
-        {
+        else
             return FALSE;
-        }
     }
 
-    public static function Media( \fw\ValidationReport $vr,&$Data )
+    public static function URL( $N,&$H )
     {
-        $vr->Name = static::Token('Name',$Data);
-        $vr->Domain = static::Text('Domain',$Data);
-        $vr->Path = static::Text('Path',$Data);
+        // allow to clear URL (BaseURL)
+        if( empty($H[$N]) )
+        {
+            $H[$N] = array();
+            return TRUE;
+        }
+        else if( static::Text($N,$H) && ($U = URL::Init($H[$N])) )
+        {
+            $H[$N] = URL::ToString($U);
+            return TRUE;
+        }
+        else
+            return FALSE;
+    }
 
-        // if content is specified, we use it, otherwise it'll be detected
-        // during the upload process, so we don't need to do anything here
-        $vr->Caption = static::Textarea('Caption',$Data);
+    // this could be validated better - or really only at all since Init() assumes valid data
+    public static function Routine( $N,&$H )
+    {
+        // allow to clear Routine
+        if( empty($H[$N]) )
+        {
+            $H[$N] = array();
+            return TRUE;
+        }
 
-        // Body can be anything (binary, etc) so don't need to do anything
+
+        if( static::Textarea($N,$H) )
+        {
+            try
+            {
+                $H[$N] = \fw\Routine::Init($H[$N]);
+                return TRUE;
+            }
+            catch( \Exception $E )
+            {
+                return FALSE;
+            }
+        }
+        else
+            return FALSE;
+    }
+
+    // a JSON array of Name,Key,Value arrays - a no Name is skipped
+    public static function Directives( $N,&$H )
+    {
+        // allow to clear Directives
+        if( empty($H[$N]) )
+            return TRUE;
+
+        $T = json_decode($H[$N]);
+
+        if( empty($T) )
+            return FALSE;
+
+        $NewD = array();
+        foreach( $T as $K => $D )
+        {
+            try
+            {
+                $T2 = \fw\Directive::Init($D);
+                if( empty($T2['Name']) )
+                    continue;
+                $NewD[] = $T2;
+            }
+            catch( \Exception $E )
+            {
+                return FALSE;
+            }
+        }
+
+        $H[$N] = $NewD;
+        return TRUE;
+    }
+
+    // basically the same as Directives but simply K=>V each scalars
+    public static function Config( $N,&$H )
+    {
+        // allow to clear Configs
+        if( empty($H[$N]) )
+            return TRUE;
+
+        $T = json_decode($H[$N]);
+
+        if( empty($T) )
+            return FALSE;
+
+        foreach( $T as $K => $C )
+        {
+            if( is_scalar($C) === FALSE )
+                return FALSE;
+        }
+
+        $H[$N] = $T;
+        return TRUE;
+    }
+
+    public static function _id( $N,&$H )
+    {
+        if( static::Text($N,$H) && strlen($H[$N]) === 24 )
+            return TRUE;
+        else
+            return FALSE;
     }
 }
 
 
-
+// asmblr REST specific validators - always uses $_POST and has
+// default names for each type
+abstract class rv
+{
+    public static function Email( $N = 'Email' )
+    {
+        return v::Email($N,$_POST);
+    }
+    public static function Password( $N = 'Password' )
+    {
+        return v::Password($N,$_POST);
+    }
+    public static function Name( $N = 'Name' )
+    {
+        return v::Name($N,$_POST);
+    }
+    public static function Domain( $N = 'Domain' )
+    {
+        return v::Domain($N,$_POST);
+    }
+    public static function Path( $N = 'Path' )
+    {
+        return v::Path($N,$_POST);
+    }
+    public static function Status( $N = 'Status' )
+    {
+        return v::Name($N,$_POST);
+    }
+    public static function Site_id( $N = 'Site_id' )
+    {
+        return v::_id($N,$_POST);
+    }
+    public static function Page_id( $N = 'Page_id' )
+    {
+        return v::_id($N,$_POST);
+    }
+    public static function Template_id( $N = 'Template_id' )
+    {
+        return v::_id($N,$_POST);
+    }
+    public static function BaseURL( $N = 'BaseURL' )
+    {
+        return v::URL($N,$_POST);
+    }
+    public static function Routine( $N = 'Routine' )
+    {
+        return v::Routine($N,$_POST);
+    }
+    public static function Directives( $N = 'Directives' )
+    {
+        return v::Directives($N,$_POST);
+    }
+    public static function Config( $N = 'Config' )
+    {
+        return v::Config($N,$_POST);
+    }
+    public static function Body( $N = 'Body' )
+    {
+        return v::Body($N,$_POST);
+    }
+}
 
