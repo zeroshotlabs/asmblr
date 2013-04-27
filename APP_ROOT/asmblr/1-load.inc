@@ -1,6 +1,21 @@
 <?php
-namespace asm;
 
+namespace {
+    function asm( $Name = NULL )
+    {
+        if( is_string($Name) === TRUE )
+            return $GLOBALS['ASMAPP']->$Name;
+        else if( is_array($Name) === TRUE )
+            return $GLOBALS['ASMAPP']->GetWired($Name);
+        else if( $Name === NULL )
+            return $GLOBALS['ASMAPP'];
+        else
+            return $GLOBALS['ASMAPP']->__isset($Name);
+    }
+}
+
+namespace asm
+{
 
 abstract class URL extends \fw\URL
 {
@@ -11,7 +26,7 @@ abstract class URL extends \fw\URL
 
     public static function Path( $URL )
     {
-        return \fw\Path::ToString($URL['Path']);
+        return \fw\Path::ToURLString($URL['Path']);
     }
 
     public static function Bottom( $URL )
@@ -35,7 +50,7 @@ abstract class Request extends \fw\Request
 
     public static function Path()
     {
-        return \fw\Path::ToString(static::Init()['Path']);
+        return \fw\Path::ToURLString(static::Init()['Path']);
     }
 
     public static function Bottom()
@@ -133,7 +148,7 @@ class SessionStoreMongoDB implements \SessionHandlerInterface
     }
     public function write( $session_id,$session_data )
     {
-        $this->MDC->update(array('_id'=>$session_id),array('_id'=>$session_id,'cts'=>new \MongoDate,'d'=>$session_data));
+        $this->MDC->update(array('_id'=>$session_id),array('_id'=>$session_id,'cts'=>new \MongoDate,'d'=>$session_data),array('upsert'=>TRUE));
         return TRUE;
     }
     public function destroy( $session_id )
@@ -186,4 +201,5 @@ abstract class JSONResponse extends \fw\Struct
         $R['Msg'] = $Msg;
         return $R;
     }
+}
 }

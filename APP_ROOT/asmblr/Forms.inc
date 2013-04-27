@@ -39,7 +39,7 @@ abstract class v extends \fw\enUS
         // allow to clear URL (BaseURL)
         if( empty($H[$N]) )
         {
-            $H[$N] = array();
+            $H[$N] = '';
             return TRUE;
         }
         else if( static::Text($N,$H) && ($U = URL::Init($H[$N])) )
@@ -61,13 +61,15 @@ abstract class v extends \fw\enUS
             return TRUE;
         }
 
-
         if( static::Textarea($N,$H) )
         {
             try
             {
                 $H[$N] = \fw\Routine::Init($H[$N]);
-                return TRUE;
+                if( $H[$N]['Type'] !== 'Inline' )
+                    return FALSE;
+                else
+                    return TRUE;
             }
             catch( \Exception $E )
             {

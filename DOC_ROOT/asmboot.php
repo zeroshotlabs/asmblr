@@ -46,138 +46,40 @@ require('/var/www/framewire/Load.inc');
 		b. Site not found/invalid request (same as http://www.srvr.co/)
  */
 
-class asmblr extends \fw\App
+// asmblr multi-site server
+class asmSrv extends \fw\App
 {
     public $SysOp = 'asmblr@stackware.com';
-    public $LogPublic = FALSE;
-    public $BaseURL = '';
-
-    // must be only a domain
-    public $ConsoleDomain = 'asmblr.local';
-    // the mongo db to use
     public $MongoDB = 'asmblr';
-
     protected $asmdb;
 
 
     public function __construct()
     {
-        define('DOC_ROOT',getcwd().DIRECTORY_SEPARATOR);
-        define('APP_ROOT',str_replace('DOC_ROOT','APP_ROOT',DOC_ROOT));
+        // use asm()
+        $GLOBALS['ASMAPP'] = $this;
 
-        \fw\Inc::Ext('Mongo.inc');
-        \fw\Inc::Dir('asmblr');
-    }
-
-    public function Go()
-    {
         $mongo = new \fw\Mongo;
         $this->asmdb = $mongo->Alias($this->MongoDB,'asmdb');
-        $this->Wire($this->asmdb,'asmdb');
 
-        $Domain = Request::Hostname();
+        $as = new AccountSet($this->asmdb);
+        $ss = new SiteSet($this->asmdb);
+        $ps = new PageSet($this->asmdb);
+        $ts = new TemplateSet($this->asmdb);
+        $this->Wire(array('as'=>$as,'ss'=>$ss,'ps'=>$ps,'ts'=>$ts,'asmdb'=>$this->asmdb));
 
-        if( $this->ConsoleDomain === $Domain )
-        {
-            $this->BaseURL = "http://{$this->ConsoleDomain}";
-            $this->CalcURLs();
+        // now do more site specific stuff
+        // TODO: these may become configurable in Site['Config']
+        set_error_handler(array($this,'ErrorHandler'));
+        set_exception_handler(array($this,'UncaughtExceptionHandler'));
+        register_shutdown_function(array($this,'FatalErrorHandler'));
 
-            $this->Console();
-        }
-        else if( ($Site = $this->Match($Domain)) !== NULL )
-        {
-            $this->BaseURL = $Site['BaseURL'];
-            $this->CalcURLs();
+        // TODO: optimize via .ini or make configurable and consider with locale Templates (enUSHTMLSet).
+        // problematic with media serving
+        \fw\HTTP::ContentType('text/html','utf-8');
+        mb_http_output('UTF-8');
+        ini_set('zlib.output_compression',TRUE);
 
-            $this->Srv($Site);
-        }
-        else
-        {
-            echo 'Invalid request';
-            \fw\HTTP::_404();
-        }
-    }
-
-    public function Console()
-    {
-        $this->NoName();
-
-        $page = new \fw\KeyValueSet;
-        $ps = new \fw\PageSet;
-        $html = new \fw\enUSHTMLSet;
-        $lp = new \fw\LinkPage($ps,$this->SiteURL);
-        $ls = new \fw\LinkSet(Request::Hostname());
-        $msg = new \fw\Messager;
-        $vr = new \fw\ValidationReport('error');
-
-        $this->Wire(array('page'=>$page,'ps'=>$ps,'html'=>$html,'lp'=>$lp,'ls'=>$ls,
-                          'msg'=>$msg,'vr'=>$vr));
-
-        $html->ConnectWireables($page,$lp,$ls,$msg,$vr);
-
-        $page->Title = 'asmblr Console';
-        $page->Description = 'asmblr Console';
-
-        \fw\Inc::Dir('Routines');
-        $html->LoadDir('HTML');
-
-        if( \fw\Path::Top($this->MatchPath) === 'restv1' )
-        {
-            \fw\HTTP::ContentType('json');
-            $as = new AccountSet($this->asmdb);
-            $ss = new SiteSet($this->asmdb);
-            $this->Wire(array('as'=>$as,'ss'=>$ss));
-
-            REST::v1($this->MatchPath);
-            $html->ajf_JSONResponse();
-            return;
-        }
-
-        $SH = new SessionStoreMongoDB($this->asmdb);
-        session_set_save_handler($SH);
-        session_start();
-
-
-        $ps->Create('Home','/','Request::Home');
-        $ps->Create('Test','/test','Request::Test');
-
-        $ps->Create('CSS','/css/','Request::CSSHandler');
-        $ps->Create('JS','/js/','Request::JSHandler');
-        $ps->Create('AjaxFrags','/ajf/','AjaxFrags');
-
-        $OrderedMatch = NULL;
-        if( $this->MatchPath['IsRoot'] === FALSE )
-        {
-            foreach( \fw\Path::Order($this->MatchPath) as $V )
-            {
-                if( ($OrderedMatch = $ps->Match($V)) !== NULL )
-                {
-                    $ps->Execute($OrderedMatch);
-                    break;
-                }
-            }
-        }
-
-        if( ($ExactMatch = $ps->Match(\fw\Path::ToString($this->MatchPath))) !== NULL )
-            $ps->Execute($ExactMatch);
-
-        if( $ExactMatch === NULL && $OrderedMatch === NULL )
-            $this->NoPageHandler();
-
-        $html->Base();
-    }
-
-    /**
-     * Lookup a Site by it's Domain.
-     *
-     * Only one or none Sites will match.
-     *
-     * @param string $Domain The domain/hostname to exact match.
-     * @retval array The Site Struct.
-     */
-    public function Match( $Domain )
-    {
-        return $this->asmdb->findOne(array('Domain'=>$Domain));
     }
 
     // Executing a site involves:
@@ -188,15 +90,18 @@ class asmblr extends \fw\App
     //  - match and execute a page
     //  - render
     // TODO: handle lib code
-    public function Srv( $Site )
+    public function Go( $Domain = NULL )
     {
+        if( ($Site = $this->Match($Domain)) === NULL )
+            \fw\HTTP::_400();
+
+        $this->BaseURL = $Site['BaseURL'];
+        $this->CalcURLs();
+
         foreach( $Site['Config'] as $K => $V )
             $this->{$K} = $V;
 
-        $this->NoName();
-
-        $ps = new PageSet($this->asmdb);
-
+        // ????
         $html = new enUSHTMLSet($this->asmdb);
         $html->Load($Site['_id']);
 
@@ -245,93 +150,20 @@ class asmblr extends \fw\App
         $html->Base();
     }
 
-    protected function NoName()
+    /**
+     * Lookup a Site by it's Domain.
+     *
+     * Only one or none Sites will match.
+     *
+     * @param string $Domain The domain/hostname to exact match.
+     * @retval array The Site Struct.
+     */
+    public function Match( $Domain )
     {
-        // NOTE: should $this be set global, or that from the matched site?
-        $GLOBALS['FWAPP'] = $this;
-
-        // now do more site specific stuff
-        // TODO: these may become configurable in Site['Config']
-        set_error_handler(array($this,'ErrorHandler'));
-        set_exception_handler(array($this,'UncaughtExceptionHandler'));
-        register_shutdown_function(array($this,'FatalErrorHandler'));
-
-        // TODO: optimize via .ini or make configurable and consider with locale Templates (enUSHTMLSet).
-        // problematic with media serving
-        \fw\HTTP::ContentType('text/html','utf-8');
-        mb_http_output('UTF-8');
-        ini_set('zlib.output_compression',TRUE);
-
+        return $this->asmdb->findOne(array('Domain'=>$Domain));
     }
 
-
-    /*
-    public function CalcURLs( $BaseURL,$Request )
-    {
-        $SiteURL = $Request;
-        Path::Lower($SiteURL['Path']);
-        $MatchPath = array();
-
-        $IsBaseScheme = $IsBaseHostname = $IsBasePort = $IsBasePath = TRUE;
-
-        if( empty($BaseURL) )
-        {
-            $MatchPath = $SiteURL['Path'];
-            $MatchPath['IsDir'] = FALSE;
-            $SiteURL['Path'] = Path::Init('/');
-        }
-        else
-        {
-            // sort of a hack in case we get a URL struct as a BaseURL which we often do
-            // if it's a struct, we assume no asterisk replace is needed, which is
-            // probably wrong to do
-            if( !is_array($BaseURL) )
-            {
-                $BaseURL = URL::Init(str_replace('*',Hostname::ToString($SiteURL['Hostname']),$BaseURL));
-            }
-
-            if( !empty($BaseURL['Scheme']) )
-            {
-                $IsBaseScheme = ($BaseURL['Scheme'] === $SiteURL['Scheme']);
-                URL::SetScheme($BaseURL['Scheme'],$SiteURL);
-            }
-
-            if( !empty($BaseURL['Hostname']) )
-            {
-                $IsBaseHostname = ($BaseURL['Hostname'] === $SiteURL['Hostname']);
-                URL::SetHostname($BaseURL['Hostname'],$SiteURL);
-            }
-
-            if( !empty($BaseURL['Port']) )
-            {
-                $IsBasePort = ($BaseURL['Port'] === $SiteURL['Port']);
-                URL::SetPort($BaseURL['Port'],$SiteURL);
-            }
-
-            $MatchPath = $SiteURL['Path'];
-            $MatchPath['IsDir'] = FALSE;
-
-            if( $BaseURL['Path']['IsRoot'] === FALSE )
-            {
-                // @todo More efficient way of doing this...?
-                foreach( $BaseURL['Path']['Segments'] as $K => $V )
-                    $IsBasePath = isset($SiteURL['Path']['Segments'][$K]) && $SiteURL['Path']['Segments'][$K] === $V;
-
-                URL::SetPath($BaseURL['Path'],$SiteURL);
-                Path::Mask($SiteURL['Path'],$MatchPath);
-            }
-            else
-                $SiteURL['Path'] = Path::Init('/');
-        }
-
-        return array('SiteURL'=>$SiteURL,'MatchPath'=>$MatchPath,
-                     'IsBaseScheme'=>$IsBaseScheme,'IsBaseHostname'=>$IsBaseHostname,
-                     'IsBasePort'=>$IsBasePort,'IsBasePath'=>$IsBasePath);
-    }
-    */
-
-
-    // TODO: fully implement/document
+    // TODO: fully implement/document/use?
     public function OpenbaseDir( $Path = '' )
     {
         if( empty($Path) )
@@ -344,7 +176,111 @@ class asmblr extends \fw\App
         else
             ini_set('open_basedir',$Path);
     }
+}
 
+
+
+// asmblr console - standard FW app
+class fwApp extends \fw\App
+{
+    public $SysOp = 'asmblr@stackware.com';
+
+
+    // minimize internal startup
+    public function __construct()
+    {
+        $GLOBALS['FWAPP'] = $this;
+        set_error_handler(array($this,'ErrorHandler'));
+        set_exception_handler(array($this,'UncaughtExceptionHandler'));
+        register_shutdown_function(array($this,'FatalErrorHandler'));
+
+        \fw\HTTP::ContentType('text/html','utf-8');
+        ini_set('zlib.output_compression',TRUE);
+    }
+
+    public function Go( $Domain = NULL )
+    {
+        \fw\Inc::Dir('Routines');
+
+        $this->BaseURL = "http://{$Domain}";
+        $this->CalcURLs();
+
+        $page = new \fw\KeyValueSet;
+        $ps = new \fw\PageSet;
+        $html = new \fw\enUSHTMLSet;
+        $lp = new \fw\LinkPage($ps,$this->SiteURL);
+        $ls = new \fw\LinkSet($Domain);
+
+        $lr = new LinkREST($this->BaseURL.'/restv1');
+
+        $msg = new \fw\Messager;
+        $vr = new \fw\ValidationReport('error');
+
+        $this->Wire(array('page'=>$page,'ps'=>$ps,'html'=>$html,'lp'=>$lp,'ls'=>$ls,'lr'=>$lr,
+                          'msg'=>$msg,'vr'=>$vr));
+
+        $html->ConnectWireables($page,$lp,$ls,$lr,$msg,$vr);
+
+        $page->Title = 'asmblr Console';
+        $page->Description = 'asmblr Console';
+
+        $html->LoadDir('HTML');
+
+        // bring our asmblr stuff online - no site execution happens though (Go())
+        $asm = new asmSrv;
+
+        // no session except in /account/auth
+        if( \fw\Path::Top($this->MatchPath) === 'restv1' )
+        {
+            \fw\HTTP::ContentType('json');
+            REST::v1($this->MatchPath);
+            $html->ajf_JSONResponse();
+            return;
+        }
+
+        // we use the asmblr session
+        $SH = new SessionStoreMongoDB(asm()->asmdb);
+        session_set_save_handler($SH);
+        session_start();
+
+        if( !empty($_SESSION['LoggedIn']) && $_SESSION['LoggedIn'] === TRUE )
+            $page->LoggedIn = TRUE;
+        else
+            $page->LoggedIn = FALSE;
+
+        $html->RightAside = NULL;
+
+        $ps->Create('Home','/','Request::Home');
+        $ps->Create('Logout','/logout','Request::Logout');
+        $ps->Create('Site','/site/','Request::Site');
+
+        $ps->Create('Test','/test','Request::Test');
+
+        $ps->Create('CSS','/css/','Request::CSSHandler');
+        $ps->Create('JS','/js/','Request::JSHandler');
+        $ps->Create('AjaxFrags','/ajf/','AjaxFrags');
+
+        $OrderedMatch = NULL;
+        if( $this->MatchPath['IsRoot'] === FALSE )
+        {
+            foreach( \fw\Path::Order($this->MatchPath) as $V )
+            {
+                if( ($OrderedMatch = $ps->Match($V)) !== NULL )
+                {
+                    $ps->Execute($OrderedMatch);
+                    break;
+                }
+            }
+        }
+
+        if( ($ExactMatch = $ps->Match(\fw\Path::ToString($this->MatchPath))) !== NULL )
+            $ps->Execute($ExactMatch);
+
+        if( $ExactMatch === NULL && $OrderedMatch === NULL )
+            $this->NoPageHandler();
+
+        $html->Base();
+    }
 
     public function NoPageHandler()
     {
@@ -377,13 +313,33 @@ class asmblr extends \fw\App
         llog($Buf,'ERROR',$E->getTrace());
         \fw\HTTP::_500();
     }
-
 }
 
 
-// that's it!  we're so encapsulated
-$asm = new asmblr;
-$asm->Go();
+// Config :)
+// must only be a domain
+$ConsoleDomain = 'asmblr.local';
+
+define('DOC_ROOT',getcwd().DIRECTORY_SEPARATOR);
+define('APP_ROOT',str_replace('DOC_ROOT','APP_ROOT',DOC_ROOT));
+
+\fw\Inc::Ext('Mongo.inc');
+\fw\Inc::Dir('asmblr');
+
+// some custom start-up and route based on domain
+$Domain = \asm\Request::Hostname();
+
+if( $ConsoleDomain === $Domain )
+{
+    $fw = new fwApp;
+    $fw->Go($Domain);
+}
+else
+{
+    // a bogus request is handled in asmSrv
+    $asm = new asmSrv;
+    $asm->Go($Domain);
+}
 
 
 define('TIME_TO_BUILD',round((microtime(TRUE)-START_TIME),4)*1000.000);

@@ -2,12 +2,12 @@
 namespace asm;
 
 
-abstract class REST extends \fw\RoutineSet
+class REST extends \fw\RoutineSet
 {
     protected static $as;
     protected static $ss;
     protected static $ps;
-    protected static $html;
+    protected static $ts;
 
     protected static $MatchPath;
 
@@ -23,7 +23,7 @@ abstract class REST extends \fw\RoutineSet
 
     public static function v1( $MatchPath )
     {
-        $asmdb = fw('asmdb');
+        $asmdb = asm('asmdb');
         $asmdb->AccountSet->ensureIndex(array('Email'=>TRUE),array('unique'=>TRUE));
         $asmdb->SiteSet->ensureIndex(array('Domain'=>TRUE),array('unique'=>TRUE));
         $asmdb->SiteSet->ensureIndex(array('AAID'=>TRUE));
@@ -31,10 +31,10 @@ abstract class REST extends \fw\RoutineSet
         $asmdb->TemplateSet->ensureIndex(array('Site_id'=>TRUE,'Name'=>TRUE),array('unique'=>TRUE));
         $asmdb->ContentSet->ensureIndex(array('Site_id'=>TRUE,'Path'=>TRUE),array('unique'=>TRUE));
 
-        static::$as = $as = fw('as');
-        static::$ss = fw('ss');
-        static::$ps = fw('ps');
-        static::$ts = fw('ts');
+        static::$as = $as = asm('as');
+        static::$ss = asm('ss');
+        static::$ps = asm('ps');
+        static::$ts = asm('ts');
 
         \fw\Path::Del(0,$MatchPath);
         static::$MatchPath = $MatchPath;
@@ -48,27 +48,31 @@ abstract class REST extends \fw\RoutineSet
             static::$IsSU = FALSE;
 
         // certain methods can only be done by a SU and no AAID is required
-        if( in_array($Op,array('account_read','account_create','account_set_status','account_auth'),TRUE) === TRUE )
+        if( in_array($Op,array('account_read','account_create','account_set_status'),TRUE) === TRUE )
         {
             if( static::$IsSU !== TRUE )
                 \fw\HTTP::_401();
         }
+        // account_auth is public
+        else if( $Op === 'account_auth' )
+        {
+        }
         // otherwise we must have a valid AAID and matching password (md5()) if not a SU
         else
         {
-            if( empty($_SERVER['PHP_AUTH_USER']) )
+            if( empty($_SERVER['HTTP_X_ASMBLR_USER']) )
                 \fw\HTTP::_401();
-            else if( ($A = $as->Read(new \MongoId($_SERVER['PHP_AUTH_USER']))) === NULL )
+            else if( ($A = $as->Read(new \MongoId($_SERVER['HTTP_X_ASMBLR_USER']))) === NULL )
                 \fw\HTTP::_401();
             else
                 static::$Account = $A;
 
             if( static::$IsSU !== TRUE )
             {
-                if( empty($_SERVER['PHP_AUTH_PW']) )
+                if( empty($_SERVER['HTTP_X_ASMBLR_PW']) )
                     \fw\HTTP::_401();
 
-                if( (static::$Account['Password'] !== $_SERVER['PHP_AUTH_PW']) )
+                if( (static::$Account['Password'] !== $_SERVER['HTTP_X_ASMBLR_PW']) )
                     \fw\HTTP::_401();
             }
         }
@@ -77,7 +81,7 @@ abstract class REST extends \fw\RoutineSet
         // remaining site ownership auth is done at the method
         static::{$Op}();
 
-        if( !empty(static::$Response) )
+        if( !empty(static::$Response['Data']) )
         {
             // this is sort of a pain in the ass
             foreach( static::$Response['Data'] as $K => &$V )
@@ -85,9 +89,9 @@ abstract class REST extends \fw\RoutineSet
                 if( is_object($V) && $V instanceof \MongoId )
                     $V = (string) $V;
             }
-
-            fw('html')->Connect(static::$Response,'Response');
         }
+
+        fw('html')->Connect(empty(static::$Response)?array():static::$Response,'Response');
     }
 
 
@@ -197,12 +201,9 @@ abstract class REST extends \fw\RoutineSet
             static::$Reponse = JSONResponse::Fail('Database error');
     }
 
-    // SU
+    // PUBLIC - WE ALSO START A SESSION
     protected static function account_auth()
     {
-        if( static::$IsSU !== TRUE )
-            \fw\HTTP::_403();
-
         if( !rv::Email() || !rv::Password() )
             \fw\HTTP::_400();
 
@@ -211,7 +212,14 @@ abstract class REST extends \fw\RoutineSet
         if( empty($A) )
             static::$Response = JSONResponse::Fail('Invalid credentials.');
         else
+        {
+            session_set_save_handler(new SessionStoreMongoDB(asm('asmdb')));
+            session_start();
+            $_SESSION['LoggedIn'] = TRUE;
+            $_SESSION['Account'] = $A;
+
             static::$Response = JSONResponse::Ok($A);
+        }
     }
 
     protected static function account_set_password()
@@ -256,7 +264,7 @@ abstract class REST extends \fw\RoutineSet
 
     protected static function site_read()
     {
-        static::AuthSite(\fw\Path::Bottom(static::$MatchPath));
+        static::AuthSite(new \MongoId(\fw\Path::Bottom(static::$MatchPath)));
 
         static::$Response = JSONResponse::Ok(static::$Site);
     }
@@ -287,7 +295,7 @@ abstract class REST extends \fw\RoutineSet
         if( !rv::Site_id() || !rv::Domain() )
             \fw\HTTP::_400();
 
-        static::AuthSite($_POST['Site_id']);
+        static::AuthSite(new \MongoId($_POST['Site_id']));
 
         try
         {
@@ -301,7 +309,7 @@ abstract class REST extends \fw\RoutineSet
         catch( \Exception $E )
         {
             if( static::$ss->IsDupeE($E) )
-                static::$Response = JSONResponse::Fail('Duplicate Domain');
+                static::$Response = JSONResponse::Fail('Domain exists.');
             else
                 static::$Response = JSONResponse::Fail('Database error');
         }
@@ -312,7 +320,7 @@ abstract class REST extends \fw\RoutineSet
         if( !rv::Site_id() || !rv::Status() )
             \fw\HTTP::_400();
 
-        static::AuthSite($_POST['Site_id']);
+        static::AuthSite(new \MongoId($_POST['Site_id']));
 
         $R = static::$ss->SetStatus($_POST['Status'],static::$Site);
 
@@ -327,7 +335,7 @@ abstract class REST extends \fw\RoutineSet
         if( !rv::Site_id() || !rv::BaseURL())
             \fw\HTTP::_400();
 
-        static::AuthSite($_POST['Site_id']);
+        static::AuthSite(new \MongoId($_POST['Site_id']));
 
         $R = static::$ss->SetBaseURL($_POST['BaseURL'],static::$Site);
 
@@ -342,7 +350,7 @@ abstract class REST extends \fw\RoutineSet
         if( !rv::Site_id() || !rv::Routine() )
             \fw\HTTP::_400();
 
-        static::AuthSite($_POST['Site_id']);
+        static::AuthSite(new \MongoId($_POST['Site_id']));
 
         $R = static::$ss->SetRoutine($_POST['Routine'],static::$Site);
 
@@ -357,7 +365,7 @@ abstract class REST extends \fw\RoutineSet
         if( !rv::Site_id() || !rv::Directives() )
             \fw\HTTP::_400();
 
-        static::AuthSite($_POST['Site_id']);
+        static::AuthSite(new \MongoId($_POST['Site_id']));
 
         $R = static::$ss->SetDirectives($_POST['Directives'],static::$Site);
 
@@ -372,7 +380,7 @@ abstract class REST extends \fw\RoutineSet
         if(!rv::Site_id() || !rv::Config() )
             \fw\HTTP::_400();
 
-        static::AuthSite($_POST['Site_id']);
+        static::AuthSite(new \MongoId($_POST['Site_id']));
 
         $R = static::$ss->SetConfig($_POST['Config'],static::$Site);
 
@@ -384,14 +392,14 @@ abstract class REST extends \fw\RoutineSet
 
     protected static function page_read()
     {
-        static::AuthPage(\fw\Path::Bottom(static::$MatchPath));
+        static::AuthPage(new \MongoId(\fw\Path::Bottom(static::$MatchPath)));
 
         static::$Response = JSONResponse::Ok(static::$Page);
     }
 
     protected static function page_delete()
     {
-        static::AuthPage(\fw\Path::Bottom(static::$MatchPath));
+        static::AuthPage(new \MongoId(\fw\Path::Bottom(static::$MatchPath)));
 
         if( static::$ps->Delete(static::$Page) )
             static::$Response = JSONResponse::Ok();
@@ -404,7 +412,7 @@ abstract class REST extends \fw\RoutineSet
         if( !rv::Site_id() || !rv::Path() )
             \fw\HTTP::_400();
 
-        static::AuthSite($_POST['Site_id']);
+        static::AuthSite(new \MongoId($_POST['Site_id']));
 
         $P = Page::Init(static::$Site['_id'],$_POST['Path']);
 
@@ -427,7 +435,7 @@ abstract class REST extends \fw\RoutineSet
         if( !rv::Page_id() || !rv::Path() )
             \fw\HTTP::_400();
 
-        static::AuthPage($_POST['Page_id']);
+        static::AuthPage(new \MongoId($_POST['Page_id']));
 
         try
         {
@@ -448,7 +456,7 @@ abstract class REST extends \fw\RoutineSet
         if( !rv::Page_id() || !rv::Status() )
             \fw\HTTP::_400();
 
-        static::AuthPage($_POST['Page_id']);
+        static::AuthPage(new \MongoId($_POST['Page_id']));
 
         $R = static::$ps->SetStatus($_POST['Status'],static::$Page);
 
@@ -463,7 +471,7 @@ abstract class REST extends \fw\RoutineSet
         if( !rv::Page_id() || !rv::Name() )
             \fw\HTTP::_400();
 
-        static::AuthPage($_POST['Page_id']);
+        static::AuthPage(new \MongoId($_POST['Page_id']));
 
         $R = static::$ps->SetName($_POST['Status'],static::$Page);
 
@@ -478,7 +486,7 @@ abstract class REST extends \fw\RoutineSet
         if( !rv::Page_id() || !rv::Routine() )
             \fw\HTTP::_400();
 
-        static::AuthPage($_POST['Page_id']);
+        static::AuthPage(new \MongoId($_POST['Page_id']));
 
         $R = static::$ps->SetRoutine($_POST['Routine'],static::$Page);
 
@@ -493,7 +501,7 @@ abstract class REST extends \fw\RoutineSet
         if( !rv::Page_id() || !rv::Directives() )
             \fw\HTTP::_400();
 
-        static::AuthPage($_POST['Page_id']);
+        static::AuthPage(new \MongoId($_POST['Page_id']));
 
         $R = static::$ps->SetDirectives($_POST['Directives'],static::$Page);
 
@@ -505,14 +513,14 @@ abstract class REST extends \fw\RoutineSet
 
     protected static function template_read()
     {
-        static::AuthTemplate(\fw\Path::Bottom(static::$MatchPath));
+        static::AuthTemplate(new \MongoId(\fw\Path::Bottom(static::$MatchPath)));
 
         static::$Response = JSONResponse::Ok(static::$Template);
     }
 
     protected static function template_delete()
     {
-        static::AuthTemplate(\fw\Path::Bottom(static::$MatchPath));
+        static::AuthTemplate(new \MongoId(\fw\Path::Bottom(static::$MatchPath)));
 
         if( static::$ts->Delete(static::$Template) )
             static::$Response = JSONResponse::Ok();
@@ -525,7 +533,7 @@ abstract class REST extends \fw\RoutineSet
         if( !rv::Site_id() || !rv::Name() || !rv::Body() )
             \fw\HTTP::_400();
 
-        static::AuthSite($_POST['Site_id']);
+        static::AuthSite(new \MongoId($_POST['Site_id']));
 
         $T = Template::Init(static::$Site['_id'],$_POST['Name'],$_POST['Body']);
 
@@ -548,7 +556,7 @@ abstract class REST extends \fw\RoutineSet
         if( !rv::Template_id() || !rv::Name() )
             \fw\HTTP::_400();
 
-        static::AuthTemplate($_POST['Template_id']);
+        static::AuthTemplate(new \MongoId($_POST['Template_id']));
 
         try
         {
@@ -569,7 +577,7 @@ abstract class REST extends \fw\RoutineSet
         if( !rv::Template_id() || !rv::Body() )
             \fw\HTTP::_400();
 
-        static::AuthTemplate($_POST['Template_id']);
+        static::AuthTemplate(new \MongoId($_POST['Template_id']));
 
         $R = static::$ps->SetRoutine($_POST['Routine'],static::$Template);
 
@@ -584,7 +592,7 @@ abstract class REST extends \fw\RoutineSet
         if( !rv::Template_id() || !rv::Routine() )
             \fw\HTTP::_400();
 
-        static::AuthTemplate($_POST['Template_id']);
+        static::AuthTemplate(new \MongoId($_POST['Template_id']));
 
         $R = static::$ps->SetRoutine($_POST['Routine'],static::$Template);
 
@@ -597,3 +605,34 @@ abstract class REST extends \fw\RoutineSet
 }
 
 
+class LinkREST extends \fw\LinkSet
+{
+    protected $Methods = array();
+
+
+    public function __construct( $BaseURL )
+    {
+        $this->SetBaseURL($BaseURL);
+
+        $C = new \ReflectionClass('\\asm\REST');
+        foreach( $C->getMethods() as $M )
+        {
+            $P = strpos($M->name,'_');
+            if( empty($P) )
+                continue;
+            $this->Methods[$M->name] = \fw\Path::Init('/'.substr($M->name,0,$P).'/'.substr($M->name,$P+1));
+        }
+    }
+
+    public function __invoke( $Name = NULL,$Set = array() )
+    {
+        if( isset($this->Methods[$Name]) )
+        {
+            $Base = $this->BaseURL;
+            \fw\Path::Merge($this->Methods[$Name],$Base['Path']);
+            return URL::ToString($Base);
+        }
+        else
+            return 'not-found';
+    }
+}

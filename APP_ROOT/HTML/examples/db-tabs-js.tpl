@@ -33,11 +33,7 @@ function submit_form( e )
 	$form = $(e.target);
 
 	e.preventDefault();
-/*
-jQuery call to send a JSON request (/json/).
-Note that jQuery sends these as POST variables by default.
-see Routines/Ajax.inc::jQueryResponse
-*/
+
     $.post($form.attr('action'),$form.serialize(),function(data){
     	$('.label-important',e.delegateTarget).html(data.Msg);
 
@@ -98,11 +94,8 @@ $(document).ready(function()
     	e.preventDefault();
     });
 
-
     // handle form submits  (JSON - /json/)
-    $('#mongo-tab-content').on('submit','#mongoconnectform',submit_form);
-    $('#mysql-tab-content').on('submit','#mysqlconnectform',submit_form);
-    $('#sqlsrv-tab-content').on('submit','#sqlsrvconnectform',submit_form);
+    $('#login').on('submit','#login',submit_form);
 });
 
 </script>

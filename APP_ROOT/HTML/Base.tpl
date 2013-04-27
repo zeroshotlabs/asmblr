@@ -4,51 +4,14 @@
 <!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
 <!--[if gt IE 8]><!--> <html class="no-js"> <!--<![endif]-->
     <head>
-<?php
-/*
-Firefox performs double requests should output come before the doctype.
-Use PHP to set ContentType/charset in the HTTP headers.
-<meta charset="utf-8">
-*/?>
         <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
-
-<?php
-/*
-Since $page has been Connect()'d in fwboot.php::Go(), it's available here
-in the templates of the site.
-
-$this is automatically available and is the TemplateSet object that's
-rendering the template.  In this case, since we used locale-specific
-enUSHTMLSet for HTML, $this provides functionality for English-based
-HTML template.
-
-Here we call it as a function to properly HTML encode the strings that
-have been set in $page, such as the Title.
-
-Note that this triggers enUSHTMLSet::__invoke().
-*/?>
         <title><?=$this($page->Title)?></title>
         <meta name="description" content="<?=$this($page->Description)?>">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<?php
-/*
-$lp is the LinkPage object instantiated and Connect()'d in fwboot::Go().
-
-It creates absolute URLs based on the currently requested URL and the
-configured fwApp::$BaseURL.
-
-Here we call it as a function to create URLs for the CSS and JS pages,
-which we've defined in fwboot::Go() to handle the two URLs hierachies.
-For each call, we use a URL change string:
-    - the leading '>' indicates the string should be treated as path a
-      segment and appended to the URL of the Page (either /css/ or /js/).
-    - the trailing '?' indicates that the query string should be empty.
-
-Note that this triggers LinkPage::__invoke().
-*/?>
         <link rel="stylesheet" href="<?=$lp('CSS','>bootstrap.min.css?')?>">
         <link rel="stylesheet" href="<?=$lp('CSS','>bootstrap-responsive.min.css?')?>">
+        <link rel="stylesheet" href="<?=$lp('CSS','>bootstrap-editable.css?')?>">
+        <link rel="stylesheet" href="//code.jquery.com/ui/1.10.2/themes/smoothness/jquery-ui.css">
         <link rel="stylesheet" href="<?=$lp('CSS','>fw.css?')?>">
         <script src="<?=$lp('JS','>modernizr-2.6.2-respond-1.1.0.min.js?')?>"></script>
     </head>
@@ -58,52 +21,19 @@ Note that this triggers LinkPage::__invoke().
         <p class="chromeframe">You are using an <strong>outdated</strong> browser. Please <a href="http://browsehappy.com/">upgrade your browser</a> or <a href="http://www.google.com/chromeframe/?redirect=true">activate Google Chrome Frame</a> to improve your experience.</p>
     <![endif]-->
 
-<?php
-/*
-Templates can be nested to create different parts of a page.
-
-Here we call the Header() method on $this to render the header
-template, HTML/Header.tpl.
-
-Note that these are overloaded methods handled by TemplateSet::__call().
-*/?>
     <div class="container-fluid">
         <?php $this->Header(); ?>
     </div>
 
-<?php
-/*
-$ls is the LinkSet object instantiated and Connect()'d in fwboot::Go().
-
-Similar to $lp, it creates absolute URLs, but for generic files, instead
-of for Pages.
-
-Here we call it as a function to create a URL for an image.  The URL given
-will be appended to the base URL of the application, fwApp::$SiteURL.
-
-Note that this triggers LinkSet::__invoke().
-*/?>
 	<div id="spinner" class="spinner">
         <img id="img-spinner" src="<?=$ls('/img/ajax-loader.gif')?>" alt="Loading"/>
     </div>
 
     <section class="container-fluid">
-<?php
-/*
-Utilizing Bootstrap CSS, render and include the main content template,
-Article.  Article will be ReMap()'d depending on the Page being requested.
-*/?>
         <div class="row-fluid">
             <article class="span9">
                 <?php $this->Article(); ?>
             </article>
-<?php
-/*
-A Template is considered unset if it's been ReMap()'d to NULL,
-or hasn't been set in the first place.
-
-Here we check if the right aside is set, and if so, render it.
-*/?>
            <?php if( isset($this->RightAside) === TRUE ): ?>
             <aside id="rightaside" class="span3">
                 <?php $this->RightAside(); ?>
@@ -115,29 +45,103 @@ Here we check if the right aside is set, and if so, render it.
 	<footer class="container-fluid">
 	    <?php $this->Footer(); ?>
 	</footer>
-<?php
-/*
-As a best practice, load Javascript/jQuery at the end of the page
-(modernizr must be loaded at the beginning).
-*/?>
+
     <script src="//code.jquery.com/jquery-latest.js"></script>
-	<script src="<?=$lp('JS','>bootstrap.min.js?')?>"></script>
+    <script src="//code.jquery.com/ui/1.10.2/jquery-ui.js"></script>
+    <script src="<?=$lp('JS','>jquery.cookie.js?')?>"></script>
+    <script src="<?=$lp('JS','>bootstrap.min.js?')?>"></script>
+    <script src="<?=$lp('JS','>bootstrap-editable.min.js?')?>"></script>
 
-<?php
-/*
-Loading jQuery at the bottom of the page, however, also requires
-that the inclusion of our own Javascript be deferred.
 
-The TemplateSet::Stack() and TemplateSet::Unstack() methods allow
-templates to be queued - or 'stacked' - for later rendering.
+<script>
+// post a form and process returned ValidationReport and reload fragments
+function submit_form( e )
+{
+	$form = $(e.target);
 
-Here we Unstack() the 'ajax' stack, which will cause each template
-to be rendered in the order it was Stack()'d.
+	e.preventDefault();
 
-See examples/Home.tpl for the Stack() call.
-*/?>
+    $.post($form.attr('action'),$form.serialize(),function(data){
+    	$('.label-important',e.delegateTarget).html(data.Msg);
+
+        if( data.Status == false )
+        {
+            tid = e.target.id;
+
+            $.each( jQuery.parseJSON(data.Data), function(k,v) {
+                if( v )
+                    $('#'+tid+' input[name="'+k+'"]').removeClass('error');
+                else
+                	$('#'+tid+' input[name="'+k+'"]').addClass('error');
+            });
+        }
+        else
+        {
+            reload_tab(e.delegateTarget.id);
+            reload_aside();
+            reload_buttons();
+        }
+    },'json');
+}
+
+function NormParams( p )
+{
+	n = {};
+	lastK = '';
+	$.each(p,function(k,v) {
+		if( k == 'name' )
+			lastK = v;
+		else if( k == 'value' )
+		{
+			    n[lastK] = v;
+		}
+		else
+			n[k] = v;
+	});
+
+   <?php if( $lp->Current('Site',TRUE) ): ?>
+    n['Site_id'] = '<?=\asm\Request::Bottom()?>';
+   <?php endif;?>
+
+
+	return n;
+}
+
+
+
+$(document).ready(function()
+{
+    if( location.hash )
+        window.scrollTo(0, 0);
+
+    $(document).ajaxStart(function() { $('#spinner').show(); });
+    $(document).ajaxComplete(function() { window.setTimeout(function() { $('#spinner').hide(); },200)});
+
+    $.ajaxSetup({headers: {'X-ASMBLR-USER': $.cookie('aaid'),'X-ASMBLR-PW': $.cookie('token')}});
+
+	// setup editable defaults
+	$.fn.editable.defaults.mode = 'inline';
+	$.fn.editable.defaults.onblur = 'ignore';
+	$.fn.editable.defaults.send = 'always';
+	$.fn.editable.defaults.success = function(r,nv){ if( r.Status === false ) return r.Msg; };
+	$.fn.editable.defaults.validate = function(v){if($.trim(v)=='') return 'Required.';};
+	$.fn.editable.defaults.params = function(p){return NormParams(p)};
+
+    $('aside').on('click','a.iconlink',function(e) {
+        $('#rightaside').load($(e.currentTarget).attr('href'),reload_aside);
+    	e.preventDefault();
+    });
+
+    // handle form submits  (JSON - /json/)
+    $('#login').on('submit','#login',submit_form);
+});
+
+</script>
+
+
 
 	<?php $this->Unstack('ajax'); ?>
+
 	</body>
 </html>
 

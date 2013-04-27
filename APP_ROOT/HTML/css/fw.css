@@ -135,6 +135,7 @@ aside .btn-group
 */    
 }
 
+
 div.spinner {
     display: none;
     position: absolute;
@@ -144,7 +145,13 @@ div.spinner {
 }
 
 
+.editable-empty
+{ color: #08c; }
 
+textarea.input-large
+{
+    width: 500px;
+}
 /*
 header
 {

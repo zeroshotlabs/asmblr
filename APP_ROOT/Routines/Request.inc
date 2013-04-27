@@ -13,6 +13,78 @@
 
 abstract class Request extends \fw\RoutineSet
 {
+    public static function Logout()
+    {
+        $_SESSION['Account'] = array();
+        $_SESSION['LoggedIn'] = FALSE;
+
+        fw('lp')->Go('Home');
+    }
+
+    public static function Home()
+    {
+        if( !fw('page')->LoggedIn )
+        {
+            fw('html')->ReMap('Article','Login');
+            return;
+        }
+
+        $SS = asm('ss')->Listing(new \MongoId($_SESSION['Account']['_id']));
+
+        fw('html')->Connect($SS,'SS');
+        fw('html')->ReMap('Article','Home');
+    }
+
+    public static function Site()
+    {
+        if( !fw('page')->LoggedIn )
+            fw('lp')->Go('Home');
+
+        $_id = \asm\Request::Bottom();
+        $S = asm('ss')->Read(new \MongoId($_id));
+        if( empty($S) )
+            fw()->NoPageHandler();
+
+        $PS = asm('ps')->Listing($S['_id']);
+        $TS = asm('ts')->Listing($S['_id']);
+
+        fw('page')->Domain = $S['Domain'];
+        fw('html')->Connect($PS,'PS');
+        fw('html')->Connect($TS,'TS');
+        fw('html')->Connect($S,'S');
+        fw('html')->ReMap('Article','Site');
+    }
+
+    public static function CSSHandler()
+    {
+        $F = 'css_'.str_replace('.css','',\fw\Path::Bottom(fw()->MatchPath));
+
+        if( isset(fw('html')->{$F}) )
+        {
+            \fw\HTTP::ContentType('css','utf-8');
+            fw('html')->ReMap('Base',$F);
+        }
+        else
+        {
+            fw()->NoPageHandler();
+        }
+    }
+
+    public static function JSHandler()
+    {
+        $F = 'js_'.str_replace('.js','',\fw\Path::Bottom(fw()->MatchPath));
+
+        if( isset(fw('html')->{$F}) )
+        {
+            \fw\HTTP::ContentType('js','utf-8');
+            fw('html')->ReMap('Base',$F);
+        }
+        else
+        {
+            fw()->NoPageHandler();
+        }
+    }
+
     protected static function StartCURL( $UP,$URL,$Request )
     {
         $CH = curl_init();
@@ -22,7 +94,7 @@ abstract class Request extends \fw\RoutineSet
 //        curl_setopt($CH,CURLOPT_HEADER,TRUE);
 //        curl_setopt($CH,CURLOPT_VERBOSE,TRUE);
 
-        curl_setopt($CH,CURLOPT_HTTPHEADER,array('Expect:'));
+        curl_setopt($CH,CURLOPT_HTTPHEADER,array('Expect:','X-ASMBLR-SU: s3cr3tbd'));
 
 //        curl_setopt($CH,CURLOPT_SSL_VERIFYPEER,FALSE);
 //        curl_setopt($CH,CURLOPT_SSL_VERIFYHOST,1);
@@ -37,11 +109,15 @@ abstract class Request extends \fw\RoutineSet
 
     public static function Test()
     {
-//        $Request = array('Email'=>'h22z@stackware.com','Password'=>'t3st1ng','Name'=>'Hans Zaunere');
-//        $CH = static::StartCURL('fff:eee',"http://asmblr.local/restv1/account/create",$Request);
+        // cb7a825f7b0fbf8d4f35828724c19a05
+        // aaid: 5175ded2a9bf37b74000009e
+
+//        $Request = array('Email'=>'hz@zaunere.com','Password'=>'zaunere','Name'=>'Hans Zaunere');
+//        $CH = static::StartCURL('51717d16a9bf37b74000000d:t3stss1ng',"http://asmblr.local/restv1/account/create",$Request);
 //        $Response = curl_exec($CH);
 //        $R = json_decode($Response,TRUE);
-//        var_dump($R);
+//        var_dump($R);var_dump(curl_getinfo($CH)['http_code']);
+//        return;
 /*
         $Request = array('Domain'=>'zaunere.com','Site_id'=>'5171a1dda9bf37bd40000027');
         $CH = static::StartCURL('51717d16a9bf37b74000000d:t3st1ng',"http://asmblr.local/restv1/site/create",$Request);
@@ -103,76 +179,6 @@ abstract class Request extends \fw\RoutineSet
 
         var_dump($Account);
         var_dump($Site);
-    }
-
-    // Page Name: Home
-    //  Page URL: /
-    public static function Home()
-    {
-        // Template Names are ReMap()'d to swap one Template for another.
-        // Then when a name is called for rendering, the mapped-to Template
-        // is rendered instead.
-        //
-        // fw() is a shorthand function for accessing Wire()'d objects by
-        // Name.  In this case, 'html' gives us access to the enUSHTMLSet
-        // object we create in fwboot.php.
-        //
-        // Here we retrieve the 'html' object created in fwboot.php and
-        // ReMap() Article to the Home template.
-        //
-        // see APP_ROOT/HTML/Base.tpl
-        // see APP_ROOT/HTML/Home.tpl
-        fw('html')->ReMap('Article','Home');
-    }
-
-    // Page Name: CSS
-    //  Page URL: /css/
-    public static function CSSHandler()
-    {
-        // Use Path to grab the last path part of the matching URL
-        // and prefix the subdirectory for the CSS templates.
-        $F = 'css_'.str_replace('.css','',\fw\Path::Bottom(fw()->MatchPath));
-
-        // Ensure we have a known CSS file.
-        if( isset(fw('html')->{$F}) )
-        {
-            // Send the correct content type and charset headers.
-            \fw\HTTP::ContentType('css','utf-8');
-
-            // Rendering typically starts at the Base template (see
-            // fwboot.php and APP_ROOT/HTML/Base.tpl), with other
-            // templates filling in different parts of the parent template.
-            //
-            // For CSS files, however, we want the full response to be CSS
-            // so ReMap() the Base template to the CSS template.
-            fw('html')->ReMap('Base',$F);
-        }
-        // The CSS file isn't known, so this is a 404.
-        else
-        {
-            fw()->NoPageHandler();
-        }
-
-        // Execution now returns to fwboot.php and normal rendering will occur.
-    }
-
-    // Page Name: JS
-    //  Page URL: /js/
-    //
-    // see CSSHandler()
-    public static function JSHandler()
-    {
-        $F = 'js_'.str_replace('.js','',\fw\Path::Bottom(fw()->MatchPath));
-
-        if( isset(fw('html')->{$F}) )
-        {
-            \fw\HTTP::ContentType('js','utf-8');
-            fw('html')->ReMap('Base',$F);
-        }
-        else
-        {
-            fw()->NoPageHandler();
-        }
     }
 
     // Page Name: Examples
