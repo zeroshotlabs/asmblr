@@ -53,6 +53,14 @@ abstract class Request extends \fw\RoutineSet
         fw('html')->Connect($TS,'TS');
         fw('html')->Connect($S,'S');
         fw('html')->ReMap('Article','Site');
+
+        $ds = new \asm\DataSet(asm()->asmdb,$S['_id'],'User');
+        $ds[] = array('FirstName'=>'Hans','LastName'=>'Zaunere');
+        foreach( $ds as $K => $V )
+        {
+            var_dump($K);
+            var_dump($V);
+        }
     }
 
     public static function CSSHandler()
@@ -118,6 +126,7 @@ abstract class Request extends \fw\RoutineSet
 //        $R = json_decode($Response,TRUE);
 //        var_dump($R);var_dump(curl_getinfo($CH)['http_code']);
 //        return;
+
 /*
         $Request = array('Domain'=>'zaunere.com','Site_id'=>'5171a1dda9bf37bd40000027');
         $CH = static::StartCURL('51717d16a9bf37b74000000d:t3st1ng',"http://asmblr.local/restv1/site/create",$Request);

@@ -1,7 +1,7 @@
 <?php
 namespace asm;
 
-require('/var/www/framewire/Load.inc');
+require('../../framewire/Load.inc');
 
 /**
  * asmblr has three main parts:
@@ -208,9 +208,9 @@ class fwApp extends \fw\App
         $page = new \fw\KeyValueSet;
         $ps = new \fw\PageSet;
         $html = new \fw\enUSHTMLSet;
+
         $lp = new \fw\LinkPage($ps,$this->SiteURL);
         $ls = new \fw\LinkSet($Domain);
-
         $lr = new LinkREST($this->BaseURL.'/restv1');
 
         $msg = new \fw\Messager;

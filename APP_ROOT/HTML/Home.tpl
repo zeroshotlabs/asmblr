@@ -7,3 +7,7 @@
    <?php endforeach; ?>
 </ul>
 </div>
+
+<div class="row span7">
+<?php $this->CreateSite(); ?>
+</div>
