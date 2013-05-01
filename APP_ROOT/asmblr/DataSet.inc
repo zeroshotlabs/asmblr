@@ -33,8 +33,9 @@ abstract class Data extends MongoStruct
 // Key is the position
 // this loads the entire data set as MongoCursor - a lot of long running cursors on the server?
 // also does a lot of redundant queries that could be optimized like Refresh()
-class DataSet extends \fw\KeyValueSet
+class DataSet extends \fw\WireableBase implements \Iterator,\Countable,\ArrayAccess
 {
+    protected $MC;
     protected $MDB;
     protected $MDC;
     protected $Site_id;
@@ -50,110 +51,39 @@ class DataSet extends \fw\KeyValueSet
         $this->MDC = $MDB->$Collection;
         $this->Site_id = $Site_id;
         $this->Tag = $Tag;
-
-        $this->Refresh($ASC);
-    }
-
-    public function Refresh( $ASC = TRUE )
-    {
-        $this->KV = $this->MDC->find(array('Site_id'=>$this->Site_id,'Tags.T'=>$this->Tag))->
-                                sort(array('Tags.O'=>empty($ASC)?-1:1));
-
-        return $this->KV;
-    }
-
-    public function count()
-    {
-        return $this->KV->count(TRUE);
-    }
-
-    public function rewind()
-    {
-        $this->KV->rewind();
-    }
-
-    public function current()
-    {
-        return $this->KV->current()['Data'];
-    }
-
-    public function key()
-    {
-        return $this->KV->key();
-    }
-
-    public function next()
-    {
-        return $this->KV->next()['Data'];
-    }
-
-    public function valid()
-    {
-        return $this->KV->valid();
-    }
-
-    public function offsetGet( $Key )
-    {
-        $R = $this->MDC->findOne(array('Site_id'=>$this->Site_id,'Tags.T'=>$this->Tag,
-                                       'Tags.O'=>Data::NormO($Key)));
-
-        if( empty($R) )
-            return array();
-        else
-            return $R;
-    }
-
-    // < prepend to beginning of set or just use $ds[]
-    // > | NULL  append to end of set
-    // int insert at position, pushing rest down
-    // str insert with ordering but don't increment
-    // because we're lazy, we insert and then do a full refresh
-    public function offsetSet( $Key,$Value )
-    {
-        if( $Key === '<' )
-        {
-            $Data = Data::Init($this->Site_id,$this->Tag,0,$Value);
-            $this->Expand(0);
-            $this->MDC->insert($Data);
-        }
-        else if( $Key === '>' || $Key === NULL )
-        {
-            $Data = Data::Init($this->Site_id,$this->Tag,$this->TagMax(),$Value);
-            $this->MDC->insert($Data);
-        }
-        else if( ctype_digit((string)$Key) === TRUE )
-        {
-            $Data = Data::Init($this->Site_id,$this->Tag,$Key,$Value);
-            $this->Expand($Key);
-            $this->MDC->insert($Data);
-        }
-        else
-        {
-            $Data = Data::Init($this->Site_id,$this->Tag,$Key,$Value);
-            $this->MDC->insert($Data);
-        }
+        $this->ASC = $ASC;
 
         $this->Refresh();
     }
 
-    public function offsetExists( $Key )
+    public function Create( $Data,$O = NULL )
     {
-        return isset($this->KV[$Key]);
-    }
-
-    // is this correct?  same as Untag?  perhaps this actually deletes whereas
-    // Untag never can (though it can leave orphans)
-    public function offsetUnset( $Key )
-    {
-        $O = Data::NormO($Key);
-        $this->MDC->remove(array('Site_id'=>$this->Site_id,'Tags.T'=>$this->Tag,'Tags.O'=>$O));
-
-        if( is_int($O) )
-            $this->Contract($O);
-
+        $D = Data::Init($this->Site_id,$this->Tag,$O===NULL?$this->NextO():Data::NormO($O),$Data);
+        $this->MDC->insert($D);
         $this->Refresh();
     }
 
+    public function Read( \MongoId $D )
+    {
+        return $this->MDC->findOne(array('_id'=>$D));
+    }
+
+    public function Delete( $D )
+    {
+        return $this->MDC->remove(array('_id'=>$D['_id'],'CurrentTS'=>$D['CurrentTS']))['n'];
+    }
+
+    public function Refresh( $ASC = NULL )
+    {
+        $this->ASC = is_bool($ASC)?$ASC:$this->ASC;
+
+        $this->MC = $this->MDC->find(array('Site_id'=>$this->Site_id,'Tags.T'=>$this->Tag))->
+                                sort(array('Tags.O'=>empty($this->ASC)?-1:1));
+
+        return $this->MC;
+    }
+
+    // Add a Tag to an existing data record at an optional $O
     public function Tag( \MongoId $D,$O = NULL )
     {
         if( $O !== NULL )
@@ -162,14 +92,17 @@ class DataSet extends \fw\KeyValueSet
         if( is_int($O) )
             $this->Expand($O);
         else if( $O === NULL )
-            $O = $this->TagMax()+1;
+            $O = $this->NextO();
 
+        // should we check that $D belongs to our Site_id?
         $this->MDC->update(array('_id'=>$D,'Tags.T'=>array('$ne'=>$this->Tag)),
                            array('$push'=>array('Tags'=>array('T'=>$this->Tag,'O'=>$O))));
 
         $this->Refresh();
     }
 
+    // remove a Tag from an existing data record
+    // won't actually delete the record even if it's the last tag (will be untagged orphaned data)
     public function Untag( \MongoId $D )
     {
         if( ($O = $this->OOf($D)) === NULL )
@@ -184,47 +117,8 @@ class DataSet extends \fw\KeyValueSet
         $this->Refresh();
     }
 
-//     public function Move( \MongoId $D,$NewO )
-//     {
-//         if( ($OldO = $this->OOf($D)) === NULL )
-//             return FALSE;
-
-//         // cannot move to the same place
-//         if( $OldO === $NewO )
-//             return FALSE;
-
-//         // cannot move between different O types
-//         if( gettype($OldO) !== gettype($NewO) )
-//             throw new Exception("Cannot Move() {$D} from {$OldO} to {$NewO}.");
-
-//         // if a string O then we can just set it - might cause a dupe exception
-//         if( is_string($OldO) )
-//         {
-//             $this->Set($D,$NewO);
-//             return TRUE;
-//         }
-//         // move higher
-//         else if( $NewO > $OldO )
-//         {
-//             $this->Expand($NewO);
-
-//         }
-//         // move lower
-//         else
-//         {
-//         }
-//     }
-
-//     // this only sets the value - internal function - use Move()
-//     protected function SetO( \MongoId $D,$NewO )
-//     {
-//         $this->MDC->update(array('_id'=>$D,'Tags.T'=>$this->Tag),
-//                            array('$set'=>array('Tags.$.O'=>$NewO)));
-
-//         $this->Refresh();
-//     }
-
-    protected function TagMax()
+    // returns either 0 or max + 1
+    protected function NextO()
     {
         $O = $this->MDC->find(array('Site_id'=>$this->Site_id,'Tags.T'=>$this->Tag),
                               array('Tags.$'=>TRUE))->sort(array('Tags.O'=>-1))->limit(1)->getNext();
@@ -232,7 +126,7 @@ class DataSet extends \fw\KeyValueSet
         if( empty($O) )
             return 0;
         else
-            return ($O['Tags'][0]['O']);
+            return ($O['Tags'][0]['O']+1);
     }
 
     protected function OOf( \MongoId $D )
@@ -246,55 +140,78 @@ class DataSet extends \fw\KeyValueSet
     }
 
     protected function Expand( $O )
-    {var_dump($O);
-        $R = $this->MDC->find(array('Site_id'=>$this->Site_id,'Tags.T'=>$this->Tag,'Tags.O'=>1));
-
-
-
-        // array('$gte'=>(int)$O)
-        var_dump(iterator_to_array($R));
-
-        // Tags.O must be specified before Tags.T otherwise mongo updates any old tag
-        return $this->MDC->update(array('Site_id'=>$this->Site_id,'Tags.O'=>array('$gte'=>(int)$O),'Tags.T'=>$this->Tag),
+    {
+        return $this->MDC->update(array('Site_id'=>$this->Site_id,
+                                           'Tags'=>array('$elemMatch'=>array('T'=>$this->Tag,'O'=>array('$gt'=>$O)))),
                                   array('$inc'=>array('Tags.$.O'=>1)),
                                   array('multiple'=>TRUE));
     }
 
     protected function Contract( $O )
     {
-        // Tags.O must be specified before Tags.T otherwise mongo updates any old tag
-        return $this->MDC->update(array('Site_id'=>$this->Site_id,'Tags.O'=>array('$gt'=>(int)$O),'Tags.T'=>$this->Tag),
+        return $this->MDC->update(array('Site_id'=>$this->Site_id,
+                                           'Tags'=>array('$elemMatch'=>array('T'=>$this->Tag,'O'=>array('$gt'=>$O)))),
                                   array('$inc'=>array('Tags.$.O'=>-1)),
                                   array('multiple'=>TRUE));
+    }
+
+    // would be great to use the cursor for these?  or just create the cursor when iteration starts?
+    public function offsetGet( $O )
+    {
+        // does this need to be elemMatch?
+        $R = $this->MDC->findOne(array('Site_id'=>$this->Site_id,'Tags.T'=>$this->Tag,
+                                       'Tags.O'=>Data::NormO($Key)));
+
+        if( empty($R) )
+            return NULL;
+        else
+            return $R['Data'];
+    }
+
+    public function offsetExists( $O )
+    {
+        return $this->MDC->findOne(array('Site_id'=>$this->Site_id,'Tags.T'=>$this->Tag,
+                                         'Tags.O'=>Data::NormO($Key)),array('CurrentTS'=>1))===NULL?FALSE:TRUE;
+    }
+
+    public function offsetUnset( $Key )
+    {
+        throw new \fw\Exception("Cannot unset at $O - use Delete().");
+    }
+
+    public function count()
+    {
+        return $this->MC->count(TRUE);
+    }
+
+    public function rewind()
+    {
+        $this->MC->rewind();
+    }
+
+    public function current()
+    {
+        return $this->MC->current()['Data'];
+    }
+
+    public function key()
+    {
+        return $this->MC->key();
+    }
+
+    public function next()
+    {
+        return $this->MC->next()['Data'];
+    }
+
+    public function valid()
+    {
+        return $this->MC->valid();
     }
 
     public function ApplyDirective( $Key,$Value )
     {
         throw new \fw\Exception("Not supported in DataSet {$this->Collection}::{$this->Tag}");
-    }
-    public function Import( &$ArrayRef = NULL )
-    {
-        throw new \fw\Exception("Not supported in DataSet {$this->Collection}::{$this->Tag}");
-    }
-    public function Export()
-    {
-        throw new \fw\Exception("Not supported in DataSet {$this->Collection}::{$this->Tag}");
-    }
-    public function __get( $Key )
-    {
-        throw new \fw\Exception("Use array access instead of __get() in DataSet {$this->Collection}:{$this->Tag}");
-    }
-    public function __set( $Key,$Value )
-    {
-        throw new \fw\Exception("Use array access instead of __set() in DataSet {$this->Collection}:{$this->Tag}");
-    }
-    public function __isset( $Key )
-    {
-        throw new \fw\Exception("Use array access instead of __isset() in DataSet {$this->Collection}:{$this->Tag}");
-    }
-    public function __unset( $Key )
-    {
-        throw new \fw\Exception("Use array access instead of __unset() in DataSet {$this->Collection}:{$this->Tag}");
     }
 }
 
