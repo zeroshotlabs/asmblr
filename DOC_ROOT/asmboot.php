@@ -49,9 +49,11 @@ require('../../framewire/Load.inc');
 // asmblr multi-site server
 class asmSrv extends \fw\App
 {
+    protected $asmdb;
+
     public $SysOp = 'asmblr@stackware.com';
     public $MongoDB = 'asmblr';
-    protected $asmdb;
+    public $SiteStatuses = array('Active','Disabled');
 
 
     public function __construct()
@@ -62,11 +64,18 @@ class asmSrv extends \fw\App
         $mongo = new \fw\Mongo;
         $this->asmdb = $mongo->Alias($this->MongoDB,'asmdb');
 
+        // wire up our scaffolding
         $as = new AccountSet($this->asmdb);
         $ss = new SiteSet($this->asmdb);
         $ps = new PageSet($this->asmdb);
+        // $html = new \fw\enUSHTMLSet;
         $ts = new TemplateSet($this->asmdb);
         $this->Wire(array('as'=>$as,'ss'=>$ss,'ps'=>$ps,'ts'=>$ts,'asmdb'=>$this->asmdb));
+
+        // and now our typical application level stuff
+        // this will need review/etc per a site's runtime, REST::util_dir_names() and DirectiveNames in Request::Site()
+        $page = new \fw\KeyValueSet;
+        $this->Wire(array('page'=>$page));
 
         // now do more site specific stuff
         // TODO: these may become configurable in Site['Config']

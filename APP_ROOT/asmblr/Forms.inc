@@ -80,35 +80,16 @@ abstract class v extends \fw\enUS
             return FALSE;
     }
 
-    // a JSON array of Name,Key,Value arrays - a no Name is skipped
-    public static function Directives( $N,&$H )
+    // a directive is three part array, Name, Key, Value, contained directly in $_POST
+    // for Name should be checking that value is known per REST::util_dir_names
+    public static function Directive( &$H )
     {
-        // allow to clear Directives
-        if( empty($H[$N]) )
-            return TRUE;
-
-        $T = json_decode($H[$N]);
-
-        if( empty($T) )
+        if( !static::Text('Name',$H) || !static::Text('Key',$H) || !static::Textarea('Value',$H) )
             return FALSE;
 
-        $NewD = array();
-        foreach( $T as $K => $D )
-        {
-            try
-            {
-                $T2 = \fw\Directive::Init($D);
-                if( empty($T2['Name']) )
-                    continue;
-                $NewD[] = $T2;
-            }
-            catch( \Exception $E )
-            {
-                return FALSE;
-            }
-        }
+        if( !empty($H['D_id']) && !static::_id('D_id',$H) )
+            return FALSE;
 
-        $H[$N] = $NewD;
         return TRUE;
     }
 
@@ -168,6 +149,7 @@ abstract class rv
     {
         return v::Path($N,$_POST);
     }
+    // should be checking that value is known status per REST::util_site_statuses
     public static function Status( $N = 'Status' )
     {
         return v::Name($N,$_POST);
@@ -192,9 +174,10 @@ abstract class rv
     {
         return v::Routine($N,$_POST);
     }
-    public static function Directives( $N = 'Directives' )
+    // full $_POST validation
+    public static function Directive()
     {
-        return v::Directives($N,$_POST);
+        return v::Directive($_POST);
     }
     public static function Config( $N = 'Config' )
     {

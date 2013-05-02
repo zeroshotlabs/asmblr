@@ -64,9 +64,81 @@ class SiteSet extends MongoSet
         return $this->SetKV('Routine',$Routine,'_id',$S);
     }
 
-    public function SetDirectives( $Directives,&$S )
+    public function SetDirective( $Directive,&$S,\MongoId $D_id = NULL )
     {
-        return $this->SetKV('Directives',$Directives,'_id',$S);
+        $ds = new DataSet($this->MDB,$S['_id'],'Directive');
+
+        // create new directive, append to end
+        if( empty($D_id) )
+        {
+            $ds[] = $Directive;
+            return TRUE;
+        }
+        // update existing directive
+        else
+        {
+            $D = $ds->Read($D_id);
+            if( empty($D) )
+                return FALSE;
+
+            $ds->SetData($Directive,$D);
+            return TRUE;
+        }
+    }
+
+    public function DeleteDirective( \MongoId $D_id,&$S )
+    {
+        $ds = new DataSet($this->MDB,$S['_id'],'Directive');
+
+        // good example of when we institute CurrentTS checking, we couldn't do this
+        // as the Data struct would need to be passed to us
+        $D = $ds->Read($D_id);
+        if( empty($D) )
+            return FALSE;
+        else
+        {
+            $ds->Delete($D);
+            return TRUE;
+        }
+    }
+
+    // different - returns NULL or the new Data struct
+    public function CopyDirective( \MongoId $D_id,&$S )
+    {
+        $ds = new DataSet($this->MDB,$S['_id'],'Directive');
+
+        $D = $ds->Read($D_id);
+        if( empty($D) )
+        {
+            return NULL;
+        }
+        else
+        {
+            $NewO = $ds->OOf($D['_id']);
+            return $ds->Move($D,$NewO+1,TRUE);
+        }
+    }
+
+    // different - returns NULL or the new Data struct
+    public function MoveDirective( \MongoId $D_id,\MongoId $NextD_id = NULL,&$S )
+    {
+        $ds = new DataSet($this->MDB,$S['_id'],'Directive');
+
+        $D = $ds->Read($D_id);
+        if( empty($D) )
+            return NULL;
+
+        // move to end
+        if( empty($NextD_id) )
+        {
+            return $ds->Move($D,NULL);
+        }
+        else
+        {
+            $O = $ds->OOf($NextD_id);
+            llog($O);
+            return $ds->Move($D,$O);
+        }
     }
 
     public function SetConfig( $Config,&$S )

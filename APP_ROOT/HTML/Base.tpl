@@ -8,12 +8,12 @@
         <title><?=$this($page->Title)?></title>
         <meta name="description" content="<?=$this($page->Description)?>">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <script src="<?=$lp('JS','>modernizr-2.6.2-respond-1.1.0.min.js?')?>"></script>
         <link rel="stylesheet" href="<?=$lp('CSS','>bootstrap.min.css?')?>">
         <link rel="stylesheet" href="<?=$lp('CSS','>bootstrap-responsive.min.css?')?>">
         <link rel="stylesheet" href="<?=$lp('CSS','>bootstrap-editable.css?')?>">
         <link rel="stylesheet" href="//code.jquery.com/ui/1.10.2/themes/smoothness/jquery-ui.css">
         <link rel="stylesheet" href="<?=$lp('CSS','>fw.css?')?>">
-        <script src="<?=$lp('JS','>modernizr-2.6.2-respond-1.1.0.min.js?')?>"></script>
     </head>
 
     <body>
@@ -93,7 +93,7 @@ function NormParams( p )
 			lastK = v;
 		else if( k == 'value' )
 		{
-			    n[lastK] = v;
+		    n[lastK] = v;
 		}
 		else
 			n[k] = v;
@@ -103,15 +103,44 @@ function NormParams( p )
     n['Site_id'] = '<?=\asm\Request::Bottom()?>';
    <?php endif;?>
 
-
-	return n;
+    return n;
 }
 
+function DirectiveParams( p )
+{
+	p2 = {};
+	if( p.name === 'Name' )
+	{
+	    p2['Name'] = p.value;
+	    p2['Key'] = $('#'+p.pk+' a.set-directive-key').text();
+	    p2['Value'] = $('#'+p.pk+' a.set-directive-value').text();
+	}
+	else if( p.name === 'Key' )
+	{
+	    p2['Name'] = $('#'+p.pk+' a.set-directive-name').text();
+	    p2['Key'] = p.value;
+	    p2['Value'] = $('#'+p.pk+' a.set-directive-value').text();
+	}
+	else if( p.name === 'Value' )
+	{
+	    p2['Name'] = $('#'+p.pk+' a.set-directive-name').text();
+	    p2['Key'] = $('#'+p.pk+' a.set-directive-key').text();
+	    p2['Value'] = p.value;
+	}
+
+    p2['D_id'] = p['pk'];
+
+   <?php if( $lp->Current('Site',TRUE) ): ?>
+    p2['Site_id'] = '<?=\asm\Request::Bottom()?>';
+   <?php endif;?>
+
+    return p2;
+}
 
 
 $(document).ready(function()
 {
-    if( location.hash )
+	if( location.hash )
         window.scrollTo(0, 0);
 
     $(document).ajaxStart(function() { $('#spinner').show(); });

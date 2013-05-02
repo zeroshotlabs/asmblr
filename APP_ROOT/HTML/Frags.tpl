@@ -23,23 +23,6 @@
 </div>
 
 
-@@@DirectiveForm
-<?php $D = empty($D)?array('Name'=>'','Key'=>'','Value'=>''):$D; ?>
-<div class="controls controls-row directive-form">
-<?php /*
-    <a href="#" data-type="select" data-url="<?=$lr('site_set_status')?>" data-value="<?=$S['Status']?>" data-name="Status"><?=$S['Status']?></a>
-*/ ?>
-<select class="span2" name="set-">
-    <option></option>
-   <?php foreach( array('page','html','lp') as $V ): ?>
-    <option value="<?=$V?>">$<?=$V?></option>
-   <?php endforeach; ?>
-</select>
-<input class="span2" type="text" placeholder="key" value="<?=$this($D['Key'])?>" >
-<textarea class="span8" placeholder="value"><?=$this($D['Value'])?></textarea>
-</div>
-
-
 
 @@@JSLogin
 <script>
@@ -68,7 +51,7 @@ $(document).ready(function()
 
 $(document).ready(function()
 {
-	$.ajaxSetup({headers: {'X-ASMBLR-USER': $.cookie('aaid'),'X-ASMBLR-PW': $.cookie('token')}});
+//	$.ajaxSetup({headers: {'X-ASMBLR-USER': $.cookie('aaid'),'X-ASMBLR-PW': $.cookie('token')}});
 
     $('#createsite').on('submit','#createsite-form',function( e ) {
 		$form = $(e.target);
@@ -92,13 +75,96 @@ $(document).ready(function()
 $(document).ready(function()
 {
 	$('a.set-domain').editable();
-	$('a.set-status').editable({source:[{value:'Active',text:'Active'},{value:'Disabled',text:'Disabled'}]});
+	$('a.set-status').editable({mode:'popup',source:'<?=$lr('util_site_statuses')?>'});
 	$('a.set-baseurl').editable({validate: function(v){return '';}});
 	$('a.set-routine').editable({inputclass: 'input-large',validate: function(v){return '';}});
 
-	$('div.directive-form').editable({selector: 'a'});
-    $("#sortable-dirs").sortable({ placeholder: "ui-state-highlight" });
-    $("#sortable-dirs").disableSelection();
+	editable_name = {mode:'popup',source:'<?=$lr('util_dir_names')?>',
+			params:function(p){return DirectiveParams(p)}};
+	editable_key = {mode:'popup',params:function(p){return DirectiveParams(p)}};
+	editable_value = {mode:'popup',inputclass:'input-xlarge',params:function(p){return DirectiveParams(p)}};
+
+	$('#directives-sortable a.set-directive-name').editable(editable_name);
+	$('#directives-sortable a.set-directive-key').editable(editable_key);
+	$('#directives-sortable a.set-directive-value').editable(editable_value);
+
+	$('#directives-sortable').on('click','tr a.del-directive',function( e ) {
+		pk = $(e.currentTarget).data('pk');
+		$.ajax({
+			type:'POST',url:'<?=$lr('site_del_directive')?>',dataType:'json',data:{D_id:pk,Site_id:'<?=\asm\Request::Bottom()?>'},
+			success: function(data){ $('#'+pk).fadeOut(100,function(){ $('#'+pk).remove();})}})
+		.fail(function(){ console.log('connection error');})
+	});
+
+	$('#directives-sortable').on('click','tr a.cp-directive',function( e ) {
+		pk = $(e.currentTarget).data('pk');
+		$.ajax({
+			type:'POST',url:'<?=$lr('site_cp_directive')?>',dataType:'json',data:{D_id:pk,Site_id:'<?=\asm\Request::Bottom()?>'},
+			success: function(data){
+				t = $('#'+pk).clone();
+				t.attr('id',data.Data._id);
+				$('a[data-pk]',t).attr('data-pk',data.Data._id);
+				t.insertAfter($('#'+pk));
+
+				$('a.set-directive-name',t).editable(editable_name);
+				$('a.set-directive-key',t).editable(editable_key);
+				$('a.set-directive-value',t).editable(editable_value);
+			}})
+		.fail(function(){console.log('connection error');})
+	});
+
+    $('#directives-sortable').sortable({forceHelperSize:true,opacity: .9,handle:'a.handle',placeholder:'ui-state-highlight',axis:'y',
+        helper:function(e, ui) {
+            ui.children().each(function() {
+                $(this).width($(this).width());
+            });
+            return ui;
+        },
+        update:function(e,ui) {
+            itemid = ui.item.attr('id');
+            nextid = ui.item.next().attr('id');
+            $.ajax({
+                type:'POST',url:'<?=$lr('site_mv_directive')?>',dataType:'json',data:{D_id:itemid,NextD_id:nextid,Site_id:'<?=\asm\Request::Bottom()?>'}});
+        }});
+
+	$('#directives').on('submit','#site_set_directive-form',function( e ) {
+		$form = $(e.target);
+		e.preventDefault();
+		$.ajax({
+			type: "POST",url: $form.attr('action'),dataType: 'json',data: $form.serialize(),
+			success: function(data){
+		    if( data.Status === true )
+		    {
+		    	$('.label-success',e.delegateTarget).html(data.Msg);
+		    	$('.label-important',e.delegateTarget).html('');
+		    }
+		    else
+		    {
+		    	$('#diralert').html(data.Msg);
+		    }
+			}})
+		.fail(function(){ $('#diralert').css('display','block').html('Please complete the form.'); });
+    });
+
+//	$('div.directive-form').editable({selector: 'a'});
+//    $("#sortable-dirs").sortable({ placeholder: "ui-state-highlight" });
+//    $("#sortable-dirs").disableSelection();
 });
 </script>
+
+
+@@@DirectiveForm
+<div class="controls controls-row directive-form">
+<?php /*
+    <a href="#" data-type="select" data-url="<?=$lr('site_set_status')?>" data-value="<?=$S['Status']?>" data-name="Status"><?=$S['Status']?></a>
+*/ ?>
+<select class="span2" name="set-">
+    <option></option>
+   <?php foreach( array('page','html','lp') as $V ): ?>
+    <option value="<?=$V?>" <?=$this('Name',$D,$V,'selected')?> >$<?=$V?></option>
+   <?php endforeach; ?>
+</select>
+<input class="span2" type="text" placeholder="key" value="<?=$this($D['Key'])?>" >
+<textarea class="span8" placeholder="value"><?=$this($D['Value'])?></textarea>
+</div>
 

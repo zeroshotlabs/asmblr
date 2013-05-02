@@ -52,15 +52,64 @@ abstract class Request extends \fw\RoutineSet
         fw('html')->Connect($PS,'PS');
         fw('html')->Connect($TS,'TS');
         fw('html')->Connect($S,'S');
+        fw('html')->Connect(array_keys(asm()->GetWired()),'DirectiveNames');
         fw('html')->ReMap('Article','Site');
 
-        $ds = new \asm\DataSet(asm()->asmdb,$S['_id'],'User');
-        $ds[] = array('FirstName'=>'Hans','LastName'=>'Zaunere');
+        $DS = new \asm\DataSet(asm('asmdb'),$S['_id'],'Directive');
+        fw('html')->Connect($DS,'DS');
+
+
+
+/*
+        $ds[] = array('User','Name'=>'Hans');
+        $ds[] = array('User','Name'=>'David');
+        $ds[] = array('User','Name'=>'Andre');
+
+        $ds2[] = array('Gallery','Name'=>'Florida');
+        $ds2[] = array('Gallery','Name'=>'Cape Coral');
+        $ds2[] = array('Gallery','Name'=>'Bermuda');
+return;
+*/
+
+//        $ds[] = array('FirstName'=>'Hans','LastName'=>'Zaunere');
+
+//         foreach( $ds as $K => $V )
+//         {
+//             var_dump($K);
+//             var_dump($V);
+//         }
+/*
+        $adb = asm()->asmdb;
+        $R = $adb->DataSet->find(array('Site_id'=>new \MongoId('5175efdea9bf37bd400000b3'),
+                                       'Tags'=>array('$elemMatch'=>array('T'=>'Gallery','O'=>array('$gt'=>0)))));
+        var_dump($R->explain());
+        return;
+        var_dump(iterator_to_array($R));
+        return;
+*/
+/*
+        echo "\r\nUSER\r\n";
         foreach( $ds as $K => $V )
         {
-            var_dump($K);
+            echo $K."\r\n";
             var_dump($V);
         }
+
+
+        echo "\r\nGALLERY\r\n";
+        foreach( $ds2 as $K => $V )
+        {
+            echo $K."\r\n";
+            var_dump($V);
+        }
+*/
+//        $ds2->Tag(new \MongoId('517d5304a9bf37333900003a'),'1');
+
+//         foreach( $ds2 as $K => $V )
+//         {
+//             var_dump($K);
+//             var_dump($V);
+//         }
     }
 
     public static function CSSHandler()

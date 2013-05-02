@@ -30,6 +30,10 @@ class REST extends \fw\RoutineSet
         $asmdb->PageSet->ensureIndex(array('Site_id'=>TRUE,'Path'=>TRUE),array('unique'=>TRUE));
         $asmdb->TemplateSet->ensureIndex(array('Site_id'=>TRUE,'Name'=>TRUE),array('unique'=>TRUE));
         $asmdb->ContentSet->ensureIndex(array('Site_id'=>TRUE,'Path'=>TRUE),array('unique'=>TRUE));
+        // DataSet for directives are instantiated in the method
+//        $asmdb->DataSet->ensureIndex(array('Site_id'=>TRUE,'Tags'=>TRUE),array('unique'=>TRUE));
+        // this index may be all that we need - though it can't be unique because we can't do ordered update for Expand()
+        $asmdb->DataSet->ensureIndex(array('Site_id'=>TRUE,'Tags.T'=>TRUE,'Tags.O'=>TRUE),array('unique'=>FALSE));
 
         static::$as = $as = asm('as');
         static::$ss = asm('ss');
@@ -53,8 +57,8 @@ class REST extends \fw\RoutineSet
             if( static::$IsSU !== TRUE )
                 \fw\HTTP::_401();
         }
-        // account_auth is public
-        else if( $Op === 'account_auth' )
+        // account_auth and util methods are public
+        else if( $Op === 'account_auth' || $Op === 'util_site_statuses' || $Op === 'util_dir_names' )
         {
         }
         // otherwise we must have a valid AAID and matching password (md5()) if not a SU
@@ -199,6 +203,27 @@ class REST extends \fw\RoutineSet
             static::$Response = JSONResponse::Ok(static::$Account);
         else
             static::$Reponse = JSONResponse::Fail('Database error');
+    }
+
+    // public
+    protected static function util_site_statuses()
+    {
+        $N = array();
+        foreach( asm()->SiteStatuses as $V )
+            $N[] = array('value'=>$V,'text'=>$V);
+
+        static::$Response = $N;
+    }
+
+    // public
+    protected static function util_dir_names()
+    {
+        // this will need revisiting/security/etc
+        $N = array();
+        foreach( asm()->GetWired() as $K => $V )
+            $N[] = array('value'=>$K,'text'=>$K);
+
+        static::$Response = $N;
     }
 
     // PUBLIC - WE ALSO START A SESSION
@@ -360,14 +385,95 @@ class REST extends \fw\RoutineSet
             static::$Reponse = JSONResponse::Fail('Database error');
     }
 
-    protected static function site_set_directives()
+    // will need directive/dataset specific security
+    protected static function site_set_directive()
     {
-        if( !rv::Site_id() || !rv::Directives() )
+        if( !rv::Site_id() || !rv::Directive() )
             \fw\HTTP::_400();
 
         static::AuthSite(new \MongoId($_POST['Site_id']));
 
-        $R = static::$ss->SetDirectives($_POST['Directives'],static::$Site);
+        // if a Directive_id is present and valid, this will be an update; insert otherwise
+        if( !empty($_POST['D_id']) && v::_id('D_id',$_POST) )
+            $D_id = new \MongoId($_POST['D_id']);
+        else
+            $D_id = NULL;
+
+        $D = array('Name'=>$_POST['Name'],'Key'=>$_POST['Key'],'Value'=>$_POST['Value']);
+        $R = static::$ss->SetDirective($D,static::$Site,$D_id);
+
+        if( $R === TRUE )
+            static::$Response = JSONResponse::Ok(static::$Site);
+        else
+            static::$Response = JSONResponse::Fail('Database error');
+    }
+
+    protected static function site_del_directive()
+    {
+        if( !rv::Site_id() || !v::_id('D_id',$_POST) )
+            \fw\HTTP::_400();
+
+        static::AuthSite(new \MongoId($_POST['Site_id']));
+
+        $D_id = new \MongoId($_POST['D_id']);
+
+        $R = static::$ss->DeleteDirective($D_id,static::$Site);
+
+        if( $R === TRUE )
+            static::$Response = JSONResponse::Ok(static::$Site);
+        else
+            static::$Response = JSONResponse::Fail('Database error');
+    }
+
+    protected static function site_cp_directive()
+    {
+        if( !rv::Site_id() || !v::_id('D_id',$_POST) )
+            \fw\HTTP::_400();
+
+        static::AuthSite(new \MongoId($_POST['Site_id']));
+
+        $D_id = new \MongoId($_POST['D_id']);
+
+        $D = static::$ss->CopyDirective($D_id,static::$Site);
+
+        if( empty($D) )
+            static::$Response = JSONResponse::Fail('Database error');
+        else
+            static::$Response = JSONResponse::Ok($D);
+    }
+
+    protected static function site_mv_directive()
+    {
+        if( !rv::Site_id() || !v::_id('D_id',$_POST) )
+            \fw\HTTP::_400();
+
+        static::AuthSite(new \MongoId($_POST['Site_id']));
+
+        $D_id = new \MongoId($_POST['D_id']);
+        if( v::_id('NextD_id',$_POST) )
+            $NextD_id = new \MongoId($_POST['NextD_id']);
+        else
+            $NextD_id = NULL;
+
+        $D = static::$ss->MoveDirective($D_id,$NextD_id,static::$Site);
+
+        if( empty($D) )
+            static::$Response = JSONResponse::Fail('Database error');
+        else
+            static::$Response = JSONResponse::Ok($D);
+    }
+
+    protected static function site_set_directiveasas()
+    {
+        if( !rv::Site_id() || !rv::Directive() )
+            \fw\HTTP::_400();
+
+        static::AuthSite(new \MongoId($_POST['Site_id']));
+
+        $ds = new DataSet(asm('asmdb'),$_POST['Site_id'],'Directive');
+        $R = $ds[$_POST['Directive']['id']] = $_POST['Directive'];
+
+//        $R = static::$ss->SetDirectives($_POST['Directives'],static::$Site);
 
         if( $R === TRUE )
             static::$Response = JSONResponse::Ok(static::$Site);

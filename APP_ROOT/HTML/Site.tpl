@@ -4,6 +4,7 @@
 <li><?=$page->Domain?></li>
 </ul>
 
+<div class="pull-right">
 <ul class="nav nav-pills">
     <li class="dropdown">
         <a class="dropdown-toggle" id="drop4" role="button" data-toggle="dropdown" href="#">Pages <b class="caret"></b></a>
@@ -22,50 +23,88 @@
         </ul>
     </li>
 </ul>
+</div>
 
+<div class="clearfix"></div>
 
 <div class="row-fluid">
-    <div class="span2">Domain:</div>
-    <div class="span8">
+    <div class="span2 text-right">Domain:</div>
+    <div class="span10">
         <a href="#" class="set-domain" data-type="text" data-url="<?=$lr('site_set_domain')?>" data-name="Domain"><?=$S['Domain']?></a>
     </div>
 </div>
 
 <div class="row-fluid">
-    <div class="span2">Status:</div>
-    <div class="span8">
+    <div class="span2 text-right">Status:</div>
+    <div class="span10">
         <a href="#" class="set-status" data-type="select" data-url="<?=$lr('site_set_status')?>" data-value="<?=$S['Status']?>" data-name="Status"><?=$S['Status']?></a>
     </div>
 </div>
 
 <div class="row-fluid">
-    <div class="span2">Base URL:</div>
-    <div class="span8">
+    <div class="span2 text-right">Base URL:</div>
+    <div class="span10">
         <a href="#" class="set-baseurl" data-type="url" data-url="<?=$lr('site_set_baseurl')?>" data-emptytext="default" data-name="BaseURL"><?=$S['BaseURL']?></a>
     </div>
 </div>
 
 <div class="row-fluid">
-    <div class="span2">Routine:</div>
-    <div class="span8">
+    <div class="span2 text-right">Routine:</div>
+    <div class="span10">
         <a href="#" class="set-routine" data-type="textarea" data-url="<?=$lr('site_set_routine')?>" data-emptytext="empty routine" data-name="Routine"><?=\fw\Struct::Get(0,$S['Routine'])?></a>
     </div>
 </div>
 
-<div class="row-fluid">
-    <div class="span2">Directives:</div>
-    <div class="span8">
-    <form class="form-inline">
-       <div id="directives">
-           <div id="sortable-dirs">
-           <?php foreach( $S['Directives'] as $K => $D ): ?>
-            <?php $this->DirectiveForm($D); ?>
+<div class="row-fluid" id="directives">
+    <div class="span2 text-right">Directives:</div>
+    <div class="span10">
+        <form id="site_set_directive-form" action="<?=$lr('site_set_directive')?>">
+        <input type="hidden" name="Site_id" value="<?=\asm\Request::Bottom()?>">
+        <table class="table table-bordered table-striped" style="width: 100%;">
+        <tbody class="sortable" id="directives-sortable">
+           <?php foreach( $DS as $K => $D ): ?>
+            <tr id="<?=$K?>">
+                <td class="text-center">
+                    <a href="#" class="pull-left handle" data-pk="<?=$K?>"><i class="icon-th-list"></i></a>
+                    <a href="#" class="set-directive-name editable-click" data-pk="<?=$K?>" data-type="select" data-url="<?=$lr('site_set_directive')?>" data-value="<?=$D['Name']?>" data-name="Name"><?=$D['Name']?></a>
+                </td>
+                <td class="text-center">
+                    <a href="#" class="set-directive-key editable-click" data-pk="<?=$K?>" data-type="text" data-url="<?=$lr('site_set_directive')?>" data-name="Key"><?=$D['Key']?></a>
+                </td>
+                <td>
+                    <a href="#" class="set-directive-value editable-click" data-pk="<?=$K?>" data-type="text" data-url="<?=$lr('site_set_directive')?>" data-name="Value"><?=$D['Value']?></a>
+                    <a href="#" class="pull-right cp-directive" data-pk="<?=$K?>"><i class="icon-tags"></i></a>
+                    <a href="#" class="pull-right del-directive" data-pk="<?=$K?>"><i class="icon-remove"></i></a>
+                </td>
+            </tr>
            <?php endforeach; ?>
-           <?php $this->DirectiveForm(); ?>
-            </div>
-       </div>
+        </tbody>
 
-    </form>
+        <tr>
+            <td colspan="3">
+            <div id="diralert" class="alert alert-error"></div>
+            </td>
+        </tr>
+
+        <tr class="new-directive">
+            <td class="text-center">
+            <select class="input-small" name="Name">
+                <option></option>
+               <?php foreach( $DirectiveNames as $V ): ?>
+                <option value="<?=$V?>">$<?=$V?></option>
+               <?php endforeach; ?>
+            </select>
+            </td>
+            <td class="text-center">
+                <input class="input-small" type="text" placeholder="key" value="" name="Key" >
+            </td>
+            <td style="vertical-align: middle;">
+                <textarea class="" placeholder="value" name="Value" style="width: 75%;"></textarea>
+                <button type="submit" class="btn btn-success">New</button>
+            </td>
+        </tr>
+        </table>
+        </form>
     </div>
 </div>
 
