@@ -3,7 +3,7 @@ namespace asm;
 
 
 // Collection: DataSet
-// Unique: Site / Tags.T / Tags.O
+// Unique: Site_id / Tags.T / Tags.O
 abstract class Data extends MongoStruct
 {
     protected static $Skel = array('Site_id'=>'','Tags'=>array(),'CurrentTS'=>0,
@@ -29,9 +29,8 @@ abstract class Data extends MongoStruct
 
 
 
-// ensureIndex(array('Site_id'=>1,'Tags'=>1),array('unique'=>TRUE));
-// Key is the position
-// this loads the entire data set as MongoCursor - a lot of long running cursors on the server?
+// O is the position of the data within the set
+// this loads/refreshes the entire data set as MongoCursor
 // also does a lot of redundant queries that could be optimized like Refresh()
 class DataSet extends \fw\WireableBase implements \Iterator,\Countable,\ArrayAccess
 {
@@ -44,10 +43,10 @@ class DataSet extends \fw\WireableBase implements \Iterator,\Countable,\ArrayAcc
 
     public function __construct( \fw\MongoDB $MDB,\MongoId $Site_id,$Tag,$ASC = TRUE,$Collection = NULL )
     {
-        $this->MDB = $MDB;
         if( empty($Collection) )
             $Collection = str_replace('asm\\','',get_class($this));
 
+        $this->MDB = $MDB;
         $this->MDC = $MDB->$Collection;
         $this->Site_id = $Site_id;
         $this->Tag = $Tag;
@@ -56,11 +55,13 @@ class DataSet extends \fw\WireableBase implements \Iterator,\Countable,\ArrayAcc
         $this->Refresh();
     }
 
-    public function Create( $Data,$O = NULL )
+    // this is always an append - returns Data struct, rather than changing parameters like the others
+    public function Create( $Data )
     {
-        $D = Data::Init($this->Site_id,$this->Tag,$O===NULL?$this->NextO():Data::NormO($O),$Data);
+        $D = Data::Init($this->Site_id,$this->Tag,$this->NextO(),$Data);
         $this->MDC->insert($D);
         $this->Refresh();
+        return $D;
     }
 
     public function Read( \MongoId $D )
@@ -68,9 +69,107 @@ class DataSet extends \fw\WireableBase implements \Iterator,\Countable,\ArrayAcc
         return $this->MDC->findOne(array('_id'=>$D));
     }
 
+    public function Move( $D,$NewO,$AsCopy = FALSE )
+    {
+        if( ($O = $this->OOf($D['_id'])) === NULL )
+            return FALSE;
+
+        // move to the end
+        if( $NewO === NULL )
+        {
+            if( $AsCopy )
+            {
+                $D2 = Data::Init($this->Site_id,$this->Tag,$this->NextO(),$D['Data']);
+                $this->MDC->insert($D2);
+                $this->Refresh();
+                return $D2;
+            }
+            else
+            {
+                $this->SetO($D['_id'],$this->NextO());
+                $this->Contract($O);
+                return $D;
+            }
+        }
+
+        $NewO = Data::NormO($NewO);
+
+        // differing O types not supported
+        if( gettype($NewO) !== gettype($O) )
+            return FALSE;
+
+        // same O is a no-op
+        if( $NewO === $O )
+            return FALSE;
+
+        // move right
+        if( $NewO > $O )
+        {
+            if( $AsCopy )
+            {
+                $D2 = Data::Init($this->Site_id,$this->Tag,$NewO,$D['Data']);
+                $this->Expand($NewO);
+                $this->MDC->insert($D2);
+                $this->Refresh();
+                return $D2;
+            }
+            else
+            {
+                $this->Expand($NewO);
+                $this->SetO($D['_id'],$NewO);
+                $this->Contract($O);
+                return $D;
+            }
+        }
+        // moving left
+        else
+        {
+            if( $AsCopy )
+            {
+                $D2 = Data::Init($this->Site_id,$this->Tag,$NewO,$D['Data']);
+                $this->Expand($NewO);
+                $this->MDC->insert($D2);
+                $this->Refresh();
+                return $D2;
+            }
+            else
+            {
+                $this->Expand($NewO);
+                $this->SetO($D['_id'],$NewO);
+                $this->Contract($O);
+                return $D;
+            }
+        }
+    }
+
     public function Delete( $D )
     {
-        return $this->MDC->remove(array('_id'=>$D['_id'],'CurrentTS'=>$D['CurrentTS']))['n'];
+        $R = $this->MDC->remove(array('_id'=>$D['_id'],'CurrentTS'=>$D['CurrentTS']))['n'];
+        if( $R === 1 )
+        {
+            foreach( $D['Tags'] as $T )
+            {
+                if( is_int($T['O']) )
+                    $this->Contract($T['O'],$T['T']);
+            }
+        }
+
+        $this->Refresh();
+        return $R;
+    }
+
+    public function SetData( $Data,&$D )
+    {
+        $R = $this->MDC->update(array('_id'=>$D['_id'],'CurrentTS'=>$D['CurrentTS']),
+                                array('$set'=>array('Data'=>$Data)));
+
+        if( empty($R['err']) && $R['n'] === 1 )
+        {
+            $D['Data'] = $Data;
+            return TRUE;
+        }
+        else
+            return FALSE;
     }
 
     public function Refresh( $ASC = NULL )
@@ -83,7 +182,7 @@ class DataSet extends \fw\WireableBase implements \Iterator,\Countable,\ArrayAcc
         return $this->MC;
     }
 
-    // Add a Tag to an existing data record at an optional $O
+    // Add an existing data record at an optional $O
     public function Tag( \MongoId $D,$O = NULL )
     {
         if( $O !== NULL )
@@ -102,11 +201,21 @@ class DataSet extends \fw\WireableBase implements \Iterator,\Countable,\ArrayAcc
     }
 
     // remove a Tag from an existing data record
-    // won't actually delete the record even if it's the last tag (will be untagged orphaned data)
+    // if it's the last tag, the record will be deleted
     public function Untag( \MongoId $D )
     {
+        // more dupe queries - and so atomic!
         if( ($O = $this->OOf($D)) === NULL )
             return FALSE;
+
+        $D2 = $this->Read($D);
+        if( count($D2['Tags']) === 1 )
+        {
+            $R = $this->Delete($D2);
+            if( is_int($O) )
+                $this->Contract($O);
+            return $R;
+        }
 
         $this->MDC->update(array('_id'=>$D),
                            array('$pull'=>array('Tags'=>array('T'=>$this->Tag))));
@@ -115,6 +224,17 @@ class DataSet extends \fw\WireableBase implements \Iterator,\Countable,\ArrayAcc
             $this->Contract($O);
 
         $this->Refresh();
+    }
+
+    // given an O return the full Data record
+    public function Match( $O )
+    {
+        $O = Data::NormO($O);
+
+        if( ($D = $this->MDC->findOne(array('Site_id'=>$this->Site_id,'Tags.T'=>$this->Tag,'Tags.O'=>$O))) !== NULL )
+            return $D;
+        else
+            return NULL;
     }
 
     // returns either 0 or max + 1
@@ -129,7 +249,7 @@ class DataSet extends \fw\WireableBase implements \Iterator,\Countable,\ArrayAcc
             return ($O['Tags'][0]['O']+1);
     }
 
-    protected function OOf( \MongoId $D )
+    public function OOf( \MongoId $D )
     {
         $O = $this->MDC->findOne(array('_id'=>$D,'Tags.T'=>$this->Tag),array('Tags.$'=>TRUE));
 
@@ -139,18 +259,36 @@ class DataSet extends \fw\WireableBase implements \Iterator,\Countable,\ArrayAcc
             return $O['Tags'][0]['O'];
     }
 
-    protected function Expand( $O )
+    protected function SetO( \MongoId $D,$NewO,$T = NULL )
     {
+        $NewO = Data::NormO($NewO);
+
+        return $this->MDC->update(array('_id'=>$D,'Tags.T'=>$T===NULL?$this->Tag:$T),
+                                  array('$set'=>array('Tags.$.O'=>$NewO)),
+                                  array('multiple'=>FALSE));
+    }
+
+    // temp. we're not having a unique index so that this works
+    protected function Expand( $O,$T = NULL )
+    {
+//         $Q = array('Site_id'=>$this->Site_id,
+//                                            'Tags'=>array('$elemMatch'=>array('T'=>$T===NULL?$this->Tag:$T,'O'=>array('$gte'=>$O))),
+//                                         '$orderby'=>array('Site_id'=>-1)
+//                                        );
+
+//         $R = $this->MDC->find($Q);
+//         llog(iterator_to_array($R));
+
         return $this->MDC->update(array('Site_id'=>$this->Site_id,
-                                           'Tags'=>array('$elemMatch'=>array('T'=>$this->Tag,'O'=>array('$gt'=>$O)))),
+                                           'Tags'=>array('$elemMatch'=>array('T'=>$T===NULL?$this->Tag:$T,'O'=>array('$gte'=>$O)))),
                                   array('$inc'=>array('Tags.$.O'=>1)),
                                   array('multiple'=>TRUE));
     }
 
-    protected function Contract( $O )
+    protected function Contract( $O,$T = NULL )
     {
         return $this->MDC->update(array('Site_id'=>$this->Site_id,
-                                           'Tags'=>array('$elemMatch'=>array('T'=>$this->Tag,'O'=>array('$gt'=>$O)))),
+                                           'Tags'=>array('$elemMatch'=>array('T'=>$T===NULL?$this->Tag:$T,'O'=>array('$gte'=>$O)))),
                                   array('$inc'=>array('Tags.$.O'=>-1)),
                                   array('multiple'=>TRUE));
     }
@@ -168,13 +306,31 @@ class DataSet extends \fw\WireableBase implements \Iterator,\Countable,\ArrayAcc
             return $R['Data'];
     }
 
+    // a NULL $O is appending such as $arr[] = 'data';
+    // otherwise $O is a position, in which case the _id is looked up
+    // if $O doesn't exist, nothing happens - maybe should exception like Unset to use Untag/Tag to move.
+    public function offsetSet( $O,$Data )
+    {
+        if( $O === NULL )
+        {
+            $this->Create($Data);
+        }
+        else
+        {
+            $D = $this->Match($O);
+
+            if( !empty($D) )
+                $this->SetData($Data,$D);
+        }
+    }
+
     public function offsetExists( $O )
     {
         return $this->MDC->findOne(array('Site_id'=>$this->Site_id,'Tags.T'=>$this->Tag,
                                          'Tags.O'=>Data::NormO($Key)),array('CurrentTS'=>1))===NULL?FALSE:TRUE;
     }
 
-    public function offsetUnset( $Key )
+    public function offsetUnset( $O )
     {
         throw new \fw\Exception("Cannot unset at $O - use Delete().");
     }
