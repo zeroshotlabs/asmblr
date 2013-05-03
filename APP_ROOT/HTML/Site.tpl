@@ -2,10 +2,14 @@
 <ul class="breadcrumb">
 <li><a href="<?=$lp('Home')?>">Home</a> <span class="divider">/</span></li>
 <li><?=$page->Domain?></li>
+<li>
+| <span style="font-size: .89em;"><a href="#" class="set-status" data-type="select" data-url="<?=$lr('site_set_status')?>" data-value="<?=$S['Status']?>" data-name="Status"><?=strtolower($S['Status'])?></a></span>
+</li>
 </ul>
 
 <div class="pull-right">
 <ul class="nav nav-pills">
+    <li class="active"><a href="<?=$lp('NewPage')?>">new page</a></li>
     <li class="dropdown">
         <a class="dropdown-toggle" id="drop4" role="button" data-toggle="dropdown" href="#">Pages <b class="caret"></b></a>
         <ul id="menu1" class="dropdown-menu" role="menu" aria-labelledby="drop4">
@@ -14,6 +18,7 @@
            <?php endforeach; ?>
         </ul>
     </li>
+    <li class="active"><a href="<?=$lp('NewTemplate')?>">new template</a></li>
     <li class="dropdown">
         <a class="dropdown-toggle" id="drop5" role="button" data-toggle="dropdown" href="#">Templates <b class="caret"></b></a>
         <ul id="menu2" class="dropdown-menu" role="menu" aria-labelledby="drop5">
@@ -28,47 +33,39 @@
 <div class="clearfix"></div>
 
 <div class="row-fluid">
-    <div class="span2 text-right">Domain:</div>
-    <div class="span10">
+    <div class="span12">
+    <h3>Domain:</h3>
         <a href="#" class="set-domain" data-type="text" data-url="<?=$lr('site_set_domain')?>" data-name="Domain"><?=$S['Domain']?></a>
     </div>
 </div>
 
-<div class="row-fluid">
-    <div class="span2 text-right">Status:</div>
-    <div class="span10">
-        <a href="#" class="set-status" data-type="select" data-url="<?=$lr('site_set_status')?>" data-value="<?=$S['Status']?>" data-name="Status"><?=$S['Status']?></a>
-    </div>
-</div>
 
 <div class="row-fluid">
-    <div class="span2 text-right">Base URL:</div>
-    <div class="span10">
+    <div class="span12">
+    <h3>Base URL:</h3>
         <a href="#" class="set-baseurl" data-type="url" data-url="<?=$lr('site_set_baseurl')?>" data-emptytext="default" data-name="BaseURL"><?=$S['BaseURL']?></a>
     </div>
 </div>
 
 <div class="row-fluid">
-    <div class="span2 text-right">Routine:</div>
-    <div class="span10">
+    <div class="span12"><h3>Routine:</h3>
         <a href="#" class="set-routine" data-type="textarea" data-url="<?=$lr('site_set_routine')?>" data-emptytext="empty routine" data-name="Routine"><?=\fw\Struct::Get(0,$S['Routine'])?></a>
     </div>
 </div>
 
 <div class="row-fluid" id="directives">
-    <div class="span2 text-right">Directives:</div>
-    <div class="span10">
-        <form id="site_set_directive-form" action="<?=$lr('site_set_directive')?>">
+    <div class="span12"><h3>Directives:</h3>
+        <form id="site_set_directive_form" action="<?=$lr('site_set_directive')?>">
         <input type="hidden" name="Site_id" value="<?=\asm\Request::Bottom()?>">
         <table class="table table-bordered table-striped" style="width: 100%;">
         <tbody class="sortable" id="directives-sortable">
            <?php foreach( $DS as $K => $D ): ?>
             <tr id="<?=$K?>">
-                <td class="text-center">
+                <td class="text-center span1">
                     <a href="#" class="pull-left handle" data-pk="<?=$K?>"><i class="icon-th-list"></i></a>
                     <a href="#" class="set-directive-name editable-click" data-pk="<?=$K?>" data-type="select" data-url="<?=$lr('site_set_directive')?>" data-value="<?=$D['Name']?>" data-name="Name"><?=$D['Name']?></a>
                 </td>
-                <td class="text-center">
+                <td class="text-center span2">
                     <a href="#" class="set-directive-key editable-click" data-pk="<?=$K?>" data-type="text" data-url="<?=$lr('site_set_directive')?>" data-name="Key"><?=$D['Key']?></a>
                 </td>
                 <td>
@@ -103,8 +100,8 @@
                 <button type="submit" class="btn btn-success">New</button>
             </td>
         </tr>
-        </table>
-        </form>
+    </table>
+    </form>
     </div>
 </div>
 

@@ -23,7 +23,6 @@
 </div>
 
 
-
 @@@JSLogin
 <script>
 $(document).ready(function()
@@ -48,11 +47,8 @@ $(document).ready(function()
 
 @@@JSCreateSite
 <script>
-
 $(document).ready(function()
 {
-//	$.ajaxSetup({headers: {'X-ASMBLR-USER': $.cookie('aaid'),'X-ASMBLR-PW': $.cookie('token')}});
-
     $('#createsite').on('submit','#createsite-form',function( e ) {
 		$form = $(e.target);
 		e.preventDefault();
@@ -75,12 +71,11 @@ $(document).ready(function()
 $(document).ready(function()
 {
 	$('a.set-domain').editable();
-	$('a.set-status').editable({mode:'popup',source:'<?=$lr('util_site_statuses')?>'});
+	$('a.set-status').editable({source:'<?=$lr('util_site_statuses')?>'});
 	$('a.set-baseurl').editable({validate: function(v){return '';}});
 	$('a.set-routine').editable({inputclass: 'input-large',validate: function(v){return '';}});
 
-	editable_name = {mode:'popup',source:'<?=$lr('util_dir_names')?>',
-			params:function(p){return DirectiveParams(p)}};
+	editable_name = {mode:'popup',source:'<?=$lr('util_dir_names')?>',placement: 'right',params:function(p){return DirectiveParams(p)}};
 	editable_key = {mode:'popup',params:function(p){return DirectiveParams(p)}};
 	editable_value = {mode:'popup',inputclass:'input-xlarge',params:function(p){return DirectiveParams(p)}};
 
@@ -127,7 +122,7 @@ $(document).ready(function()
                 type:'POST',url:'<?=$lr('site_mv_directive')?>',dataType:'json',data:{D_id:itemid,NextD_id:nextid,Site_id:'<?=\asm\Request::Bottom()?>'}});
         }});
 
-	$('#directives').on('submit','#site_set_directive-form',function( e ) {
+	$('#directives').on('submit','#site_set_directive_form',function( e ) {
 		$form = $(e.target);
 		e.preventDefault();
 		$.ajax({
@@ -145,26 +140,6 @@ $(document).ready(function()
 			}})
 		.fail(function(){ $('#diralert').css('display','block').html('Please complete the form.'); });
     });
-
-//	$('div.directive-form').editable({selector: 'a'});
-//    $("#sortable-dirs").sortable({ placeholder: "ui-state-highlight" });
-//    $("#sortable-dirs").disableSelection();
 });
 </script>
-
-
-@@@DirectiveForm
-<div class="controls controls-row directive-form">
-<?php /*
-    <a href="#" data-type="select" data-url="<?=$lr('site_set_status')?>" data-value="<?=$S['Status']?>" data-name="Status"><?=$S['Status']?></a>
-*/ ?>
-<select class="span2" name="set-">
-    <option></option>
-   <?php foreach( array('page','html','lp') as $V ): ?>
-    <option value="<?=$V?>" <?=$this('Name',$D,$V,'selected')?> >$<?=$V?></option>
-   <?php endforeach; ?>
-</select>
-<input class="span2" type="text" placeholder="key" value="<?=$this($D['Key'])?>" >
-<textarea class="span8" placeholder="value"><?=$this($D['Value'])?></textarea>
-</div>
 
