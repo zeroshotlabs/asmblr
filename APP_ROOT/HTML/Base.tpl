@@ -54,59 +54,35 @@
 
 
 <script>
-// post a form and process returned ValidationReport and reload fragments
-function submit_form( e )
-{
-	$form = $(e.target);
-
-	e.preventDefault();
-
-    $.post($form.attr('action'),$form.serialize(),function(data){
-    	$('.label-important',e.delegateTarget).html(data.Msg);
-
-        if( data.Status == false )
-        {
-            tid = e.target.id;
-
-            $.each( jQuery.parseJSON(data.Data), function(k,v) {
-                if( v )
-                    $('#'+tid+' input[name="'+k+'"]').removeClass('error');
-                else
-                	$('#'+tid+' input[name="'+k+'"]').addClass('error');
-            });
-        }
-        else
-        {
-            reload_tab(e.delegateTarget.id);
-            reload_aside();
-            reload_buttons();
-        }
-    },'json');
-}
-
-function NormParams( p )
+// because JS confuses itself
+var NormParams = function( p )
 {
 	n = {};
-	lastK = '';
-	$.each(p,function(k,v) {
-		if( k == 'name' )
-			lastK = v;
-		else if( k == 'value' )
-		{
-		    n[lastK] = v;
-		}
-		else
-			n[k] = v;
-	});
-
-   <?php if( $lp->Current('Site',TRUE) ): ?>
-    n['Site_id'] = '<?=\asm\Request::Bottom()?>';
-   <?php endif;?>
+	// from x-editable, simple key/value pairs
+	if( typeof p.name !== 'undefined' )
+	{
+	    lastK = '';
+    	$.each(p,function(k,v) {
+    		if( k == 'name' )
+    			lastK = v;
+    		else if( k == 'value' )
+    		    n[lastK] = v;
+    		else
+    			n[k] = v;
+    	});
+	}
+	// from serializeArray forms (i.e. new directive form)
+	else
+	{
+    	$.each(p,function(k,v) {
+    	    n[v['name']] = v['value'];
+    	});
+	}
 
     return n;
 }
 
-function DirectiveParams( p )
+var NormDirParams = function( p )
 {
 	p2 = {};
 	if( p.name === 'Name' )
@@ -130,14 +106,10 @@ function DirectiveParams( p )
 
     p2['D_id'] = p['pk'];
 
-   <?php if( $lp->Current('Site',TRUE) ): ?>
-    p2['Site_id'] = '<?=\asm\Request::Bottom()?>';
-   <?php endif;?>
-
     return p2;
 }
 
-
+// validate: function(v){return '';}
 $(document).ready(function()
 {
 	if( location.hash )
@@ -146,23 +118,34 @@ $(document).ready(function()
     $(document).ajaxStart(function() { $('#spinner').show(); });
     $(document).ajaxComplete(function() { window.setTimeout(function() { $('#spinner').hide(); },200)});
 
-    $.ajaxSetup({headers: {'X-ASMBLR-USER': $.cookie('aaid'),'X-ASMBLR-PW': $.cookie('token')}});
+    data = {};
+   <?php if( $lp->Current('Site',TRUE) ): ?>
+    data['Site_id'] = '<?=\fw\Request::Path(-1)?>';
+   <?php elseif( $lp->Current('Page',TRUE) ): ?>
+    data['Page_id'] = '<?=\fw\Request::Path(-1)?>';
+   <?php endif;?>
+
+    headers = {'X-ASMBLR-USER': '<?=$_SESSION['Account']['_id']?>',
+    	       'X-ASMBLR-PW': '<?=$_SESSION['Account']['Password']?>'};
+
+    $.ajaxSetup({headers:headers,data:data,dataType:'json',type:'POST'});
 
 	// setup editable defaults
-	$.fn.editable.defaults.mode = 'inline';
+	$.fn.editable.defaults.mode = 'popup';
 	$.fn.editable.defaults.onblur = 'ignore';
 	$.fn.editable.defaults.send = 'always';
+	$.fn.editable.defaults.placement = 'top';
 	$.fn.editable.defaults.success = function(r,nv){ if( r.Status === false ) return r.Msg; };
 	$.fn.editable.defaults.validate = function(v){if($.trim(v)=='') return 'Required.';};
-	$.fn.editable.defaults.params = function(p){return NormParams(p)};
+	$.fn.editable.defaults.params = NormParams;
 
-    $('aside').on('click','a.iconlink',function(e) {
-        $('#rightaside').load($(e.currentTarget).attr('href'),reload_aside);
-    	e.preventDefault();
-    });
+//    $('aside').on('click','a.iconlink',function(e) {
+//        $('#rightaside').load($(e.currentTarget).attr('href'),reload_aside);
+//    	e.preventDefault();
+//    });
 
     // handle form submits  (JSON - /json/)
-    $('#login').on('submit','#login',submit_form);
+//    $('#login').on('submit','#login',submit_form);
 });
 
 </script>

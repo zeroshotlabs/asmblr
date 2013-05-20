@@ -42,9 +42,9 @@ abstract class v extends \fw\enUS
             $H[$N] = '';
             return TRUE;
         }
-        else if( static::Text($N,$H) && ($U = URL::Init($H[$N])) )
+        else if( static::Text($N,$H) && ($U = \fw\URL::Init($H[$N])) )
         {
-            $H[$N] = URL::ToString($U);
+            $H[$N] = \fw\URL::ToString($U);
             return TRUE;
         }
         else
@@ -82,6 +82,8 @@ abstract class v extends \fw\enUS
 
     // a directive is three part array, Name, Key, Value, contained directly in $_POST
     // for Name should be checking that value is known per REST::util_dir_names
+    // since this works on the full $_POST and we then save to mongo, it should probably
+    // screen-out any other variables that might be set
     public static function Directive( &$H )
     {
         if( !static::Text('Name',$H) || !static::Text('Key',$H) || !static::Textarea('Value',$H) )
@@ -174,7 +176,7 @@ abstract class rv
     {
         return v::Routine($N,$_POST);
     }
-    // full $_POST validation
+    // validates full $_POST
     public static function Directive()
     {
         return v::Directive($_POST);

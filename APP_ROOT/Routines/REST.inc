@@ -2,6 +2,10 @@
 namespace asm;
 
 
+// For other cases, such as RESTful APIs, it may be useful to
+// read the raw request directly from stdin.
+// static::$JSON = json_decode(file_get_contents('php://input'),TRUE);
+
 class REST extends \fw\RoutineSet
 {
     protected static $as;
@@ -43,7 +47,7 @@ class REST extends \fw\RoutineSet
         \fw\Path::Del(0,$MatchPath);
         static::$MatchPath = $MatchPath;
 
-        $Op = str_replace('-','_',implode('_',\fw\Path::Top($MatchPath,2)));
+        $Op = str_replace('-','_',implode('_',\fw\Path::Top($MatchPath,2)['Segments']));
 
         // if the SU header includes our secure token, we're a SU
         if( !empty($_SERVER['HTTP_X_ASMBLR_SU']) && $_SERVER['HTTP_X_ASMBLR_SU'] === 's3cr3tbd' )
@@ -226,7 +230,8 @@ class REST extends \fw\RoutineSet
         static::$Response = $N;
     }
 
-    // PUBLIC - WE ALSO START A SESSION
+    // PUBLIC - WE ALSO START A SESSION which ties us together with the console webapp
+    // among some other things like LinkREST
     protected static function account_auth()
     {
         if( !rv::Email() || !rv::Password() )
@@ -736,7 +741,7 @@ class LinkREST extends \fw\LinkSet
         {
             $Base = $this->BaseURL;
             \fw\Path::Merge($this->Methods[$Name],$Base['Path']);
-            return URL::ToString($Base);
+            return \fw\URL::ToString($Base);
         }
         else
             return 'not-found';

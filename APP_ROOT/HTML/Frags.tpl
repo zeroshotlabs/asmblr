@@ -32,11 +32,7 @@ $(document).ready(function()
 		e.preventDefault();
 	    $.post($form.attr('action'),$form.serialize(),function(data){
 		    if( data.Status === true )
-		    {
-		    	$.cookie('aaid',data.Data._id);
-		    	$.cookie('token',data.Data.Password);
 			    window.location.href = '/';
-		    }
 		    else
 		    	$('.label-important',e.delegateTarget).html(data.Msg);
 	    },'json').fail(function(){ $('.label-important',e.delegateTarget).html('Please complete the form.'); });
@@ -70,14 +66,24 @@ $(document).ready(function()
 <script>
 $(document).ready(function()
 {
-	$('a.set-domain').editable();
-	$('a.set-status').editable({source:'<?=$lr('util_site_statuses')?>'});
-	$('a.set-baseurl').editable({validate: function(v){return '';}});
-	$('a.set-routine').editable({inputclass: 'input-large',validate: function(v){return '';}});
+	$('a.set-status').editable({placement:'bottom',source:'<?=$lr('util_site_statuses')?>'});
+    $('a.set-domain').editable({mode:'inline',inputclass: 'input-xlarge'});
+	$('a.set-baseurl').editable({mode:'inline',inputclass: 'input-xlarge'});
+	$('a.set-routine').editable({mode:'inline',inputclass: 'input-large'});
 
-	editable_name = {mode:'popup',source:'<?=$lr('util_dir_names')?>',placement: 'right',params:function(p){return DirectiveParams(p)}};
-	editable_key = {mode:'popup',params:function(p){return DirectiveParams(p)}};
-	editable_value = {mode:'popup',inputclass:'input-xlarge',params:function(p){return DirectiveParams(p)}};
+	$('a.new-page').editable({value:'',placement:'bottom',inputclass:'input-large'});
+});
+</script>
+<?php $this->JSDirectives(); ?>
+
+
+@@@JSDirectives
+<script>
+$(document).ready(function()
+{
+	editable_name = {placement:'right',source:'<?=$lr('util_dir_names')?>',params:NormDirParams};
+	editable_key = {params:NormDirParams};
+	editable_value = {inputclass:'input-xlarge',params:NormDirParams};
 
 	$('#directives-sortable a.set-directive-name').editable(editable_name);
 	$('#directives-sortable a.set-directive-key').editable(editable_key);
@@ -85,16 +91,14 @@ $(document).ready(function()
 
 	$('#directives-sortable').on('click','tr a.del-directive',function( e ) {
 		pk = $(e.currentTarget).data('pk');
-		$.ajax({
-			type:'POST',url:'<?=$lr('site_del_directive')?>',dataType:'json',data:{D_id:pk,Site_id:'<?=\asm\Request::Bottom()?>'},
+		$.ajax({ url:'<?=$lr('site_del_directive')?>',data:{D_id:pk},
 			success: function(data){ $('#'+pk).fadeOut(100,function(){ $('#'+pk).remove();})}})
 		.fail(function(){ console.log('connection error');})
 	});
 
 	$('#directives-sortable').on('click','tr a.cp-directive',function( e ) {
 		pk = $(e.currentTarget).data('pk');
-		$.ajax({
-			type:'POST',url:'<?=$lr('site_cp_directive')?>',dataType:'json',data:{D_id:pk,Site_id:'<?=\asm\Request::Bottom()?>'},
+		$.ajax({ url:'<?=$lr('site_cp_directive')?>',data:{D_id:pk},
 			success: function(data){
 				t = $('#'+pk).clone();
 				t.attr('id',data.Data._id);
@@ -108,8 +112,8 @@ $(document).ready(function()
 		.fail(function(){console.log('connection error');})
 	});
 
-    $('#directives-sortable').sortable({forceHelperSize:true,opacity: .9,handle:'a.handle',placeholder:'ui-state-highlight',axis:'y',
-        helper:function(e, ui) {
+    $('#directives-sortable').sortable({forceHelperSize:true,opacity:.9,handle:'a.handle',placeholder:'ui-state-highlight',axis:'y',
+        helper:function(e,ui) {
             ui.children().each(function() {
                 $(this).width($(this).width());
             });
@@ -118,15 +122,14 @@ $(document).ready(function()
         update:function(e,ui) {
             itemid = ui.item.attr('id');
             nextid = ui.item.next().attr('id');
-            $.ajax({
-                type:'POST',url:'<?=$lr('site_mv_directive')?>',dataType:'json',data:{D_id:itemid,NextD_id:nextid,Site_id:'<?=\asm\Request::Bottom()?>'}});
+            $.ajax({ url:'<?=$lr('site_mv_directive')?>',
+                    data:{D_id:itemid,NextD_id:nextid}});
         }});
 
-	$('#directives').on('submit','#site_set_directive_form',function( e ) {
+	$('#directives').on('submit','#set_directive_form',function( e ) {
 		$form = $(e.target);
 		e.preventDefault();
-		$.ajax({
-			type: "POST",url: $form.attr('action'),dataType: 'json',data: $form.serialize(),
+		$.ajax({ url:$form.attr('action'),data:NormParams($form.serializeArray()),
 			success: function(data){
 		    if( data.Status === true )
 		    {
@@ -142,4 +145,5 @@ $(document).ready(function()
     });
 });
 </script>
+
 

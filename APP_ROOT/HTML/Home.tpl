@@ -1,6 +1,5 @@
 
-
-<div class="row span7">
+<div class="row span12">
 <ul class="breadcrumb">
    <?php foreach( $SS as $S ): ?>
     <li><a href="<?=$lp('Site',">".(string)$S['_id'])?>"><?=$S['Domain']?></a> <span class="divider">/</span></li>
@@ -8,6 +7,6 @@
 </ul>
 </div>
 
-<div class="row span7">
+<div class="row span12">
 <?php $this->CreateSite(); ?>
 </div>

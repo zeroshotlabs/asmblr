@@ -1,17 +1,18 @@
 
-<div class="center span4" id="createsite">
-    <div class="label label-important"></div>
+<div id="createsite" class="span5">
 <form id="createsite-form" method="post" action="<?=$lr('site_create')?>">
-    <div class="controls row-fluid">
-        <div class="span12 row control-group">
-            <input type="text" placeholder="Domain" name="Domain" class="span12">
-        </div>
+    <div class="row center">
+        <div class="label label-important"></div>
     </div>
-    <div class="control row-fluid">
-        <button type="submit" id="createsite" value="Submit" name="Submit" class="btn btn-primary">Create site</button>
+    <div class="row center">
+        <input class="input-block-level" type="text" placeholder="domain.com" name="Domain">
+    </div>
+    <div class="row center">
+        <button class="btn-block btn btn-primary" type="submit" value="Submit" name="Submit">Create site</button>
     </div>
 </form>
 </div>
+
 
 <?php $this->Stack('JSCreateSite','ajax'); ?>
 

@@ -238,12 +238,12 @@ class fwApp extends \fw\App
         // bring our asmblr stuff online - no site execution happens though (Go())
         $asm = new asmSrv;
 
-        // no session except in /account/auth
+        // no session created in account_auth which ties us back to this code base
         if( \fw\Path::Top($this->MatchPath) === 'restv1' )
         {
             \fw\HTTP::ContentType('json');
             REST::v1($this->MatchPath);
-            $html->ajf_JSONResponse();
+            $html->JSONResponse();
             return;
         }
 
@@ -259,15 +259,14 @@ class fwApp extends \fw\App
 
         $html->RightAside = NULL;
 
+        $ps->Create('CSS','/css/','Request::CSSHandler');
+        $ps->Create('JS','/js/','Request::JSHandler');
+
         $ps->Create('Home','/','Request::Home');
         $ps->Create('Logout','/logout','Request::Logout');
         $ps->Create('Site','/site/','Request::Site');
-
-        $ps->Create('Test','/test','Request::Test');
-
-        $ps->Create('CSS','/css/','Request::CSSHandler');
-        $ps->Create('JS','/js/','Request::JSHandler');
-        $ps->Create('AjaxFrags','/ajf/','AjaxFrags');
+        $ps->Create('Page','/page/','Request::Page');
+//        $ps->Create('AjaxFrags','/ajf/','AjaxFrags');
 
         $OrderedMatch = NULL;
         if( $this->MatchPath['IsRoot'] === FALSE )
@@ -327,7 +326,7 @@ class fwApp extends \fw\App
 
 // Config :)
 // must only be a domain
-$ConsoleDomain = 'asmblr.local';
+$ConsoleHostname = 'asmblr.local';
 
 define('DOC_ROOT',getcwd().DIRECTORY_SEPARATOR);
 define('APP_ROOT',str_replace('DOC_ROOT','APP_ROOT',DOC_ROOT));
@@ -336,18 +335,18 @@ define('APP_ROOT',str_replace('DOC_ROOT','APP_ROOT',DOC_ROOT));
 \fw\Inc::Dir('asmblr');
 
 // some custom start-up and route based on domain
-$Domain = \asm\Request::Hostname();
+$Hostname = \fw\Request::Hostname();
 
-if( $ConsoleDomain === $Domain )
+if( $ConsoleHostname === $Hostname )
 {
     $fw = new fwApp;
-    $fw->Go($Domain);
+    $fw->Go($Hostname);
 }
 else
 {
     // a bogus request is handled in asmSrv
     $asm = new asmSrv;
-    $asm->Go($Domain);
+    $asm->Go($Hostname);
 }
 
 

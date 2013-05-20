@@ -1,69 +1,43 @@
 <?php
 
 namespace {
-    function asm( $Name = NULL )
-    {
-        if( is_string($Name) === TRUE )
-            return $GLOBALS['ASMAPP']->$Name;
-        else if( is_array($Name) === TRUE )
-            return $GLOBALS['ASMAPP']->GetWired($Name);
-        else if( $Name === NULL )
-            return $GLOBALS['ASMAPP'];
-        else
-            return $GLOBALS['ASMAPP']->__isset($Name);
-    }
+function asm( $Name = NULL )
+{
+    if( is_string($Name) === TRUE )
+        return $GLOBALS['ASMAPP']->$Name;
+    else if( is_array($Name) === TRUE )
+        return $GLOBALS['ASMAPP']->GetWired($Name);
+    else if( $Name === NULL )
+        return $GLOBALS['ASMAPP'];
+    else
+        return $GLOBALS['ASMAPP']->__isset($Name);
+}
 }
 
 namespace asm
 {
 
-abstract class URL extends \fw\URL
+abstract class JSONResponse extends \fw\Struct
 {
-    public static function Hostname( $URL )
+    protected static $Skel = array('Method'=>'','Status'=>TRUE,'Msg'=>'','Data'=>'');
+
+    public static function Ok( $Data )
     {
-        return \fw\Hostname::ToString($URL['Hostname']);
+        $R = static::$Skel;
+        $R['Method'] = \fw\Path::ToURLString(fw()->Request['Path']);
+        $R['Data'] = $Data;
+        return $R;
     }
 
-    public static function Path( $URL )
+    public static function Fail( $Msg )
     {
-        return \fw\Path::ToURLString($URL['Path']);
-    }
-
-    public static function Bottom( $URL )
-    {
-        return \fw\Path::Bottom($URL['Path']);
-    }
-
-    public static function Top( $URL )
-    {
-        return \fw\Path::Top($URL['Path']);
+        $R = static::$Skel;
+        $R['Method'] = \fw\Path::ToURLString(fw()->Request['Path']);
+        $R['Status'] = FALSE;
+        $R['Msg'] = $Msg;
+        return $R;
     }
 }
-
-
-abstract class Request extends \fw\Request
-{
-    public static function Hostname()
-    {
-        return \fw\Hostname::ToString(static::Init()['Hostname']);
-    }
-
-    public static function Path()
-    {
-        return \fw\Path::ToURLString(static::Init()['Path']);
-    }
-
-    public static function Bottom()
-    {
-        return \fw\Path::Bottom(static::Init()['Path']);
-    }
-
-    public static function Top()
-    {
-        return \fw\Path::Top(static::Init()['Path']);
-    }
-}
-
 
 abstract class MongoStruct extends \fw\Struct
 {
@@ -78,7 +52,7 @@ abstract class MongoStruct extends \fw\Struct
 }
 
 
-// generic mongo setter - base for storing in mongo
+// generic mongo setter - base for storing stuff in mongo via the REST API
 class MongoSet extends \fw\WireableBase
 {
     protected $MDB;
@@ -118,7 +92,6 @@ class MongoSet extends \fw\WireableBase
         return $MDB::IsDupeE($E,$Key);
     }
 }
-
 
 
 class SessionStoreMongoDB implements \SessionHandlerInterface
@@ -165,41 +138,5 @@ class SessionStoreMongoDB implements \SessionHandlerInterface
     }
 }
 
-
-/**
- * A JSON response array.
- */
-abstract class JSONResponse extends \fw\Struct
-{
-    protected static $Skel = array('Method'=>'','Status'=>TRUE,'Msg'=>'','Data'=>'');
-
-    /**
-     * Initialize a successful response.
-     *
-     * @param mixed $Data Payload to include in response.
-     * @retval array Response.
-     */
-    public static function Ok( $Data )
-    {
-        $R = static::$Skel;
-        $R['Method'] = \fw\Path::ToURLString(fw()->Request['Path']);
-        $R['Data'] = $Data;
-        return $R;
-    }
-
-    /**
-     * Initialize a failed response.
-     *
-     * @param string $Msg Error message.
-     * @retval array Response.
-     */
-    public static function Fail( $Msg )
-    {
-        $R = static::$Skel;
-        $R['Method'] = \fw\Path::ToURLString(fw()->Request['Path']);
-        $R['Status'] = FALSE;
-        $R['Msg'] = $Msg;
-        return $R;
-    }
 }
-}
+

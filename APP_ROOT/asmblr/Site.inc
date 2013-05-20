@@ -13,6 +13,7 @@ abstract class Site extends MongoStruct
                                    'Status'=>'Inactive','BaseURL'=>'',
                                    'Routine'=>array(),'Directives'=>array(),'Config'=>array());
 
+    // do we set BaseURL the same as domain?
     public static function Init( $Domain,\MongoId $AAID )
     {
         $Site = static::$Skel;
@@ -54,6 +55,7 @@ class SiteSet extends MongoSet
         return $this->SetKV('Status',$Status,'_id',$S);
     }
 
+    // shouldn't we be saving BaseURL as a Path Struct?
     public function SetBaseURL( $BaseURL,&$S )
     {
         return $this->SetKV('BaseURL',$BaseURL,'_id',$S);
