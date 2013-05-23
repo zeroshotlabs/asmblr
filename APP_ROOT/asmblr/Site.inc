@@ -138,7 +138,6 @@ class SiteSet extends MongoSet
         else
         {
             $O = $ds->OOf($NextD_id);
-            llog($O);
             return $ds->Move($D,$O);
         }
     }

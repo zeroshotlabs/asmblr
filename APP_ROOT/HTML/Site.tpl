@@ -1,11 +1,12 @@
 
 <ul class="breadcrumb">
-<li><a href="<?=$lp('Home')?>">Home</a> <span class="divider">/</span></li>
+<li><a href="<?=$lp('Home')?>">Home</a> <span class="divider">|</span></li>
 <li><?=$page->Domain?></li>
 <li>
 &nbsp;&nbsp;<span style="font-size: .79em;"><a href="#" class="set-status" data-type="select" data-url="<?=$lr('site_set_status')?>" data-value="<?=$S['Status']?>" data-name="Status"><?=strtolower($S['Status'])?></a></span>
 </li>
 </ul>
+
 
 <div class="pull-right">
 <ul class="nav nav-pills">
@@ -52,15 +53,26 @@
 <div class="row-fluid">
     <div class="span12">
         <h3>Routine:</h3>
-        <a href="#" class="set-routine" data-type="textarea" data-url="<?=$lr('site_set_routine')?>" data-emptytext="empty routine" data-name="Routine"><?=\fw\Struct::Get(0,$S['Routine'])?></a>
+        <a href="#" class="set-routine" data-type="textarea" data-url="<?=$lr('site_set_routine')?>" data-emptytext="no routine" data-name="Routine"><?=\fw\Struct::Get(0,$S['Routine'])?></a>
     </div>
 </div>
 
 <div class="row-fluid" id="directives">
     <div class="span12">
         <h3>Directives:</h3>
-        <form id="set_directive_form" action="<?=$lr('site_set_directive')?>">
-        <?php $this->ajf_directive_table(); ?>
+        <div id="dir-table-container"></div>
+
+        <div id="diralert" class="alert alert-error"></div>
+        <form id="set_directive_form" action="<?=$lr('site_set_directive')?>" class="form-inline">
+        <select class="input-small" name="Name">
+            <option></option>
+           <?php foreach( $DirectiveNames as $V ): ?>
+            <option value="<?=$V?>">$<?=$V?></option>
+           <?php endforeach; ?>
+        </select>
+        <input class="input-small" type="text" placeholder="key" value="" name="Key" >
+        <textarea class="" placeholder="value" name="Value" style="width: 75%;"></textarea>
+        <button type="submit" class="btn btn-success">New</button>
         </form>
     </div>
 </div>

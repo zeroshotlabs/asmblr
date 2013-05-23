@@ -193,6 +193,7 @@ class asmSrv extends \fw\App
 class fwApp extends \fw\App
 {
     public $SysOp = 'asmblr@stackware.com';
+    public $LogPublic = TRUE;
 
 
     // minimize internal startup
@@ -261,12 +262,13 @@ class fwApp extends \fw\App
 
         $ps->Create('CSS','/css/','Request::CSSHandler');
         $ps->Create('JS','/js/','Request::JSHandler');
+        $ps->Create('ajfHandler','/ajf/','Request::ajfHandler');
 
         $ps->Create('Home','/','Request::Home');
         $ps->Create('Logout','/logout','Request::Logout');
         $ps->Create('Site','/site/','Request::Site');
         $ps->Create('Page','/page/','Request::Page');
-//        $ps->Create('AjaxFrags','/ajf/','AjaxFrags');
+
 
         $OrderedMatch = NULL;
         if( $this->MatchPath['IsRoot'] === FALSE )

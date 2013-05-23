@@ -42,11 +42,10 @@ abstract class Request extends \fw\RoutineSet
         fw('html')->Connect($PS,'PS');
         fw('html')->Connect($TS,'TS');
         fw('html')->Connect($S,'S');
-        fw('html')->Connect(array_keys(asm()->GetWired()),'DirectiveNames');
-        fw('html')->ReMap('Article','Site');
 
-        $DS = new \asm\DataSet(asm('asmdb'),$S['_id'],'Directive');
-        fw('html')->Connect($DS,'DS');
+        fw('html')->Connect(array_keys(asm()->GetWired()),'DirectiveNames');
+
+        fw('html')->ReMap('Article','Site');
     }
 
     public static function Page()
@@ -83,6 +82,8 @@ abstract class Request extends \fw\RoutineSet
     // URL: /ajf/some-html-fragment-name
     public static function ajfHandler()
     {
+        fw('html')->SetRoutine('ajf_directive_table','Request::directive_table');
+
         $F = 'ajf_'.\fw\Request::Path(-1);
 
         if( isset(fw('html')->{$F}) )
@@ -96,6 +97,46 @@ abstract class Request extends \fw\RoutineSet
             \fw\HTTP::_404();
         }
     }
+
+    // for the AJFs - auth?
+    // since this is a Template Routine we can only return FALSE, not remap to NULL
+    public static function directive_table()
+    {
+        if( \asm\rv::Site_id() )
+        {
+            $S = asm('ss')->Read(new \MongoId($_POST['Site_id']));
+            $Tag = 'Directive';
+        }
+        else if( \asm\rv::Page_id() )
+        {
+            $S = asm('ps')->Read(new \MongoId($_POST['Page_id']));
+            $Tag = 'DirectiveP_';
+        }
+        // wait do templates have directives?  not yet anyway...
+        else if( \asm\rv::Template_id() )
+        {
+            $S = asm('ts')->Read(new \MongoId($_POST['Template_id']));
+            $Tag = 'DirectiveT_';
+        }
+
+        if( empty($S) )
+        {
+            \fw\HTTP::_404();
+            return FALSE;
+        }
+
+        if( isset($S['Site_id']) )
+        {
+            $Site_id = $S['Site_id'];
+            $Tag = $Tag.$S['_id'];
+        }
+        else
+            $Site_id = $S['_id'];
+
+        $DS = new \asm\DataSet(asm('asmdb'),$Site_id,$Tag);
+        fw('html')->Connect($DS,'DS');
+    }
+
 
     public static function CSSHandler()
     {

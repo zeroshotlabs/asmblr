@@ -468,24 +468,6 @@ class REST extends \fw\RoutineSet
             static::$Response = JSONResponse::Ok($D);
     }
 
-    protected static function site_set_directiveasas()
-    {
-        if( !rv::Site_id() || !rv::Directive() )
-            \fw\HTTP::_400();
-
-        static::AuthSite(new \MongoId($_POST['Site_id']));
-
-        $ds = new DataSet(asm('asmdb'),$_POST['Site_id'],'Directive');
-        $R = $ds[$_POST['Directive']['id']] = $_POST['Directive'];
-
-//        $R = static::$ss->SetDirectives($_POST['Directives'],static::$Site);
-
-        if( $R === TRUE )
-            static::$Response = JSONResponse::Ok(static::$Site);
-        else
-            static::$Reponse = JSONResponse::Fail('Database error');
-    }
-
     protected static function site_set_config()
     {
         if(!rv::Site_id() || !rv::Config() )
@@ -607,19 +589,82 @@ class REST extends \fw\RoutineSet
             static::$Reponse = JSONResponse::Fail('Database error');
     }
 
-    protected static function page_set_directives()
+    // will need directive/dataset specific security
+    protected static function page_set_directive()
     {
-        if( !rv::Page_id() || !rv::Directives() )
+        if( !rv::Page_id() || !rv::Directive() )
             \fw\HTTP::_400();
 
         static::AuthPage(new \MongoId($_POST['Page_id']));
 
-        $R = static::$ps->SetDirectives($_POST['Directives'],static::$Page);
+        // if a Directive_id is present and valid, this will be an update; insert otherwise
+        if( !empty($_POST['D_id']) && v::_id('D_id',$_POST) )
+            $D_id = new \MongoId($_POST['D_id']);
+        else
+            $D_id = NULL;
+
+        $D = array('Name'=>$_POST['Name'],'Key'=>$_POST['Key'],'Value'=>$_POST['Value']);
+        $R = static::$ps->SetDirective($D,static::$Page,$D_id);
 
         if( $R === TRUE )
             static::$Response = JSONResponse::Ok(static::$Page);
         else
-            static::$Reponse = JSONResponse::Fail('Database error');
+            static::$Response = JSONResponse::Fail('Database error');
+    }
+
+    protected static function page_del_directive()
+    {
+        if( !rv::Page_id() || !v::_id('D_id',$_POST) )
+            \fw\HTTP::_400();
+
+        static::AuthPage(new \MongoId($_POST['Page_id']));
+
+        $D_id = new \MongoId($_POST['D_id']);
+
+        $R = static::$ps->DeleteDirective($D_id,static::$Page);
+
+        if( $R === TRUE )
+            static::$Response = JSONResponse::Ok(static::$Page);
+        else
+            static::$Response = JSONResponse::Fail('Database error');
+    }
+
+    protected static function page_cp_directive()
+    {
+        if( !rv::Page_id() || !v::_id('D_id',$_POST) )
+            \fw\HTTP::_400();
+
+        static::AuthPage(new \MongoId($_POST['Page_id']));
+
+        $D_id = new \MongoId($_POST['D_id']);
+
+        $D = static::$ps->CopyDirective($D_id,static::$Page);
+
+        if( empty($D) )
+            static::$Response = JSONResponse::Fail('Database error');
+        else
+            static::$Response = JSONResponse::Ok($D);
+    }
+
+    protected static function page_mv_directive()
+    {
+        if( !rv::Page_id() || !v::_id('D_id',$_POST) )
+            \fw\HTTP::_400();
+
+        static::AuthPage(new \MongoId($_POST['Page_id']));
+
+        $D_id = new \MongoId($_POST['D_id']);
+        if( v::_id('NextD_id',$_POST) )
+            $NextD_id = new \MongoId($_POST['NextD_id']);
+        else
+            $NextD_id = NULL;
+
+        $D = static::$ps->MoveDirective($D_id,$NextD_id,static::$Page);
+
+        if( empty($D) )
+            static::$Response = JSONResponse::Fail('Database error');
+        else
+            static::$Response = JSONResponse::Ok($D);
     }
 
     protected static function template_read()
