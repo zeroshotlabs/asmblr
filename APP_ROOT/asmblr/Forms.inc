@@ -80,6 +80,19 @@ abstract class v extends \fw\enUS
             return FALSE;
     }
 
+    // ditto
+    public static function Body( $N,&$H )
+    {
+        if( empty($H[$N]) )
+        {
+            $H[$N] = '';
+            return TRUE;
+        }
+
+        // really need a separate validator
+        return static::Textarea($N,$H);
+    }
+
     // a directive is three part array, Name, Key, Value, contained directly in $_POST
     // for Name should be checking that value is known per REST::util_dir_names
     // since this works on the full $_POST and we then save to mongo, it should probably

@@ -89,7 +89,7 @@ class REST extends \fw\RoutineSet
         // remaining site ownership auth is done at the method
         static::{$Op}();
 
-        if( !empty(static::$Response['Data']) )
+        if( !empty(static::$Response['Data']) && is_array(static::$Response['Data']) )
         {
             // this is sort of a pain in the ass
             foreach( static::$Response['Data'] as $K => &$V )
@@ -132,13 +132,14 @@ class REST extends \fw\RoutineSet
         if( empty($T) )
             \fw\HTTP::_400();
 
-        static::AuthSite($P['Site_id']);
+        static::AuthSite($T['Site_id']);
         static::$Template = $T;
     }
 
     protected static function AuthPage( \MongoId $P_id )
     {
         $P = static::$ps->Read($P_id);
+
         if( empty($P) )
             \fw\HTTP::_400();
 
@@ -206,7 +207,7 @@ class REST extends \fw\RoutineSet
         if( $R === TRUE )
             static::$Response = JSONResponse::Ok(static::$Account);
         else
-            static::$Reponse = JSONResponse::Fail('Database error');
+            static::$Response = JSONResponse::Fail('Database error');
     }
 
     // public
@@ -262,7 +263,7 @@ class REST extends \fw\RoutineSet
         if( $R === TRUE )
             static::$Response = JSONResponse::Ok(static::$Account);
         else
-            static::$Reponse = JSONResponse::Fail('Database error');
+            static::$Response = JSONResponse::Fail('Database error');
     }
 
     protected static function account_set_name()
@@ -275,7 +276,7 @@ class REST extends \fw\RoutineSet
         if( $R === TRUE )
             static::$Response = JSONResponse::Ok(static::$Account);
         else
-            static::$Reponse = JSONResponse::Fail('Database error');
+            static::$Response = JSONResponse::Fail('Database error');
     }
 
     protected static function account_set_company()
@@ -288,7 +289,7 @@ class REST extends \fw\RoutineSet
         if( $R === TRUE )
             static::$Response = JSONResponse::Ok(static::$Account);
         else
-            static::$Reponse = JSONResponse::Fail('Database error');
+            static::$Response = JSONResponse::Fail('Database error');
     }
 
 
@@ -357,7 +358,7 @@ class REST extends \fw\RoutineSet
         if( $R === TRUE )
             static::$Response = JSONResponse::Ok(static::$Site);
         else
-            static::$Reponse = JSONResponse::Fail('Database error');
+            static::$Response = JSONResponse::Fail('Database error');
     }
 
     protected static function site_set_baseurl()
@@ -372,7 +373,7 @@ class REST extends \fw\RoutineSet
         if( $R === TRUE )
             static::$Response = JSONResponse::Ok(static::$Site);
         else
-            static::$Reponse = JSONResponse::Fail('Database error');
+            static::$Response = JSONResponse::Fail('Database error');
     }
 
     protected static function site_set_routine()
@@ -387,7 +388,7 @@ class REST extends \fw\RoutineSet
         if( $R === TRUE )
             static::$Response = JSONResponse::Ok(static::$Site);
         else
-            static::$Reponse = JSONResponse::Fail('Database error');
+            static::$Response = JSONResponse::Fail('Database error');
     }
 
     // will need directive/dataset specific security
@@ -480,7 +481,7 @@ class REST extends \fw\RoutineSet
         if( $R === TRUE )
             static::$Response = JSONResponse::Ok(static::$Site);
         else
-            static::$Reponse = JSONResponse::Fail('Database error');
+            static::$Response = JSONResponse::Fail('Database error');
     }
 
     protected static function page_read()
@@ -495,7 +496,7 @@ class REST extends \fw\RoutineSet
         static::AuthPage(new \MongoId(\fw\Path::Bottom(static::$MatchPath)));
 
         if( static::$ps->Delete(static::$Page) )
-            static::$Response = JSONResponse::Ok();
+            static::$Response = JSONResponse::Ok('Deleted');
         else
             static::$Response = JSONResponse::Fail('Database error');
     }
@@ -556,7 +557,7 @@ class REST extends \fw\RoutineSet
         if( $R === TRUE )
             static::$Response = JSONResponse::Ok(static::$Page);
         else
-            static::$Reponse = JSONResponse::Fail('Database error');
+            static::$Response = JSONResponse::Fail('Database error');
     }
 
     protected static function page_set_name()
@@ -571,7 +572,7 @@ class REST extends \fw\RoutineSet
         if( $R === TRUE )
             static::$Response = JSONResponse::Ok(static::$Page);
         else
-            static::$Reponse = JSONResponse::Fail('Database error');
+            static::$Response = JSONResponse::Fail('Database error');
     }
 
     protected static function page_set_routine()
@@ -586,7 +587,7 @@ class REST extends \fw\RoutineSet
         if( $R === TRUE )
             static::$Response = JSONResponse::Ok(static::$Page);
         else
-            static::$Reponse = JSONResponse::Fail('Database error');
+            static::$Response = JSONResponse::Fail('Database error');
     }
 
     // will need directive/dataset specific security
@@ -679,7 +680,7 @@ class REST extends \fw\RoutineSet
         static::AuthTemplate(new \MongoId(\fw\Path::Bottom(static::$MatchPath)));
 
         if( static::$ts->Delete(static::$Template) )
-            static::$Response = JSONResponse::Ok();
+            static::$Response = JSONResponse::Ok('Deleted');
         else
             static::$Response = JSONResponse::Fail('Database error');
     }
@@ -721,26 +722,11 @@ class REST extends \fw\RoutineSet
         }
         catch( \Exception $E )
         {
-            if( static::$ps->IsDupeE($E) )
+            if( static::$ts->IsDupeE($E) )
                 static::$Response = JSONResponse::Fail('Duplicate Name');
             else
                 static::$Response = JSONResponse::Fail('Database error');
         }
-    }
-
-    protected static function template_set_body()
-    {
-        if( !rv::Template_id() || !rv::Body() )
-            \fw\HTTP::_400();
-
-        static::AuthTemplate(new \MongoId($_POST['Template_id']));
-
-        $R = static::$ps->SetRoutine($_POST['Routine'],static::$Template);
-
-        if( $R === TRUE )
-            static::$Response = JSONResponse::Ok(static::$Template);
-        else
-            static::$Reponse = JSONResponse::Fail('Database error');
     }
 
     protected static function template_set_routine()
@@ -750,14 +736,28 @@ class REST extends \fw\RoutineSet
 
         static::AuthTemplate(new \MongoId($_POST['Template_id']));
 
-        $R = static::$ps->SetRoutine($_POST['Routine'],static::$Template);
+        $R = static::$ts->SetRoutine($_POST['Routine'],static::$Template);
 
         if( $R === TRUE )
             static::$Response = JSONResponse::Ok(static::$Template);
         else
-            static::$Reponse = JSONResponse::Fail('Database error');
+            static::$Response = JSONResponse::Fail('Database error');
     }
 
+    protected static function template_set_body()
+    {
+        if( !rv::Template_id() || !rv::Body() )
+            \fw\HTTP::_400();
+
+        static::AuthTemplate(new \MongoId($_POST['Template_id']));
+
+        $R = static::$ts->SetBody($_POST['Body'],static::$Template);
+
+        if( $R === TRUE )
+            static::$Response = JSONResponse::Ok(static::$Template);
+        else
+            static::$Response = JSONResponse::Fail('Database error');
+    }
 }
 
 
@@ -786,6 +786,10 @@ class LinkREST extends \fw\LinkSet
         {
             $Base = $this->BaseURL;
             \fw\Path::Merge($this->Methods[$Name],$Base['Path']);
+
+            if( !empty($Set) )
+                \fw\URL::Set($Set,$Base);
+
             return \fw\URL::ToString($Base);
         }
         else

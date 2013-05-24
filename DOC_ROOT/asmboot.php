@@ -268,6 +268,7 @@ class fwApp extends \fw\App
         $ps->Create('Logout','/logout','Request::Logout');
         $ps->Create('Site','/site/','Request::Site');
         $ps->Create('Page','/page/','Request::Page');
+        $ps->Create('Template','/template/','Request::Template');
 
 
         $OrderedMatch = NULL;

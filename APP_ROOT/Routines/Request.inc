@@ -67,10 +67,29 @@ abstract class Request extends \fw\RoutineSet
         fw('html')->Connect($P,'P');
 
         fw('html')->Connect(array_keys(asm()->GetWired()),'DirectiveNames');
-        fw('html')->ReMap('Article','Page');
 
-        $DS = new \asm\DataSet(asm('asmdb'),$S['_id'],'Directive'.$_id);
-        fw('html')->Connect($DS,'DS');
+        fw('html')->ReMap('Article','Page');
+    }
+
+    public static function Template()
+    {
+        if( !fw('page')->LoggedIn )
+            fw('lp')->Go('Home');
+
+        $_id = \fw\Request::Path(-1);
+        $T = asm('ts')->Read(new \MongoId($_id));
+        if( empty($T) )
+            fw()->NoPageHandler();
+
+        $S = asm('ss')->Read(new \MongoId($T['Site_id']));
+
+        fw('page')->Domain = $S['Domain'];
+        fw('page')->Name = $T['Name'];
+
+        fw('html')->Connect($S,'S');
+        fw('html')->Connect($T,'T');
+
+        fw('html')->ReMap('Article','Template');
     }
 
     // serve out HTML fragments for ajax requests
@@ -112,12 +131,17 @@ abstract class Request extends \fw\RoutineSet
             $S = asm('ps')->Read(new \MongoId($_POST['Page_id']));
             $Tag = 'DirectiveP_';
         }
+/*
         // wait do templates have directives?  not yet anyway...
         else if( \asm\rv::Template_id() )
         {
             $S = asm('ts')->Read(new \MongoId($_POST['Template_id']));
             $Tag = 'DirectiveT_';
         }
+*/
+        else
+            \fw\HTTP::_400();
+
 
         if( empty($S) )
         {
@@ -136,7 +160,6 @@ abstract class Request extends \fw\RoutineSet
         $DS = new \asm\DataSet(asm('asmdb'),$Site_id,$Tag);
         fw('html')->Connect($DS,'DS');
     }
-
 
     public static function CSSHandler()
     {

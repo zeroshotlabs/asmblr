@@ -8,7 +8,7 @@ $(document).ready(function()
 		e.preventDefault();
 	    $.post($form.attr('action'),$form.serialize(),function(data){
 		    if( data.Status === true )
-			    window.location.href = '/';
+			    window.location.href = '<?=$lp('Home')?>';
 		    else
 		    	$('.label-important',e.delegateTarget).html(data.Msg);
 	    },'json').fail(function(){ $('.label-important',e.delegateTarget).html('Please complete the form.'); });
@@ -28,7 +28,7 @@ $(document).ready(function()
 			type: "POST",url: $form.attr('action'),dataType: 'json',data: $form.serialize(),
 			success: function(data){console.log(data);
 		    if( data.Status === true )
-			    window.location.href = '/site/'+data.Data._id;
+			    window.location.href = '<?=$lp('Site')?>'+data.Data._id;
 		    else
 		    	$('.label-important',e.delegateTarget).html(data.Msg);
 			}})
@@ -52,7 +52,16 @@ $(document).ready(function()
 		    if( r.Status === false )
 		        return r.Msg;
 	        else
-		        window.location = '/page/'+r.Data._id;
+		        window.location = '<?=$lp('Page')?>'+r.Data._id;
+		}
+	});
+
+	$('a.new-template').editable({value:'',placement:'bottom',inputclass:'input-large',
+		success: function(r,nv){
+		    if( r.Status === false )
+		        return r.Msg;
+	        else
+		        window.location = '<?=$lp('Template')?>'+r.Data._id;
 		}
 	});
 
@@ -71,13 +80,11 @@ $(document).ready(function()
 	$('a.set-name').editable({mode:'inline'});
 	$('a.set-routine').editable({mode:'inline',inputclass: 'input-large'});
 
-	$('a.new-page').editable({value:'',placement:'bottom',inputclass:'input-large',
-		success: function(r,nv){
-		    if( r.Status === false )
-		        return r.Msg;
-	        else
-		        window.location = '/page/'+r.Data._id;
-		}
+	$('#confirm-del').on('click',function( e ) {
+		pk = $(e.currentTarget).data('pk');
+		$.ajax({ url:'<?=$lr('page_delete',">{$P['_id']}")?>',data:{},
+			success: function(data){ window.location = '<?=$lp('Site',">{$P['Site_id']}")?>'; }})
+		.fail(function(){ console.log('connection error');})
 	});
 
 	ajfDirectives();
@@ -85,6 +92,24 @@ $(document).ready(function()
 </script>
 <?php $this->JSDirectives(array('prefix'=>'page')); ?>
 
+
+
+@@@JSTemplate
+<script>
+$(document).ready(function()
+{
+	$('a.set-name').editable({mode:'inline'});
+	$('a.set-routine').editable({mode:'inline',inputclass: 'input-large'});
+	$('a.set-body').editable({mode:'inline',inputclass: 'input-large'});
+
+	$('#confirm-del').on('click',function( e ) {
+		pk = $(e.currentTarget).data('pk');
+		$.ajax({ url:'<?=$lr('template_delete',">{$T['_id']}")?>',data:{},
+			success: function(data){ window.location = '<?=$lp('Site',">{$T['Site_id']}")?>'; }})
+		.fail(function(){ console.log('connection error');})
+	});
+});
+</script>
 
 
 @@@JSDirectives

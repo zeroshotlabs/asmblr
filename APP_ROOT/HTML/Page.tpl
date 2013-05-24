@@ -5,6 +5,11 @@
 <li>
 &nbsp;&nbsp;<span style="font-size: .79em;"><a href="#" class="set-status" data-type="select" data-url="<?=$lr('page_set_status')?>" data-value="<?=$P['Status']?>" data-name="Status"><?=strtolower($P['Status'])?></a></span>
 </li>
+<li class="pull-right">
+    <a title="delete" data-toggle="modal" data-target="#page_delete" href="#">
+    <img alt="delete" src="<?=$ls('/img/glyphicons_256_delete.png')?>">
+    </a>
+</li>
 </ul>
 
 
@@ -52,5 +57,19 @@
         </form>
         </div>
 </div>
+
+
+<div id="page_delete" class="modal hide">
+    <div class="modal-header">
+        <h3>Delete page?</h3>
+    </div>
+    <div class="modal-body">
+        <p>This cannot be undone.</p>
+        <button class="btn" data-dismiss="modal" aria-hidden="true">Cancel</button>
+        <button id="confirm-del" class="btn btn-danger" data-pk="<?=$P['_id']?>">Delete</button>
+    </div>
+</div>
+
+
 
 <?php $this->Stack('JSPage','ajax'); ?>

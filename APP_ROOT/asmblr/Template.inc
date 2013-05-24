@@ -40,7 +40,9 @@ class TemplateSet extends MongoSet
 
     public function Create( &$T )
     {
+        $T['_id'] = new \MongoId;
         $this->MDC->insert($T);
+
         $this->Templates[$T['Name']] = $T;
     }
 
@@ -57,6 +59,11 @@ class TemplateSet extends MongoSet
     public function SetRoutine( $Routine,&$T )
     {
         return $this->SetKV('Routine',$Routine,'_id',$T);
+    }
+
+    public function SetBody( $Body,&$T )
+    {
+        return $this->SetKV('Body',$Body,'_id',$T);
     }
 
     public function Listing( \MongoId $S )
