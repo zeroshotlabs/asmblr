@@ -1,7 +1,7 @@
 <?php
 
 // don't we need auth checks for things like Site, Page, Template, ?
-abstract class Request extends \fw\RoutineSet
+abstract class Console extends \fw\RoutineSet
 {
     public static function Logout()
     {
@@ -101,7 +101,7 @@ abstract class Request extends \fw\RoutineSet
     // URL: /ajf/some-html-fragment-name
     public static function ajfHandler()
     {
-        fw('html')->SetRoutine('ajf_directive_table','Request::directive_table');
+        fw('html')->SetRoutine('ajf_directive_table','Console::directive_table');
 
         $F = 'ajf_'.\fw\Request::Path(-1);
 

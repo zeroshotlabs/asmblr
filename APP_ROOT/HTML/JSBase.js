@@ -3,18 +3,27 @@
 var NormParams = function( p )
 {
 	n = {};
-	// from x-editable, simple key/value pairs
-	if( typeof p.name !== 'undefined' )
+	// from x-editable
+	if( typeof p.name !== 'undefined'  )
 	{
-	    lastK = '';
-    	$.each(p,function(k,v) {
-    		if( k == 'name' )
-    			lastK = v;
-    		else if( k == 'value' )
-    		    n[lastK] = v;
-    		else
-    			n[k] = v;
-    	});
+		// simple key/value pairs
+		if( p.name !== '' )
+		{
+		    lastK = '';
+	    	$.each(p,function(k,v) {
+	    		if( k == 'name' )
+	    			lastK = v;
+	    		else if( k == 'value' )
+	    		    n[lastK] = v;
+	    		else
+	    			n[k] = v;
+	    	});
+		}
+		// custom x-editable types (Page)
+		else
+		{
+			n = p.value;
+		}
 	}
 	// from serializeArray forms (i.e. new directive form)
 	else
@@ -87,7 +96,7 @@ $(document).ready(function()
     headers = {};
    <?php if( $page->LoggedIn ): ?>
     headers = {'X-ASMBLR-USER': '<?=$_SESSION['Account']['_id']?>',
- 	       'X-ASMBLR-PW': '<?=$_SESSION['Account']['Password']?>'};
+ 	             'X-ASMBLR-PW': '<?=$_SESSION['Account']['Password']?>'};
    <?php endif; ?>
 
     data = {};
@@ -122,3 +131,147 @@ $(document).ready(function()
 //    $('#login').on('submit','#login',submit_form);
 });
 
+
+(function ($) {
+    "use strict";
+    
+    var Page = function (options) {
+        this.init('page', options, Page.defaults);
+    };
+
+    //inherit from Abstract input
+    $.fn.editableutils.inherit(Page, $.fn.editabletypes.abstractinput);
+
+    $.extend(Page.prototype, {
+        /**
+        Renders input from tpl
+
+        @method render() 
+        **/
+        render: function() {
+           this.$input = this.$tpl.find('input');
+        },
+        
+        /**
+        Default method to show value in element. Can be overwritten by display option.
+        
+        @method value2html(value, element) 
+        **/
+        value2html: function(value, element) {
+            if(!value) {
+                $(element).empty();
+                return; 
+            }
+            var html = $('<div>').text(value.Name).html() + '| ' + $('<div>').text(value.Path).html();
+            $(element).html(html); 
+        },
+        
+        /**
+        Gets value from element's html
+        
+        @method html2value(html) 
+        **/        
+        html2value: function(html) {        
+          /*
+            you may write parsing method to get value by element's html
+            e.g. "Moscow, st. Lenina, bld. 15" => {city: "Moscow", street: "Lenina", building: "15"}
+            but for complex structures it's not recommended.
+            Better set value directly via javascript, e.g. 
+            editable({
+                value: {
+                    city: "Moscow", 
+                    street: "Lenina", 
+                    building: "15"
+                }
+            });
+          */ 
+          return null;  
+        },
+      
+       /**
+        Converts value to string. 
+        It is used in internal comparing (not for sending to server).
+        
+        @method value2str(value)  
+       **/
+       value2str: function(value) {
+           var str = '';
+           if(value) {
+               for(var k in value) {
+                   str = str + k + ':' + value[k] + ';';  
+               }
+           }
+           return str;
+       }, 
+       
+       /*
+        Converts string to value. Used for reading value from 'data-value' attribute.
+        
+        @method str2value(str)  
+       */
+       str2value: function(str) {
+           /*
+           this is mainly for parsing value defined in data-value attribute. 
+           If you will always set value by javascript, no need to overwrite it
+           */
+           return str;
+       },                
+       
+       /**
+        Sets value of input.
+        
+        @method value2input(value) 
+        @param {mixed} value
+       **/         
+       value2input: function(value) {
+           if(!value) {
+             return;
+           }
+           this.$input.filter('[name="Name"]').val(value.Name);
+           this.$input.filter('[name="Path"]').val(value.Path);
+       },       
+       
+       /**
+        Returns value of input.
+        
+        @method input2value() 
+       **/          
+       input2value: function() {
+           return {
+              Name: this.$input.filter('[name="Name"]').val(), 
+              Path: this.$input.filter('[name="Path"]').val()
+           };
+       },
+
+        /**
+        Activates input: sets focus on the first field.
+        
+        @method activate() 
+       **/        
+       activate: function() {
+            this.$input.filter('[name="Name"]').focus();
+       },  
+       
+       /**
+        Attaches handler to submit form in case of 'showbuttons=false' mode
+        
+        @method autosubmit() 
+       **/
+       autosubmit: function() {
+           this.$input.keydown(function (e) {
+                if (e.which === 13) {
+                    $(this).closest('form').submit();
+                }
+           });
+       }
+    });
+
+    Page.defaults = $.extend({}, $.fn.editabletypes.abstractinput.defaults, {
+        tpl: '<div class="editable-page"><input placeholder="name" type="text" name="Name" class="input"></div>'+
+             '<div class="editable-page"><input placeholder="path" type="text" name="Path" class="input"></div>',
+        inputclass: ''
+    });
+
+    $.fn.editabletypes.page = Page;
+
+}(window.jQuery));

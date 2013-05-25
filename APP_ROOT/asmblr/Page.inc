@@ -3,17 +3,18 @@ namespace asm;
 
 
 // Collection: PageSet
-// Unique: DomainPath
+// Unique: Name, Path  (see REST.inc for definitve)
 abstract class Page extends MongoStruct
 {
-    protected static $Skel = array('Site_id'=>'','Path'=>'','CurrentTS'=>0,
-                                   'Status'=>'Inactive',
-                                   'Name'=>'','Routine'=>array(),'Directives'=>array());
+    protected static $Skel = array('Site_id'=>'','Path'=>'','Name'=>'',
+                                   'CurrentTS'=>0,'Status'=>'Inactive',
+                                   'Routine'=>array(),'Directives'=>array());
 
-    public static function Init( \MongoId $S,$Path )
+    public static function Init( \MongoId $S,$Name,$Path )
     {
         $Page = static::$Skel;
         $Page['Site_id'] = $S;
+        $Page['Name'] = $Name;
         $T = \fw\Path::Init(strtolower('/'.$Path));
         $Page['Path'] = \fw\Path::ToURLString($T);
         return $Page;
@@ -50,14 +51,14 @@ class PageSet extends MongoSet
         return $this->SetKV('Status',$Status,'_id',$P);
     }
 
-    public function SetPath( $Path,&$P )
-    {
-        return $this->SetKV('Path',$Path,'_id',$P);
-    }
-
     public function SetName( $Name,&$P )
     {
         return $this->SetKV('Name',$Name,'_id',$P);
+    }
+
+    public function SetPath( $Path,&$P )
+    {
+        return $this->SetKV('Path',$Path,'_id',$P);
     }
 
     public function SetRoutine( $Routine,&$P )
@@ -138,7 +139,6 @@ class PageSet extends MongoSet
         else
         {
             $O = $ds->OOf($NextD_id);
-            llog($O);
             return $ds->Move($D,$O);
         }
     }

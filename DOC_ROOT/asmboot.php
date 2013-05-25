@@ -73,7 +73,7 @@ class asmSrv extends \fw\App
         $this->Wire(array('as'=>$as,'ss'=>$ss,'ps'=>$ps,'ts'=>$ts,'asmdb'=>$this->asmdb));
 
         // and now our typical application level stuff
-        // this will need review/etc per a site's runtime, REST::util_dir_names() and DirectiveNames in Request::Site()
+        // this will need review/etc per a site's runtime, REST::util_dir_names() and DirectiveNames in Console::Site()
         $page = new \fw\KeyValueSet;
         $this->Wire(array('page'=>$page));
 
@@ -260,16 +260,15 @@ class fwApp extends \fw\App
 
         $html->RightAside = NULL;
 
-        $ps->Create('CSS','/css/','Request::CSSHandler');
-        $ps->Create('JS','/js/','Request::JSHandler');
-        $ps->Create('ajfHandler','/ajf/','Request::ajfHandler');
+        $ps->Create('CSS','/css/','Console::CSSHandler');
+        $ps->Create('JS','/js/','Console::JSHandler');
+        $ps->Create('ajfHandler','/ajf/','Console::ajfHandler');
 
-        $ps->Create('Home','/','Request::Home');
-        $ps->Create('Logout','/logout','Request::Logout');
-        $ps->Create('Site','/site/','Request::Site');
-        $ps->Create('Page','/page/','Request::Page');
-        $ps->Create('Template','/template/','Request::Template');
-
+        $ps->Create('Home','/','Console::Home');
+        $ps->Create('Logout','/logout','Console::Logout');
+        $ps->Create('Site','/site/','Console::Site');
+        $ps->Create('Page','/page/','Console::Page');
+        $ps->Create('Template','/template/','Console::Template');
 
         $OrderedMatch = NULL;
         if( $this->MatchPath['IsRoot'] === FALSE )

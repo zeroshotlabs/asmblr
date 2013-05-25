@@ -32,6 +32,7 @@ class REST extends \fw\RoutineSet
         $asmdb->SiteSet->ensureIndex(array('Domain'=>TRUE),array('unique'=>TRUE));
         $asmdb->SiteSet->ensureIndex(array('AAID'=>TRUE));
         $asmdb->PageSet->ensureIndex(array('Site_id'=>TRUE,'Path'=>TRUE),array('unique'=>TRUE));
+        $asmdb->PageSet->ensureIndex(array('Site_id'=>TRUE,'Name'=>TRUE),array('unique'=>TRUE));
         $asmdb->TemplateSet->ensureIndex(array('Site_id'=>TRUE,'Name'=>TRUE),array('unique'=>TRUE));
         $asmdb->ContentSet->ensureIndex(array('Site_id'=>TRUE,'Path'=>TRUE),array('unique'=>TRUE));
         // DataSet for directives are instantiated in the method
@@ -58,8 +59,9 @@ class REST extends \fw\RoutineSet
         // certain methods can only be done by a SU and no AAID is required
         if( in_array($Op,array('account_read','account_create','account_set_status'),TRUE) === TRUE )
         {
-            if( static::$IsSU !== TRUE )
-                \fw\HTTP::_401();
+            // quicky hack - see account_create
+//            if( static::$IsSU !== TRUE )
+//                \fw\HTTP::_401();
         }
         // account_auth and util methods are public
         else if( $Op === 'account_auth' || $Op === 'util_site_statuses' || $Op === 'util_dir_names' )
@@ -150,8 +152,9 @@ class REST extends \fw\RoutineSet
     // SU
     protected static function account_create()
     {
-        if( static::$IsSU !== TRUE )
-            \fw\HTTP::_403();
+        // quicky hack - see account_auth() too
+//         if( static::$IsSU !== TRUE )
+//             \fw\HTTP::_403();
 
         if( !rv::Email() || !rv::Password() || !rv::Name() || !v::Text('Company',$_POST,FALSE) )
             \fw\HTTP::_400();
@@ -161,7 +164,9 @@ class REST extends \fw\RoutineSet
         try
         {
             static::$as->Create($A);
-            static::$Response = JSONResponse::Ok($A);
+            // hack per above
+            static::account_auth();
+//            static::$Response = JSONResponse::Ok($A);
         }
         catch( \Exception $E )
         {
@@ -232,7 +237,9 @@ class REST extends \fw\RoutineSet
     }
 
     // PUBLIC - WE ALSO START A SESSION which ties us together with the console webapp
-    // among some other things like LinkREST
+    // among some other things like LinkREST - when we break console apart from REST,
+    // we'd have a console method Login() which calls this via curl (which would have the SU key) and we can
+    // remove the session from here - so this is a temp. convience hack - ditto for register/account_create
     protected static function account_auth()
     {
         if( !rv::Email() || !rv::Password() )
@@ -501,14 +508,15 @@ class REST extends \fw\RoutineSet
             static::$Response = JSONResponse::Fail('Database error');
     }
 
+    // pages must have a unique name for linkpage purposes, and of course path
     protected static function page_create()
     {
-        if( !rv::Site_id() || !rv::Path() )
+        if( !rv::Site_id() || !rv::Path() || !rv::Name() )
             \fw\HTTP::_400();
 
         static::AuthSite(new \MongoId($_POST['Site_id']));
 
-        $P = Page::Init(static::$Site['_id'],$_POST['Path']);
+        $P = Page::Init(static::$Site['_id'],$_POST['Name'],$_POST['Path']);
 
         try
         {
@@ -518,7 +526,28 @@ class REST extends \fw\RoutineSet
         catch( \Exception $E )
         {
             if( static::$ps->IsDupeE($E) )
-                static::$Response = JSONResponse::Fail('Duplicate Path');
+                static::$Response = JSONResponse::Fail('Duplicate Path or Name');
+            else
+                static::$Response = JSONResponse::Fail('Database error');
+        }
+    }
+
+    protected static function page_set_name()
+    {
+        if( !rv::Page_id() || !rv::Name() )
+            \fw\HTTP::_400();
+
+        static::AuthPage(new \MongoId($_POST['Page_id']));
+
+        try
+        {
+            static::$ps->SetName($_POST['Name'],static::$Page);
+            static::$Response = JSONResponse::Ok(static::$Page);
+        }
+        catch( \Exception $E )
+        {
+            if( static::$ps->IsDupeE($E) )
+                static::$Response = JSONResponse::Fail('Duplicate Name');
             else
                 static::$Response = JSONResponse::Fail('Database error');
         }
@@ -553,21 +582,6 @@ class REST extends \fw\RoutineSet
         static::AuthPage(new \MongoId($_POST['Page_id']));
 
         $R = static::$ps->SetStatus($_POST['Status'],static::$Page);
-
-        if( $R === TRUE )
-            static::$Response = JSONResponse::Ok(static::$Page);
-        else
-            static::$Response = JSONResponse::Fail('Database error');
-    }
-
-    protected static function page_set_name()
-    {
-        if( !rv::Page_id() || !rv::Name() )
-            \fw\HTTP::_400();
-
-        static::AuthPage(new \MongoId($_POST['Page_id']));
-
-        $R = static::$ps->SetName($_POST['Status'],static::$Page);
 
         if( $R === TRUE )
             static::$Response = JSONResponse::Ok(static::$Page);

@@ -2,6 +2,9 @@
 <ul class="breadcrumb">
 <li><a href="<?=$lp('Home')?>">Home</a> <span class="divider">|</span></li>
 <li><a href="<?=$lp('Site','>'.$S['_id'])?>"><?=$page->Domain?></a><?=$page->Path?></li>
+<?php if( !empty($P['Name']) ): ?>
+<li><span class="divider">|</span> <?=$P['Name']?></li>
+<?php endif; ?>
 <li>
 &nbsp;&nbsp;<span style="font-size: .79em;"><a href="#" class="set-status" data-type="select" data-url="<?=$lr('page_set_status')?>" data-value="<?=$P['Status']?>" data-name="Status"><?=strtolower($P['Status'])?></a></span>
 </li>

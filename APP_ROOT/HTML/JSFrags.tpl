@@ -13,6 +13,18 @@ $(document).ready(function()
 		    	$('.label-important',e.delegateTarget).html(data.Msg);
 	    },'json').fail(function(){ $('.label-important',e.delegateTarget).html('Please complete the form.'); });
     });
+
+    $('#register').on('submit','#register-form',function( e ) {
+		$form = $(e.target);
+		e.preventDefault();
+	    $.post($form.attr('action'),$form.serialize(),function(data){
+		    if( data.Status === true )
+			    window.location.href = '<?=$lp('Home')?>';
+		    else
+		    	$('.label-important',e.delegateTarget).html(data.Msg);
+	    },'json').fail(function(){ $('.label-important',e.delegateTarget).html('Please complete the form.'); });
+    });
+
 });
 </script>
 
@@ -47,7 +59,7 @@ $(document).ready(function()
 	$('a.set-baseurl').editable({mode:'inline',inputclass: 'input-xlarge'});
 	$('a.set-routine').editable({mode:'inline',inputclass: 'input-large'});
 
-	$('a.new-page').editable({value:'',placement:'bottom',inputclass:'input-large',
+	$('a.new-page').editable({value:{Path:'',Name:''},placement:'bottom',inputclass:'input-large',
 		success: function(r,nv){
 		    if( r.Status === false )
 		        return r.Msg;

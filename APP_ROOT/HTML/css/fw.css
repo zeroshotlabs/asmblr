@@ -84,9 +84,8 @@ pre.alert
 }
 div.alert-container
 {
-    padding: 10px;
     text-align: center;
-    min-height: 40px;
+    margin: 15px 0 5px 0;
 }
 div.label-container
 {
@@ -144,10 +143,21 @@ div.spinner {
     z-index:1234;
 }
 
-
+small
+{
+    font-size: .79em;
+}
 .editable-empty
 { color: #08c; }
 
+.editable-page
+{
+    margin: 5px;
+}
+a.new-page
+{
+    cursor: pointer;
+}
 textarea.input-large
 {
     width: 500px;
