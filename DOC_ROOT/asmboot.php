@@ -52,6 +52,8 @@ class asmSrv extends \fw\App
     protected $asmdb;
 
     public $SysOp = 'asmblr@stackware.com';
+    // will need some way to reliably control this
+    public $LogPublic = TRUE;
     public $MongoDB = 'asmblr';
     public $SiteStatuses = array('Active','Disabled');
 
@@ -60,6 +62,9 @@ class asmSrv extends \fw\App
     {
         // use asm()
         $GLOBALS['ASMAPP'] = $this;
+        // hack - framewire complains during srv, but console then conflicts
+        if( empty($GLOBALS['FWAPP']) )
+            $GLOBALS['FWAPP'] = $GLOBALS['ASMAPP'];
 
         $mongo = new \fw\Mongo;
         $this->asmdb = $mongo->Alias($this->MongoDB,'asmdb');
@@ -110,18 +115,23 @@ class asmSrv extends \fw\App
         foreach( $Site['Config'] as $K => $V )
             $this->{$K} = $V;
 
-        // ????
-        $html = new enUSHTMLSet($this->asmdb);
+        // ????enhtml?  have to manually set collection to TemplateSet
+        $html = new enUSHTMLSet($this->asmdb,'TemplateSet');
         $html->Load($Site['_id']);
 
-        $lp = new \fw\LinkPage($ps,$this->SiteURL);
+//        $lp = new \fw\LinkPage($this->ps,$this->SiteURL);
+// 'lp'=>$lp,
         $ls = new \fw\LinkSet($Site['Domain']);
 
-        $this->Wire(array('ps'=>$ps,'html'=>$html,'lp'=>$lp,'ls'=>$ls));
+        // double wire - have to straighten out our naming between srv and console
+        $this->Wire(array('html'=>$html,'ts'=>$html,'ls'=>$ls));
 
-        $html->ConnectWireables($lp,$ls);
+        $html->ConnectWireables($ls,$this->page);
 
-        foreach( $Site['Directives'] as $V )
+        // we're doing this all over the place - need to wire/centralize somehow - or optimize even
+        // since we're doing a lot of extra connections/queries/etc it seems
+        $ds = new DataSet($this->asmdb,$Site['_id'],'Directive');
+        foreach( $ds as $V )
         {
             if( ($W = $this->{$V['Name']}) === NULL )
                 throw new Exception("Directive object {$V['Name']}' doesn't exist while executing Site '{$Site['Domain']}'.");
@@ -142,16 +152,27 @@ class asmSrv extends \fw\App
         {
             foreach( \fw\Path::Order($this->MatchPath) as $V )
             {
-                if( ($OrderedMatch = $ps->Match($V)) !== NULL )
+                if( ($OrderedMatch = $this->ps->Match($Site['_id'],$V)) !== NULL )
                 {
-                    $ps->Execute($OrderedMatch);
+                    // hack and inefficient
+                    $ds = new DataSet($this->asmdb,$Site['_id'],'DirectiveP_'.$OrderedMatch['_id']);
+                    $OrderedMatch['Directives'] = $ds;
+
+                    $this->ps->Execute($OrderedMatch);
                     break;
                 }
             }
         }
 
-        if( ($ExactMatch = $ps->Match(\fw\Path::ToString($this->MatchPath))) !== NULL )
-            $ps->Execute($ExactMatch);
+        if( ($ExactMatch = $this->ps->Match($Site['_id'],\fw\Path::ToString($this->MatchPath))) !== NULL )
+        {
+            // hack and inefficient
+            $ds = new DataSet($this->asmdb,$Site['_id'],'DirectiveP_'.$ExactMatch['_id']);
+            $ExactMatch['Directives'] = $ds;
+
+            $this->ps->Execute($ExactMatch);
+        }
+
 
         if( $ExactMatch === NULL && $OrderedMatch === NULL )
             $this->NoPageHandler();
@@ -169,7 +190,7 @@ class asmSrv extends \fw\App
      */
     public function Match( $Domain )
     {
-        return $this->asmdb->findOne(array('Domain'=>$Domain));
+        return $this->asmdb->SiteSet->findOne(array('Domain'=>$Domain));
     }
 
     // TODO: fully implement/document/use?
@@ -338,6 +359,7 @@ define('APP_ROOT',str_replace('DOC_ROOT','APP_ROOT',DOC_ROOT));
 
 // some custom start-up and route based on domain
 $Hostname = \fw\Request::Hostname();
+
 
 if( $ConsoleHostname === $Hostname )
 {

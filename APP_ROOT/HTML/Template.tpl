@@ -32,7 +32,7 @@
 <div class="row-fluid">
     <div class="span12">
         <h3>Body:</h3>
-        <a href="#" class="set-body" data-type="textarea" data-url="<?=$lr('template_set_body')?>" data-emptytext="no body" data-name="Body"><?=$T['Body']?></a>
+        <a href="#" class="set-body" data-type="textarea" data-url="<?=$lr('template_set_body')?>" data-emptytext="no body" data-name="Body"><?=nl2br($this($T['Body']))?></a>
     </div>
 </div>
 
