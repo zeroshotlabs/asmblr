@@ -50,6 +50,7 @@ require('../../framewire/Load.inc');
 class asmSrv extends \fw\App
 {
     protected $asmdb;
+    protected $SrvSite;
 
     public $SysOp = 'asmblr@stackware.com';
     // will need some way to reliably control this
@@ -62,6 +63,7 @@ class asmSrv extends \fw\App
     {
         // use asm()
         $GLOBALS['ASMAPP'] = $this;
+
         // hack - framewire complains during srv, but console then conflicts
         if( empty($GLOBALS['FWAPP']) )
             $GLOBALS['FWAPP'] = $GLOBALS['ASMAPP'];
@@ -69,19 +71,10 @@ class asmSrv extends \fw\App
         $mongo = new \fw\Mongo;
         $this->asmdb = $mongo->Alias($this->MongoDB,'asmdb');
 
-        // wire up our scaffolding
+        // wire up the basics that we need
         $as = new AccountSet($this->asmdb);
         $ss = new SiteSet($this->asmdb);
-
-        // $html = new \fw\enUSHTMLSet;  but we also do enUSHTML in Go() ????
-        // and pageset is down there too - why is this even here?
-        $ts = new TemplateSet($this->asmdb);
-        $this->Wire(array('as'=>$as,'ss'=>$ss,'ts'=>$ts,'asmdb'=>$this->asmdb));
-
-        // and now our typical application level stuff
-        // this will need review/etc per a site's runtime, REST::util_dir_names() and DirectiveNames in Console::Site()
-        $page = new \fw\KeyValueSet;
-        $this->Wire(array('page'=>$page));
+        $this->Wire(array('as'=>$as,'ss'=>$ss,'asmdb'=>$this->asmdb));
 
         // now do more site specific stuff
         // TODO: these may become configurable in Site['Config']
@@ -94,11 +87,53 @@ class asmSrv extends \fw\App
         \fw\HTTP::ContentType('text/html','utf-8');
         mb_http_output('UTF-8');
         ini_set('zlib.output_compression',TRUE);
-
     }
 
     public function GetSet( $Domain )
     {
+        if( ($this->SrvSite = $this->Match($Domain)) === NULL )
+            \fw\HTTP::_400();
+
+        $this->BaseURL = $this->SrvSite['BaseURL'];
+        $this->Request = \fw\Request::Init();
+
+        list($this->SiteURL,$this->MatchPath,$this->IsBaseScheme,
+             $this->IsBaseHostname,$this->IsBasePort,$this->IsBasePath) = $this->CalcURLs($this->Request,$this->BaseURL);
+
+        foreach( $this->SrvSite['Config'] as $K => $V )
+            $this->{$K} = $V;
+
+        // and now our typical application level stuff
+        // this will need review/etc per a site's runtime, REST::util_dir_names() and DirectiveNames in Console::Site()
+        $page = new \fw\KeyValueSet;
+        // probably should be protected better, but handy for now
+        $page->ActiveSite = $this->SrvSite;
+
+        // have to manually set collection to TemplateSet
+        $html = new enUSHTMLSet($this->asmdb,'TemplateSet');
+        $html->Load($Site['_id']);
+
+        $ps = new PageSet($this->asmdb,$this->SrvSite['_id']);
+
+        $lp = new \asm\LinkPage($ps,$this->SiteURL);
+        $ls = new \fw\LinkSet($this->SrvSite['Domain']);
+
+        $this->Wire(array('page'=>$page,'html'=>$html,'ps'=>$ps,'lp'=>$lp,'ls'=>$ls));
+
+        // double wire - have to straighten out our naming between srv and console
+//        $this->Wire(array('html'=>$html,'ts'=>$html,'ps'=>$ps,'lp'=>$lp,'ls'=>$ls));
+        $html->ConnectWireables($lp,$ls,$page);
+
+        // we're doing this all over the place - need to wire/centralize somehow - or optimize even
+        // since we're doing a lot of extra connections/queries/etc it seems
+        $ds = new DataSet($this->asmdb,$Site['_id'],'Directive');
+        foreach( $ds as $V )
+        {
+            if( ($W = $this->{$V['Name']}) === NULL )
+                throw new Exception("Directive object {$V['Name']}' doesn't exist while executing Site '{$this->SrvSite['Domain']}'.");
+            else
+                $W->ApplyDirective($V['Key'],$V['Value']);
+        }
     }
 
     // Executing a site involves:
@@ -109,52 +144,17 @@ class asmSrv extends \fw\App
     //  - match and execute a page
     //  - render
     // TODO: handle lib code
-    public function Go( $Domain )
+    public function Go()
     {
-        if( ($Site = $this->Match($Domain)) === NULL )
-            \fw\HTTP::_400();
-
-        // probably should be protected better, but handy for now
-        fw('page')->ActiveSite = $Site;
-
-        // ///////////// need to instate passing/returning
-        // CalcURLs( $BaseURL,$Request )
-        $this->BaseURL = $Site['BaseURL'];
-        $this->CalcURLs();
-
-        foreach( $Site['Config'] as $K => $V )
-            $this->{$K} = $V;
-
-        // ????enhtml?  have to manually set collection to TemplateSet
-        $html = new enUSHTMLSet($this->asmdb,'TemplateSet');
-        $html->Load($Site['_id']);
-
-        $ps = new PageSet($this->asmdb,$Site['_id']);
-
-        $lp = new \asm\LinkPage($this->ps,$this->SiteURL);
-        $ls = new \fw\LinkSet($Site['Domain']);
-
-        // double wire - have to straighten out our naming between srv and console
-        $this->Wire(array('html'=>$html,'ts'=>$html,'ps'=>$ps,'lp'=>$lp,'ls'=>$ls));
-        $html->ConnectWireables($lp,$ls,$this->page);
-
-        // we're doing this all over the place - need to wire/centralize somehow - or optimize even
-        // since we're doing a lot of extra connections/queries/etc it seems
-        $ds = new DataSet($this->asmdb,$Site['_id'],'Directive');
-        foreach( $ds as $V )
+        if( empty($this->SrvSite['Routine']) === FALSE )
         {
-            if( ($W = $this->{$V['Name']}) === NULL )
-                throw new Exception("Directive object {$V['Name']}' doesn't exist while executing Site '{$Site['Domain']}'.");
+            if( $this->SrvSite['Routine']['Type'] === 'Pointer' )
+            {
+                $S = $this->SrvSite;
+                $S['Routine'][0]::$S['Routine'][1]();
+            }
             else
-                $W->ApplyDirective($V['Key'],$V['Value']);
-        }
-
-        if( empty($Site['Routine']) === FALSE )
-        {
-            if( $Site['Routine']['Type'] === 'Pointer' )
-                $Site['Routine'][0]::$Site['Routine'][1]();
-            else
-                eval($Site['Routine'][0]);
+                eval($this->SrvSite['Routine'][0]);
         }
 
         $OrderedMatch = NULL;
@@ -162,10 +162,10 @@ class asmSrv extends \fw\App
         {
             foreach( \fw\Path::Order($this->MatchPath) as $V )
             {
-                if( ($OrderedMatch = $this->ps->Match($Site['_id'],$V)) !== NULL )
+                if( ($OrderedMatch = $this->ps->Match($this->SrvSite['_id'],$V)) !== NULL )
                 {
                     // hack and inefficient
-                    $ds = new DataSet($this->asmdb,$Site['_id'],'DirectiveP_'.$OrderedMatch['_id']);
+                    $ds = new DataSet($this->asmdb,$this->SrvSite['_id'],'DirectiveP_'.$OrderedMatch['_id']);
                     $OrderedMatch['Directives'] = $ds;
 
                     $this->ps->Execute($OrderedMatch);
@@ -174,20 +174,19 @@ class asmSrv extends \fw\App
             }
         }
 
-        if( ($ExactMatch = $this->ps->Match($Site['_id'],\fw\Path::ToString($this->MatchPath))) !== NULL )
+        if( ($ExactMatch = $this->ps->Match($this->SrvSite['_id'],\fw\Path::ToString($this->MatchPath))) !== NULL )
         {
             // hack and inefficient
-            $ds = new DataSet($this->asmdb,$Site['_id'],'DirectiveP_'.$ExactMatch['_id']);
+            $ds = new DataSet($this->asmdb,$this->SrvSite['_id'],'DirectiveP_'.$ExactMatch['_id']);
             $ExactMatch['Directives'] = $ds;
 
             $this->ps->Execute($ExactMatch);
         }
 
-
         if( $ExactMatch === NULL && $OrderedMatch === NULL )
             $this->NoPageHandler();
 
-        $html->Base();
+        $this->html->Base();
     }
 
     /**
@@ -226,6 +225,8 @@ class fwApp extends \fw\App
     public $SysOp = 'asmblr@stackware.com';
     public $LogPublic = TRUE;
 
+    public static $ConsoleDomain = 'asmblr.local';
+
 
     // minimize internal startup
     public function __construct()
@@ -239,19 +240,22 @@ class fwApp extends \fw\App
         ini_set('zlib.output_compression',TRUE);
     }
 
-    public function Go( $Domain = NULL )
+    public function Go()
     {
         \fw\Inc::Dir('Routines');
 
-        $this->BaseURL = "http://{$Domain}";
-        $this->CalcURLs();
+        $this->Request = \fw\Request::Init();
+        $this->BaseURL = 'http://'.static::$ConsoleDomain;
+
+        list($this->SiteURL,$this->MatchPath,$this->IsBaseScheme,
+             $this->IsBaseHostname,$this->IsBasePort,$this->IsBasePath) = $this->CalcURLs($this->Request,$this->BaseURL);
 
         $page = new \fw\KeyValueSet;
         $ps = new \fw\PageSet;
         $html = new \fw\enUSHTMLSet;
 
         $lp = new \fw\LinkPage($ps,$this->SiteURL);
-        $ls = new \fw\LinkSet($Domain);
+        $ls = new \fw\LinkSet(static::$ConsoleDomain);
         $lr = new LinkREST($this->BaseURL.'/restv1');
 
         $msg = new \fw\Messager;
@@ -268,6 +272,7 @@ class fwApp extends \fw\App
         $html->LoadDir('HTML');
 
         // bring our asmblr stuff online - no site execution happens though (Go())
+        // GetSet() will be called in our various console routines, like Site, Page, Template
         $asm = new asmSrv;
 
         // no session created in account_auth which ties us back to this code base
@@ -279,7 +284,7 @@ class fwApp extends \fw\App
             return;
         }
 
-        // we use the asmblr session
+        // we use the asmblr session though we shouldn't probably
         $SH = new SessionStoreMongoDB(asm()->asmdb);
         session_set_save_handler($SH);
         session_start();
@@ -359,7 +364,7 @@ class fwApp extends \fw\App
 
 // Config :)
 // must only be a domain
-$ConsoleHostname = 'asmblr.local';
+//$ConsoleHostname = 'asmblr.local';
 
 define('DOC_ROOT',getcwd().DIRECTORY_SEPARATOR);
 define('APP_ROOT',str_replace('DOC_ROOT','APP_ROOT',DOC_ROOT));
@@ -368,19 +373,18 @@ define('APP_ROOT',str_replace('DOC_ROOT','APP_ROOT',DOC_ROOT));
 \fw\Inc::Dir('asmblr');
 
 // some custom start-up and route based on domain
-$Hostname = \fw\Request::Hostname();
 
-
-if( $ConsoleHostname === $Hostname )
+if( fwApp::$ConsoleDomain === \fw\Request::Hostname() )
 {
     $fw = new fwApp;
-    $fw->Go($Hostname);
+    $fw->Go();
 }
 else
 {
-    // a bogus request is handled in asmSrv
+    // an unknown domain/bogus request is handled in asmSrv
     $asm = new asmSrv;
-    $asm->Go($Hostname);
+    $asm->GetSet($Hostname);
+    $asm->Go();
 }
 
 

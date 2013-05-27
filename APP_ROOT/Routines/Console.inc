@@ -35,12 +35,14 @@ abstract class Console extends \fw\RoutineSet
         if( empty($S) )
             fw()->NoPageHandler();
 
+        asm()->GetSet($S['Domain']);
+
         $PS = asm('ps')->Listing($S['_id']);
-        $TS = asm('ts')->Listing($S['_id']);
+        $HTML = asm('html')->Listing($S['_id']);
 
         fw('page')->Domain = $S['Domain'];
         fw('html')->Connect($PS,'PS');
-        fw('html')->Connect($TS,'TS');
+        fw('html')->Connect($HTML,'TS');
         fw('html')->Connect($S,'S');
 
         fw('html')->Connect(array_keys(asm()->GetWired()),'DirectiveNames');
