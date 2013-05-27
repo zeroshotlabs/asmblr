@@ -1,12 +1,7 @@
 
-<ul class="breadcrumb">
-<li><a href="<?=$lp('Home')?>">Home</a> <span class="divider">|</span></li>
-<li><?=$page->Domain?></li>
-<li>
-&nbsp;&nbsp;<small><a href="#" class="set-status" data-type="select" data-url="<?=$lr('site_set_status')?>" data-value="<?=$S['Status']?>" data-name="Status"><?=strtolower($S['Status'])?></a></small>
-</li>
-</ul>
+<?php $this->Breadcrumb(); ?>
 
+<div class="clearfix"></div>
 
 <div class="pull-right">
 <ul class="nav nav-pills">
@@ -19,7 +14,7 @@
            <?php foreach( $PS as $P ): ?>
             <li role="presentation">
                 <a role="menuitem" href="<?=$lp('Page','>'.(string)$P['_id'])?>">
-                    <?=$this($P['Name'])?> <small>(<?=$this($P['Path'])?>)</small>
+                    <?=$this($P['Name'])?><small> - <?=$this($P['Path'])?></small>
                 </a>
             </li>
            <?php endforeach; ?>
@@ -46,6 +41,7 @@
     <div class="span12">
         <h3>Domain:</h3>
         <a href="#" class="set-domain" data-type="text" data-url="<?=$lr('site_set_domain')?>" data-name="Domain"><?=$S['Domain']?></a>
+        <a target="_blank" href="<?=asm('lp')->Link('Home')?>"><img src="<?=$ls('/img/ext-link.png')?>" /></a>
     </div>
 </div>
 

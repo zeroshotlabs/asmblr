@@ -72,10 +72,11 @@ class asmSrv extends \fw\App
         // wire up our scaffolding
         $as = new AccountSet($this->asmdb);
         $ss = new SiteSet($this->asmdb);
-        $ps = new PageSet($this->asmdb);
-        // $html = new \fw\enUSHTMLSet;
+
+        // $html = new \fw\enUSHTMLSet;  but we also do enUSHTML in Go() ????
+        // and pageset is down there too - why is this even here?
         $ts = new TemplateSet($this->asmdb);
-        $this->Wire(array('as'=>$as,'ss'=>$ss,'ps'=>$ps,'ts'=>$ts,'asmdb'=>$this->asmdb));
+        $this->Wire(array('as'=>$as,'ss'=>$ss,'ts'=>$ts,'asmdb'=>$this->asmdb));
 
         // and now our typical application level stuff
         // this will need review/etc per a site's runtime, REST::util_dir_names() and DirectiveNames in Console::Site()
@@ -96,6 +97,10 @@ class asmSrv extends \fw\App
 
     }
 
+    public function GetSet( $Domain )
+    {
+    }
+
     // Executing a site involves:
     //  - adding config parameters to this asmblr object
     //  - applying directives (same as PageSet)
@@ -104,11 +109,16 @@ class asmSrv extends \fw\App
     //  - match and execute a page
     //  - render
     // TODO: handle lib code
-    public function Go( $Domain = NULL )
+    public function Go( $Domain )
     {
         if( ($Site = $this->Match($Domain)) === NULL )
             \fw\HTTP::_400();
 
+        // probably should be protected better, but handy for now
+        fw('page')->ActiveSite = $Site;
+
+        // ///////////// need to instate passing/returning
+        // CalcURLs( $BaseURL,$Request )
         $this->BaseURL = $Site['BaseURL'];
         $this->CalcURLs();
 
@@ -119,14 +129,14 @@ class asmSrv extends \fw\App
         $html = new enUSHTMLSet($this->asmdb,'TemplateSet');
         $html->Load($Site['_id']);
 
-//        $lp = new \fw\LinkPage($this->ps,$this->SiteURL);
-// 'lp'=>$lp,
+        $ps = new PageSet($this->asmdb,$Site['_id']);
+
+        $lp = new \asm\LinkPage($this->ps,$this->SiteURL);
         $ls = new \fw\LinkSet($Site['Domain']);
 
         // double wire - have to straighten out our naming between srv and console
-        $this->Wire(array('html'=>$html,'ts'=>$html,'ls'=>$ls));
-
-        $html->ConnectWireables($ls,$this->page);
+        $this->Wire(array('html'=>$html,'ts'=>$html,'ps'=>$ps,'lp'=>$lp,'ls'=>$ls));
+        $html->ConnectWireables($lp,$ls,$this->page);
 
         // we're doing this all over the place - need to wire/centralize somehow - or optimize even
         // since we're doing a lot of extra connections/queries/etc it seems

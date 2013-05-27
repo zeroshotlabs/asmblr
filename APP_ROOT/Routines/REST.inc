@@ -140,7 +140,7 @@ class REST extends \fw\RoutineSet
 
     protected static function AuthPage( \MongoId $P_id )
     {
-        $P = static::$ps->Read($P_id);
+        $P = static::$ps->Read_id($P_id);
 
         if( empty($P) )
             \fw\HTTP::_400();

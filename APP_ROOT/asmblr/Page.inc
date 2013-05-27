@@ -29,6 +29,31 @@ class PageSet extends MongoSet
 {
     use \fw\PageTraits;
 
+    protected $Site_id;
+    // name => path
+    protected $PageMap = array();
+
+
+    // should be also for templateset?
+    public function __construct( \fw\MongoDB $MDB,\MongoId $Site_id,$Collection = NULL )
+    {
+        parent::__construct($MDB,$Collection);
+
+        $this->Load($Site_id);
+        $this->Site_id = $Site_id;
+    }
+
+    // debately - also see TemplateSet::Load()
+    // currently this is only for LinkPage purposes thus only paths/names are pulled
+    // however, maybe also good for Match() if we had path => name map?
+    public function Load( \MongoId $S )
+    {
+        $this->PageMap = array();
+
+        // wasteful - should be doing a better query than a full pull
+        foreach( $this->Listing($S) as $V )
+            $this->PageMap[$V['Name']] = $V['Path'];
+    }
 
     public function Create( &$P )
     {
@@ -36,7 +61,13 @@ class PageSet extends MongoSet
         $this->MDC->insert($P);
     }
 
-    public function Read( \MongoId $P )
+    // what about template/site?  should they also have the Read/Read_id convention?
+    public function Read( $Name )
+    {
+        return $this->MDC->findOne(array('Site_id'=>$this->Site_id,'Name'=>$Name));
+    }
+
+    public function Read_id( \MongoId $P )
     {
         return $this->MDC->findOne(array('_id'=>$P));
     }
@@ -146,7 +177,7 @@ class PageSet extends MongoSet
     public function Listing( \MongoId $S )
     {
         // $Fields = array('Path'=>1,'Domain'=>1,'Name'=>1,'Status'=>1,'CreateTS'=>1,'UpdateTS'=>1);
-        return iterator_to_array($this->MDC->find((array('Site_id'=>$S))));
+        return iterator_to_array($this->MDC->find((array('Site_id'=>$S)))->sort(array('Name'=>TRUE)));
     }
 
     // TODO: debugging

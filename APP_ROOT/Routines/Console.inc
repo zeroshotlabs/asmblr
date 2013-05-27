@@ -45,6 +45,17 @@ abstract class Console extends \fw\RoutineSet
 
         fw('html')->Connect(array_keys(asm()->GetWired()),'DirectiveNames');
 
+        // we'll wire some other stuff that would normally happen in Go()
+        // the beginnings of live edit?  may better be aggregated up somewhere else
+        // really need a better way of doing this - perhaps time to rearrange CalcURLs
+        asm()->BaseURL = $S['BaseURL'];
+        asm()->CalcURLs();
+
+        $lp = new \asm\LinkPage(asm('ps'),asm()->SiteURL);
+        $ls = new \fw\LinkSet($S['Domain']);
+
+        asm()->Wire(array('lp'=>$lp,'ls'=>$ls));
+
         fw('html')->ReMap('Article','Site');
     }
 
@@ -54,7 +65,7 @@ abstract class Console extends \fw\RoutineSet
             fw('lp')->Go('Home');
 
         $_id = \fw\Request::Path(-1);
-        $P = asm('ps')->Read(new \MongoId($_id));
+        $P = asm('ps')->Read_id(new \MongoId($_id));
         if( empty($P) )
             fw()->NoPageHandler();
 

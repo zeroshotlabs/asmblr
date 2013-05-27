@@ -1,19 +1,7 @@
 
-<ul class="breadcrumb">
-<li><a href="<?=$lp('Home')?>">Home</a> <span class="divider">|</span></li>
-<li><a href="<?=$lp('Site','>'.$S['_id'])?>"><?=$page->Domain?></a><span class="divider">|</span><?=$page->Name?></li>
-
-<li class="pull-right">
-    <a title="delete" data-toggle="modal" data-target="#template_delete" href="#">
-    <img alt="delete" src="<?=$ls('/img/glyphicons_256_delete.png')?>">
-    </a>
-</li>
-
-</ul>
-
+<?php $this->Breadcrumb(); ?>
 
 <div class="clearfix"></div>
-
 
 <div class="row-fluid">
     <div class="span12">

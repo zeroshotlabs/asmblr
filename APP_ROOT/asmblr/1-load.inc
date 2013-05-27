@@ -16,7 +16,24 @@ function asm( $Name = NULL )
 
 namespace asm
 {
+// tmp - might need more
+class LinkPage extends \fw\LinkPage
+{
+	public function __construct( \asm\PageSet $PageSet,$BaseURL = NULL,$Set = array() )
+	{
+		$this->PageSet = $PageSet;
+		$this->SetBaseURL($BaseURL,$Set);
+	}
+	// we need PageSet::ReadByName() and some other stuff for this to work
+// 	public function __invoke( $Name = NULL,$Set = array() )
+// 	{
+		
 
+// 	}
+	
+}
+
+	
 abstract class JSONResponse extends \fw\Struct
 {
     protected static $Skel = array('Method'=>'','Status'=>TRUE,'Msg'=>'','Data'=>'');

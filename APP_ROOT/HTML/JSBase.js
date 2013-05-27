@@ -267,8 +267,8 @@ $(document).ready(function()
     });
 
     Page.defaults = $.extend({}, $.fn.editabletypes.abstractinput.defaults, {
-        tpl: '<div class="editable-page"><input placeholder="name" type="text" name="Name" class="input"></div>'+
-             '<div class="editable-page"><input placeholder="path" type="text" name="Path" class="input"></div>',
+        tpl: '<div class="editable-page"><input placeholder="Name" type="text" name="Name" class="input"></div>'+
+             '<div class="editable-page"><input placeholder="/path" type="text" name="Path" class="input"></div>',
         inputclass: ''
     });
 
