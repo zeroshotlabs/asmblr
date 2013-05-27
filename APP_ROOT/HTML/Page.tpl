@@ -7,6 +7,7 @@
     <div class="span12">
         <h3>Path:</h3>
         <a href="#" class="set-path" data-type="text" data-url="<?=$lr('page_set_path')?>" data-name="Path"><?=$P['Path']?></a>
+        <a target="_blank" href="<?=asm('lp')->Link($P['Name'])?>"><img src="<?=$ls('/img/ext-link.png')?>" /></a>
     </div>
 </div>
 

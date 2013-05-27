@@ -8,7 +8,7 @@ abstract class Page extends MongoStruct
 {
     protected static $Skel = array('Site_id'=>'','Path'=>'','Name'=>'',
                                    'CurrentTS'=>0,'Status'=>'Inactive',
-                                   'Routine'=>array(),'Directives'=>array());
+                                   'PathStruct'=>array(),'Routine'=>array(),'Directives'=>array());
 
     public static function Init( \MongoId $S,$Name,$Path )
     {
@@ -17,6 +17,7 @@ abstract class Page extends MongoStruct
         $Page['Name'] = $Name;
         $T = \fw\Path::Init(strtolower('/'.$Path));
         $Page['Path'] = \fw\Path::ToURLString($T);
+        $Page['PathStruct'] = $T;
         return $Page;
     }
 }
@@ -35,12 +36,15 @@ class PageSet extends MongoSet
 
 
     // should be also for templateset?
-    public function __construct( \fw\MongoDB $MDB,\MongoId $Site_id,$Collection = NULL )
+    public function __construct( \fw\MongoDB $MDB,\MongoId $Site_id = NULL,$Collection = NULL )
     {
         parent::__construct($MDB,$Collection);
 
-        $this->Load($Site_id);
-        $this->Site_id = $Site_id;
+        if( !empty($Site_id) )
+        {
+            $this->Load($Site_id);
+            $this->Site_id = $Site_id;
+        }
     }
 
     // debately - also see TemplateSet::Load()
@@ -59,9 +63,14 @@ class PageSet extends MongoSet
     {
         $P['_id'] = new \MongoId;
         $this->MDC->insert($P);
+        $this->PageMap[$P['Name']] = $P['Path'];
     }
 
     // what about template/site?  should they also have the Read/Read_id convention?
+    // so we have two modes - tied to a Site_id or not - if not, this method won't work
+    // in asmSrv we're in Site_id mode - in console we typically aren't
+    // the rest of the CRUD methods work by Page _id so they always work and can reach
+    // across sites
     public function Read( $Name )
     {
         return $this->MDC->findOne(array('Site_id'=>$this->Site_id,'Name'=>$Name));
@@ -87,9 +96,11 @@ class PageSet extends MongoSet
         return $this->SetKV('Name',$Name,'_id',$P);
     }
 
+    // could use some more validation or something maybe
     public function SetPath( $Path,&$P )
     {
-        return $this->SetKV('Path',$Path,'_id',$P);
+        $Path = \fw\Path::Init(strtolower('/'.$Path));
+        return $this->SetKV('Path',\fw\Path::ToURLString($Path),'_id',$P) && $this->SetKV('PathStruct',$Path,'_id',$P);
     }
 
     public function SetRoutine( $Routine,&$P )

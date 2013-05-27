@@ -16,6 +16,10 @@ function asm( $Name = NULL )
 
 namespace asm
 {
+    class Exception extends \fw\Exception
+    {
+    }
+
 // tmp - might need more
 class LinkPage extends \fw\LinkPage
 {
@@ -27,13 +31,39 @@ class LinkPage extends \fw\LinkPage
 	// we need PageSet::ReadByName() and some other stuff for this to work
 // 	public function __invoke( $Name = NULL,$Set = array() )
 // 	{
-		
+
 
 // 	}
-	
+
 }
 
-	
+// use our own Request class so that we can forge requests
+// to act like asmSrv when in console and vice versa, i.e., liveedit
+abstract class Request extends \fw\Request
+{
+    // if RequestURL is set, it'll be parsed and used as if it was the actual request
+    // the result will be returned but not stored statically (though we might change this)
+    // only supported for non-CLI
+    public static function Init( $RequestURL = NULL )
+    {
+        // wow, this is simple - why not do this type of thing always?  cheaper to
+        // parse the URL or figure out from $_SERVER vars?  though does $_SERVER reliablly provide that?
+        if( !empty($RequestURL) )
+        {
+            $RequestURL = \fw\URL::Init($RequestURL);
+            $RequestURL['IsCLI'] = FALSE;
+            return $RequestURL;
+        }
+
+        if( static::$Request !== NULL )
+            return static::$Request;
+        else
+            return parent::Init();
+    }
+}
+
+
+
 abstract class JSONResponse extends \fw\Struct
 {
     protected static $Skel = array('Method'=>'','Status'=>TRUE,'Msg'=>'','Data'=>'');

@@ -1,6 +1,8 @@
 <?php
 
 // don't we need auth checks for things like Site, Page, Template, ?
+// we're back and forth between asm() and fw()
+// random usage of DataSet
 abstract class Console extends \fw\RoutineSet
 {
     public static function Logout()
@@ -35,23 +37,26 @@ abstract class Console extends \fw\RoutineSet
         if( empty($S) )
             fw()->NoPageHandler();
 
-        asm()->GetSet($S['Domain']);
+        fw('page')->ActiveNav = 'Site';
 
-        $PS = asm('ps')->Listing($S['_id']);
-        $HTML = asm('html')->Listing($S['_id']);
+        // the beginnings of live edit?  may better be aggregated up somewhere else
+        // bring our asmblr stuff online - no site execution happens though (Go())
+        // we forge the request data to appear to hit the site; though we need a way
+        // honor the site's BaseURL (like https and path), though we run into a chicken-egg problem
+        // so it's hard wired for now
+        $R = \asm\Request::Init('http://'.$S['Domain']);
+        asm()->GetSet($S['Domain'],$R);
+
+        // should these be API calls?
+        $PL = fw('asmps')->Listing($S['_id']);
+        $TL = fw('asmts')->Listing($S['_id']);
 
         fw('page')->Domain = $S['Domain'];
-        fw('html')->Connect($PS,'PS');
-        fw('html')->Connect($HTML,'TS');
+        fw('html')->Connect($PL,'PL');
+        fw('html')->Connect($TL,'TL');
         fw('html')->Connect($S,'S');
 
-        fw('html')->Connect(array_keys(asm()->GetWired()),'DirectiveNames');
-
-        // we'll wire some other stuff that would normally happen in Go()
-        // the beginnings of live edit?  may better be aggregated up somewhere else
-        // really need a better way of doing this - perhaps time to rearrange CalcURLs
-        asm()->BaseURL = $S['BaseURL'];
-        asm()->CalcURLs();
+        fw('html')->Connect(asm()->DirWireables,'DirectiveNames');
 
         $lp = new \asm\LinkPage(asm('ps'),asm()->SiteURL);
         $ls = new \fw\LinkSet($S['Domain']);
@@ -67,11 +72,16 @@ abstract class Console extends \fw\RoutineSet
             fw('lp')->Go('Home');
 
         $_id = \fw\Request::Path(-1);
-        $P = asm('ps')->Read_id(new \MongoId($_id));
+        $P = fw('asmps')->Read_id(new \MongoId($_id));
         if( empty($P) )
             fw()->NoPageHandler();
 
+        fw('page')->ActiveNav = 'Page';
+
         $S = asm('ss')->Read(new \MongoId($P['Site_id']));
+
+        $R = \asm\Request::Init('http://'.$S['Domain']);
+        asm()->GetSet($S['Domain'],$R);
 
         fw('page')->Domain = $S['Domain'];
         fw('page')->Path = $P['Path'];
@@ -79,7 +89,7 @@ abstract class Console extends \fw\RoutineSet
         fw('html')->Connect($S,'S');
         fw('html')->Connect($P,'P');
 
-        fw('html')->Connect(array_keys(asm()->GetWired()),'DirectiveNames');
+        fw('html')->Connect(asm()->DirWireables,'DirectiveNames');
 
         fw('html')->ReMap('Article','Page');
     }
@@ -90,11 +100,16 @@ abstract class Console extends \fw\RoutineSet
             fw('lp')->Go('Home');
 
         $_id = \fw\Request::Path(-1);
-        $T = asm('ts')->Read(new \MongoId($_id));
+        $T = fw('asmts')->Read_id(new \MongoId($_id));
         if( empty($T) )
             fw()->NoPageHandler();
 
+        fw('page')->ActiveNav = 'Template';
+
         $S = asm('ss')->Read(new \MongoId($T['Site_id']));
+
+        $R = \asm\Request::Init('http://'.$S['Domain']);
+        asm()->GetSet($S['Domain'],$R);
 
         fw('page')->Domain = $S['Domain'];
         fw('page')->Name = $T['Name'];
@@ -141,7 +156,7 @@ abstract class Console extends \fw\RoutineSet
         }
         else if( \asm\rv::Page_id() )
         {
-            $S = asm('ps')->Read(new \MongoId($_POST['Page_id']));
+            $S = fw('asmps')->Read_id(new \MongoId($_POST['Page_id']));
             $Tag = 'DirectiveP_';
         }
 /*

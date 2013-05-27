@@ -56,7 +56,9 @@ class asmSrv extends \fw\App
     // will need some way to reliably control this
     public $LogPublic = TRUE;
     public $MongoDB = 'asmblr';
+
     public $SiteStatuses = array('Active','Disabled');
+    public $DirWireables = array('page','html');
 
 
     public function __construct()
@@ -89,13 +91,13 @@ class asmSrv extends \fw\App
         ini_set('zlib.output_compression',TRUE);
     }
 
-    public function GetSet( $Domain )
+    public function GetSet( $Domain,$Request )
     {
         if( ($this->SrvSite = $this->Match($Domain)) === NULL )
             \fw\HTTP::_400();
 
         $this->BaseURL = $this->SrvSite['BaseURL'];
-        $this->Request = \fw\Request::Init();
+        $this->Request = $Request;
 
         list($this->SiteURL,$this->MatchPath,$this->IsBaseScheme,
              $this->IsBaseHostname,$this->IsBasePort,$this->IsBasePath) = $this->CalcURLs($this->Request,$this->BaseURL);
@@ -110,8 +112,7 @@ class asmSrv extends \fw\App
         $page->ActiveSite = $this->SrvSite;
 
         // have to manually set collection to TemplateSet
-        $html = new enUSHTMLSet($this->asmdb,'TemplateSet');
-        $html->Load($Site['_id']);
+        $html = new enUSHTMLSet($this->asmdb,$this->SrvSite['_id'],'TemplateSet');
 
         $ps = new PageSet($this->asmdb,$this->SrvSite['_id']);
 
@@ -123,17 +124,6 @@ class asmSrv extends \fw\App
         // double wire - have to straighten out our naming between srv and console
 //        $this->Wire(array('html'=>$html,'ts'=>$html,'ps'=>$ps,'lp'=>$lp,'ls'=>$ls));
         $html->ConnectWireables($lp,$ls,$page);
-
-        // we're doing this all over the place - need to wire/centralize somehow - or optimize even
-        // since we're doing a lot of extra connections/queries/etc it seems
-        $ds = new DataSet($this->asmdb,$Site['_id'],'Directive');
-        foreach( $ds as $V )
-        {
-            if( ($W = $this->{$V['Name']}) === NULL )
-                throw new Exception("Directive object {$V['Name']}' doesn't exist while executing Site '{$this->SrvSite['Domain']}'.");
-            else
-                $W->ApplyDirective($V['Key'],$V['Value']);
-        }
     }
 
     // Executing a site involves:
@@ -146,6 +136,19 @@ class asmSrv extends \fw\App
     // TODO: handle lib code
     public function Go()
     {
+        // we're doing this all over the place - need to wire/centralize somehow - or optimize even
+        // since we're doing a lot of extra connections/queries/etc it seems
+        // also applying directives is happening here for now, though it may be handy to have it
+        // happen in GetSet() - or callable as we need it to be
+        $ds = new DataSet($this->asmdb,$this->SrvSite['_id'],'Directive');
+        foreach( $ds as $V )
+        {
+            if( ($W = $this->{$V['Name']}) === NULL )
+                throw new Exception("Directive object {$V['Name']}' doesn't exist while executing Site '{$this->SrvSite['Domain']}'.");
+            else
+                $W->ApplyDirective($V['Key'],$V['Value']);
+        }
+
         if( empty($this->SrvSite['Routine']) === FALSE )
         {
             if( $this->SrvSite['Routine']['Type'] === 'Pointer' )
@@ -242,6 +245,7 @@ class fwApp extends \fw\App
 
     public function Go()
     {
+        // local FW application - nothing to do with asmblr
         \fw\Inc::Dir('Routines');
 
         $this->Request = \fw\Request::Init();
@@ -272,10 +276,19 @@ class fwApp extends \fw\App
         $html->LoadDir('HTML');
 
         // bring our asmblr stuff online - no site execution happens though (Go())
-        // GetSet() will be called in our various console routines, like Site, Page, Template
+        // GetSet() will be called in our various console routines, like Page, Template
+        // to setup site specific sets for Page/Template - these sets will be in Site_id mode
         $asm = new asmSrv;
 
+        // create generic sets for helpers - these are in standalone mode
+        // these are used by the API which also ties us together
+        $asmps = new \asm\PageSet(asm()->asmdb);
+        $asmts = new \asm\TemplateSet(asm()->asmdb);
+        $this->Wire(array('asmps'=>$asmps,'asmts'=>$asmts));
+
         // no session created in account_auth which ties us back to this code base
+        // this could probably go higher up, before $page, etc. though we use the
+        // standalone sets created above
         if( \fw\Path::Top($this->MatchPath) === 'restv1' )
         {
             \fw\HTTP::ContentType('json');
@@ -295,6 +308,9 @@ class fwApp extends \fw\App
             $page->LoggedIn = FALSE;
 
         $html->RightAside = NULL;
+
+        // helps us form the breadcrumb - either Site, Page or Template
+        $page->ActiveNav = NULL;
 
         $ps->Create('CSS','/css/','Console::CSSHandler');
         $ps->Create('JS','/js/','Console::JSHandler');
@@ -373,8 +389,9 @@ define('APP_ROOT',str_replace('DOC_ROOT','APP_ROOT',DOC_ROOT));
 \fw\Inc::Dir('asmblr');
 
 // some custom start-up and route based on domain
+$Domain = \fw\Request::Hostname();
 
-if( fwApp::$ConsoleDomain === \fw\Request::Hostname() )
+if( fwApp::$ConsoleDomain === $Domain )
 {
     $fw = new fwApp;
     $fw->Go();
@@ -383,7 +400,7 @@ else
 {
     // an unknown domain/bogus request is handled in asmSrv
     $asm = new asmSrv;
-    $asm->GetSet($Hostname);
+    $asm->GetSet($Domain,Request::Init());
     $asm->Go();
 }
 

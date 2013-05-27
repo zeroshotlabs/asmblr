@@ -29,7 +29,21 @@ class TemplateSet extends MongoSet
 {
     use \fw\TemplateTraits;
 
+    protected $Site_id;
 
+    // see also PageSet
+    public function __construct( \fw\MongoDB $MDB,\MongoId $Site_id = NULL,$Collection = NULL )
+    {
+        parent::__construct($MDB,$Collection);
+
+        if( !empty($Site_id) )
+        {
+            $this->Load($Site_id);
+            $this->Site_id = $Site_id;
+        }
+    }
+
+    // see also PageSet::Load
     public function Load( \MongoId $S )
     {
         $this->Templates = array();
@@ -46,7 +60,13 @@ class TemplateSet extends MongoSet
         $this->Templates[$T['Name']] = $T;
     }
 
-    public function Read( \MongoId $T )
+    // see also PageSet
+    public function Read( $Name )
+    {
+        return $this->MDC->findOne(array('Site_id'=>$this->Site_id,'Name'=>$Name));
+    }
+
+    public function Read_id( \MongoId $T )
     {
         return $this->MDC->findOne(array('_id'=>$T));
     }

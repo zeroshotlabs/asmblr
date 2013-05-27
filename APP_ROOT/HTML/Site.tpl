@@ -11,7 +11,7 @@
     <li class="dropdown">
         <a class="dropdown-toggle" role="button" data-toggle="dropdown" href="#">Pages <b class="caret"></b></a>
         <ul id="menu1" class="dropdown-menu" role="menu" aria-labelledby="pages">
-           <?php foreach( $PS as $P ): ?>
+           <?php foreach( $PL as $P ): ?>
             <li role="presentation">
                 <a role="menuitem" href="<?=$lp('Page','>'.(string)$P['_id'])?>">
                     <?=$this($P['Name'])?><small> - <?=$this($P['Path'])?></small>
@@ -26,7 +26,7 @@
     <li class="dropdown">
         <a class="dropdown-toggle" role="button" data-toggle="dropdown" href="#">Templates <b class="caret"></b></a>
         <ul id="menu2" class="dropdown-menu" role="menu" aria-labelledby="templates">
-           <?php foreach( $TS as $T ): ?>
+           <?php foreach( $TL as $T ): ?>
             <li role="presentation"><a role="menuitem" href="<?=$lp('Template','>'.(string)$T['_id'])?>"><?=$this($T['Name'])?></a></li>
            <?php endforeach; ?>
         </ul>
@@ -41,7 +41,6 @@
     <div class="span12">
         <h3>Domain:</h3>
         <a href="#" class="set-domain" data-type="text" data-url="<?=$lr('site_set_domain')?>" data-name="Domain"><?=$S['Domain']?></a>
-        <a target="_blank" href="<?=asm('lp')->Link('Home')?>"><img src="<?=$ls('/img/ext-link.png')?>" /></a>
     </div>
 </div>
 

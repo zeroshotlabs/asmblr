@@ -42,8 +42,9 @@ class REST extends \fw\RoutineSet
 
         static::$as = $as = asm('as');
         static::$ss = asm('ss');
-        static::$ps = asm('ps');
-        static::$ts = asm('ts');
+        // use standalone sets from our console regular framewire app
+        static::$ps = fw('asmps');
+        static::$ts = fw('asmts');
 
         \fw\Path::Del(0,$MatchPath);
         static::$MatchPath = $MatchPath;
@@ -128,16 +129,6 @@ class REST extends \fw\RoutineSet
             \fw\HTTP::_403();
     }
 
-    protected static function AuthTemplate( \MongoId $T_id )
-    {
-        $T = static::$ts->Read($T_id);
-        if( empty($T) )
-            \fw\HTTP::_400();
-
-        static::AuthSite($T['Site_id']);
-        static::$Template = $T;
-    }
-
     protected static function AuthPage( \MongoId $P_id )
     {
         $P = static::$ps->Read_id($P_id);
@@ -147,6 +138,16 @@ class REST extends \fw\RoutineSet
 
         static::AuthSite($P['Site_id']);
         static::$Page = $P;
+    }
+
+    protected static function AuthTemplate( \MongoId $T_id )
+    {
+        $T = static::$ts->Read_id($T_id);
+        if( empty($T) )
+            \fw\HTTP::_400();
+
+        static::AuthSite($T['Site_id']);
+        static::$Template = $T;
     }
 
     // SU
@@ -225,13 +226,18 @@ class REST extends \fw\RoutineSet
         static::$Response = $N;
     }
 
-    // public
+    // public - hard wired "security" so that we only reveal
+    // certain wireables that can be used, but real security should be considered
     protected static function util_dir_names()
     {
-        // this will need revisiting/security/etc
         $N = array();
-        foreach( asm()->GetWired() as $K => $V )
-            $N[] = array('value'=>$K,'text'=>$K);
+        foreach( asm()->DirWireables as $V )
+            $N[] = array('value'=>$V,'text'=>$V);
+
+//         // this will need revisiting/security/etc
+//         $N = array();
+//         foreach( asm()->GetWired() as $K => $V )
+//             $N[] = array('value'=>$K,'text'=>$K);
 
         static::$Response = $N;
     }

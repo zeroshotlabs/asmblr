@@ -10,13 +10,24 @@
 <h1>Server Error</h1>
 
 
-@@Breadcrumb
+@@@Breadcrumb
 <ul class="breadcrumb">
-<li><a href="<?=$lp('Home')?>">Home</a> <span class="divider">|</span></li>
-<li><a href="<?=$lp('Site','>'.$S['_id'])?>"><?=$page->Domain?></a><?=$page->Path?></li>
-<?php if( !empty($P['Name']) ): ?>
-<li><span class="divider">|</span> <?=$P['Name']?></li>
-<?php endif; ?>
+<li><a href="<?=$lp('Home')?>">all sites</a></li>
+
+<?php if( $page->ActiveNav === 'Site' ): ?>
+<li>
+<span class="divider">|</span> <?=$S['Domain']?>
+&nbsp;<a target="_blank" href="<?=asm('lp')->Link('Home')?>"><img src="<?=$ls('/img/ext-link.png')?>" /></a>
+</li>
+<li>
+&nbsp;&nbsp;<small><a href="#" class="set-status" data-type="select" data-url="<?=$lr('site_set_status')?>" data-value="<?=$S['Status']?>" data-name="Status"><?=strtolower($S['Status'])?></a></small>
+</li>
+<?php elseif( $page->ActiveNav === 'Page' ): ?>
+<li>
+<span class="divider">|</span> <a href="<?=$lp('Site','>'.$S['_id'])?>"><?=$S['Domain']?></a><?=$P['Path']?>
+&nbsp;<a target="_blank" href="<?=asm('lp')->Link($P['Name'])?>"><img src="<?=$ls('/img/ext-link.png')?>" /></a>
+</li>
+<li> <span class="divider">|</span> <?=$P['Name']?></li>
 <li>
 &nbsp;&nbsp;<span style="font-size: .79em;"><a href="#" class="set-status" data-type="select" data-url="<?=$lr('page_set_status')?>" data-value="<?=$P['Status']?>" data-name="Status"><?=strtolower($P['Status'])?></a></span>
 </li>
@@ -25,36 +36,18 @@
     <img alt="delete" src="<?=$ls('/img/glyphicons_256_delete.png')?>">
     </a>
 </li>
-</ul>
-
-<ul class="breadcrumb">
-<li><a href="<?=$lp('Home')?>">Home</a> <span class="divider">|</span></li>
-<li><?=$page->Domain?></li>
+<?php elseif( $page->ActiveNav === 'Template' ): ?>
 <li>
-&nbsp;&nbsp;<small><a href="#" class="set-status" data-type="select" data-url="<?=$lr('site_set_status')?>" data-value="<?=$S['Status']?>" data-name="Status"><?=strtolower($S['Status'])?></a></small>
+<span class="divider">|</span> <a href="<?=$lp('Site','>'.$S['_id'])?>"><?=$S['Domain']?></a>
 </li>
-</ul>
-
-
-
-<ul class="breadcrumb">
-<li><a href="<?=$lp('Home')?>">Home</a> <span class="divider">|</span></li>
-<li><a href="<?=$lp('Site','>'.$S['_id'])?>"><?=$page->Domain?></a><span class="divider">|</span><?=$page->Name?></li>
-
+<li> <span class="divider">|</span> <?=$T['Name']?></li>
 <li class="pull-right">
     <a title="delete" data-toggle="modal" data-target="#template_delete" href="#">
     <img alt="delete" src="<?=$ls('/img/glyphicons_256_delete.png')?>">
     </a>
 </li>
-
+<?php endif; ?>
 </ul>
-
-
-
-
-
-
-
 
 @@@Footer
 <div class="page-footer">
