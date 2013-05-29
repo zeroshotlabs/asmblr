@@ -78,9 +78,55 @@ $(document).ready(function()
 	});
 
 	ajfDirectives();
+
 });
 </script>
 <?php $this->JSDirectives(array('prefix'=>'site')); ?>
+
+@@@JSEditRoutine
+<script src="<?=$ls('/jslib/codemirror-3.13/lib/codemirror.js')?>"></script>
+<script src="<?=$ls('/jslib/codemirror-3.13/addon/edit/matchbrackets.js')?>"></script>
+<script src="<?=$ls('/jslib/codemirror-3.13/mode/htmlmixed/htmlmixed.js')?>"></script>
+<script src="<?=$ls('/jslib/codemirror-3.13/mode/xml/xml.js')?>"></script>
+<script src="<?=$ls('/jslib/codemirror-3.13/mode/javascript/javascript.js')?>"></script>
+<script src="<?=$ls('/jslib/codemirror-3.13/mode/css/css.js')?>"></script>
+<script src="<?=$ls('/jslib/codemirror-3.13/mode/clike/clike.js')?>"></script>
+<script src="<?=$ls('/jslib/codemirror-3.13/mode/php/php.js')?>"></script>
+
+<link rel="stylesheet" href="<?=$ls('/jslib/codemirror-3.13/lib/codemirror.css')?>" />
+<script>
+<?php /*
+    	onCursorActivity: function() {
+    	    editor.matchHighlight("CodeMirror-matchhighlight",2,'<?=\fw\Struct::Get('SearchTerms',$_GET)?>');
+    	},
+*/ ?>
+
+var editor = CodeMirror.fromTextArea(document.getElementById("routine_body"),
+{
+    lineNumbers: true,
+    matchBrackets: true,
+    mode: "text/x-php",
+    indentUnit: 4,
+    enterMode: "keep",
+    tabMode: "shift"
+});
+
+editor.on('change',function(){$('#save_routine_body').removeAttr('disabled');});
+
+$('#save_routine_body').on('click',function(e){
+	$.ajax({ url:'<?=$lr('site_set_routine')?>',data:{Routine:editor.getValue()},
+		success: function(data){
+	    if( data.Status === true )
+	    {
+	    	$('#routine_msg').html('saved');
+	    	$(e.currentTarget).attr('disabled','disabled');
+	    }
+	    else
+	    	$('#routine_msg').html(data.Msg);
+		}})
+	.fail(function(){ $('#routine_msg').html('save error'); });
+});
+</script>
 
 
 @@@JSPage

@@ -49,6 +49,7 @@
 <?php endif; ?>
 </ul>
 
+
 @@@Footer
 <div class="page-footer">
     <div class="footer-left-side">
@@ -60,4 +61,15 @@
         <p><?=round((microtime(TRUE)-START_TIME)*1000,1)?>ms</p>
     </div>
 </div>
+
+
+@@@EditRoutine
+<h3>Routine</h3>
+<textarea id="routine_body" name="Routine"><?=$this($RoutineBody)?></textarea>
+<div>
+    <button id="save_routine_body" class="btn btn-success" data-pk="" disabled="disabled">Save</button>
+    <div id="routine_msg">sssss</div>
+</div>
+
+<?php $this->Stack('JSEditRoutine','ajax'); ?>
 

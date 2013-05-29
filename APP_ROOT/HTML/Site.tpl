@@ -55,6 +55,7 @@
     <div class="span12">
         <h3>Routine:</h3>
         <a href="#" class="set-routine" data-type="textarea" data-url="<?=$lr('site_set_routine')?>" data-emptytext="no routine" data-name="Routine"><?=\fw\Struct::Get(0,$S['Routine'])?></a>
+        <a title="edit" data-toggle="modal" data-target="#routine_modal" href="#">edit</a>
     </div>
 </div>
 
@@ -78,6 +79,7 @@
     </div>
 </div>
 
+<?php $this->EditRoutine(array('RoutineBody'=>\fw\Struct::Get(0,$S['Routine']))); ?>
 
 <?php $this->Stack('JSSite','ajax'); ?>
 

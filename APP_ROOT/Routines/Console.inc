@@ -64,6 +64,7 @@ abstract class Console extends \fw\RoutineSet
         asm()->Wire(array('lp'=>$lp,'ls'=>$ls));
 
         fw('html')->ReMap('Article','Site');
+        fw('html')->ReMap('Base','m_Base');
     }
 
     public static function Page()

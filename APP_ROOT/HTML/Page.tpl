@@ -21,7 +21,7 @@
 <div class="row-fluid">
     <div class="span12">
         <h3>Routine:</h3>
-        <a href="#" class="set-routine" data-type="textarea" data-url="<?=$lr('page_set_routine')?>" data-emptytext="no routine" data-name="Routine"><?=\fw\Struct::Get(0,$P['Routine'])?></a>
+        <a href="#" class="set-routine" data-type="textarea" data-url="<?=$lr('page_set_routine')?>" data-emptytext="no routine" data-name="Routine"><?=nl2br($this(\fw\Struct::Get(0,$P['Routine'])))?></a>
     </div>
 </div>
 
@@ -43,7 +43,7 @@
         <textarea class="" placeholder="value" name="Value" style="width: 75%;"></textarea>
         <button type="submit" class="btn btn-success">New</button>
         </form>
-        </div>
+    </div>
 </div>
 
 
