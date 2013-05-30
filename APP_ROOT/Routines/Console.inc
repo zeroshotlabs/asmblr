@@ -38,6 +38,8 @@ abstract class Console extends \fw\RoutineSet
             fw()->NoPageHandler();
 
         fw('page')->ActiveNav = 'Site';
+        fw('page')->Site_id = \fw\Request::Path(-1);
+
 
         // the beginnings of live edit?  may better be aggregated up somewhere else
         // bring our asmblr stuff online - no site execution happens though (Go())
@@ -65,6 +67,8 @@ abstract class Console extends \fw\RoutineSet
 
         fw('html')->ReMap('Article','Site');
         fw('html')->ReMap('Base','m_Base');
+        fw('page')->PageID = 'site';
+        fw('html')->ReMap('Page','m_Site');
     }
 
     public static function Page()
