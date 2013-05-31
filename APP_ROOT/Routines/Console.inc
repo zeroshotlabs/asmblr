@@ -65,10 +65,13 @@ abstract class Console extends \fw\RoutineSet
 
         asm()->Wire(array('lp'=>$lp,'ls'=>$ls));
 
-//        fw('html')->ReMap('Article','Site');
+        fw('html')->ReMap('Article','Site');
         fw('html')->ReMap('Base','m_Base');
         fw('page')->PageID = 'jqm_site';
         fw('html')->ReMap('Page','m_Site');
+
+        $DS = new \asm\DataSet(asm('asmdb'),$S['_id'],'Directive');
+        fw('html')->Connect($DS,'DS');
     }
 
     public static function Page()
@@ -103,10 +106,10 @@ abstract class Console extends \fw\RoutineSet
 
         fw('html')->Connect(asm()->DirWireables,'DirectiveNames');
 
-//        fw('html')->ReMap('Article','Page');
-        fw('html')->ReMap('Base','m_Base');
+        fw('html')->ReMap('Article','Page');
+//        fw('html')->ReMap('Base','m_Base');
         fw('page')->PageID = 'jqm_page';
-        fw('html')->ReMap('Page','m_Page');
+//        fw('html')->ReMap('Page','m_Page');
 
     }
 

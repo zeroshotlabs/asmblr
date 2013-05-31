@@ -34,6 +34,7 @@
         <a href="#" id="ResetBaseURL" data-role="button" data-icon="delete" data-iconpos="notext" data-theme="c" data-inline="true">cancel</a>
     </div>
 
+   <?php foreach( $DS as $D ): var_dump($D); endforeach; ?>
     <ul data-role="listview" data-divider-theme="" data-inset="true">
         <li data-role="list-divider" role="heading">Directives</li>
         <li data-theme="c"><a href="#" data-transition="slide">Button</a></li>
