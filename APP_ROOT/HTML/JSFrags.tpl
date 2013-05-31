@@ -84,16 +84,6 @@ $(document).ready(function()
 <?php $this->JSDirectives(array('prefix'=>'site')); ?>
 
 @@@JSEditRoutine
-<script src="<?=$ls('/jslib/codemirror-3.13/lib/codemirror.js')?>"></script>
-<script src="<?=$ls('/jslib/codemirror-3.13/addon/edit/matchbrackets.js')?>"></script>
-<script src="<?=$ls('/jslib/codemirror-3.13/mode/htmlmixed/htmlmixed.js')?>"></script>
-<script src="<?=$ls('/jslib/codemirror-3.13/mode/xml/xml.js')?>"></script>
-<script src="<?=$ls('/jslib/codemirror-3.13/mode/javascript/javascript.js')?>"></script>
-<script src="<?=$ls('/jslib/codemirror-3.13/mode/css/css.js')?>"></script>
-<script src="<?=$ls('/jslib/codemirror-3.13/mode/clike/clike.js')?>"></script>
-<script src="<?=$ls('/jslib/codemirror-3.13/mode/php/php.js')?>"></script>
-
-<link rel="stylesheet" href="<?=$ls('/jslib/codemirror-3.13/lib/codemirror.css')?>" />
 <script>
 <?php /*
     	onCursorActivity: function() {
@@ -101,31 +91,27 @@ $(document).ready(function()
     	},
 */ ?>
 
-var editor = CodeMirror.fromTextArea(document.getElementById("routine_body"),
-{
-    lineNumbers: true,
-    matchBrackets: true,
-    mode: "text/x-php",
-    indentUnit: 4,
-    enterMode: "keep",
-    tabMode: "shift"
+
+$(document).on('pageshow','#jqm_site', function() {
+	editor = CodeMirror.fromTextArea(document.getElementById("Routine"),
+	{
+	    lineNumbers: true,
+	    matchBrackets: true,
+	    mode: "text/x-php",
+	    indentUnit: 4,
+	    extraKeys: {"Ctrl-S":function(instance){
+		    t = {};
+		    t[instance.getTextArea().id] = instance.getValue();
+		    aapi_set($(instance.getTextArea()).data('method'),t);
+		    instance.getTextArea().defaultValue = instance.getValue();
+			$('#Save'+instance.getTextArea().id).removeClass('btn-warning');
+			$('#Reset'+instance.getTextArea().id).removeClass('btn-primary');
+
+	    }}
+	});
+	init_cm(editor,'Routine',$(editor.getTextArea()).data('method'));
 });
 
-editor.on('change',function(){$('#save_routine_body').removeAttr('disabled');});
-
-$('#save_routine_body').on('click',function(e){
-	$.ajax({ url:'<?=$lr('site_set_routine')?>',data:{Routine:editor.getValue()},
-		success: function(data){
-	    if( data.Status === true )
-	    {
-	    	$('#routine_msg').html('saved');
-	    	$(e.currentTarget).attr('disabled','disabled');
-	    }
-	    else
-	    	$('#routine_msg').html(data.Msg);
-		}})
-	.fail(function(){ $('#routine_msg').html('save error'); });
-});
 </script>
 
 

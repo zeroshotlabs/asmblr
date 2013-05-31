@@ -1,14 +1,14 @@
 
     <div data-theme="c" data-role="header">
     stackware.local
-    <a href="#" id="nav-panel-btn" class="ui-btn-left ui-btn ui-shadow ui-btn-corner-all ui-btn-icon-notext ui-btn-up-a"
+    <div style="float: left;"><a href="#" id="nav-panel-btn" class="ui-btn ui-shadow ui-btn-corner-all ui-btn-icon-notext ui-btn-up-a"
        data-icon="bars" data-iconpos="notext" data-corners="true" data-shadow="true" data-iconshadow="true"
        data-wrapperels="span" data-theme="a" title="Navigation">
         <span class="ui-btn-inner">
         <span class="ui-btn-text">Navigation</span>
         <span class="ui-icon ui-icon-bars ui-icon-shadow">&nbsp;</span>
         </span>
-    </a>
+    </a></div>
     </div>
 
     <div data-role="content">
@@ -19,30 +19,20 @@
             </ul>
         </div>
 
-        <form method="post" action="<?=$lr('site_set_domain')?>">
-        <input type="hidden" name="Site_id" value="<?=$page->Site_id?>" />
+        <div id="aapi_msg"></div>
+
         <div data-role="fieldcontain">
             <label for="Domain" class="ui-hidden-accessible">Domain:</label>
-            <input type="text" name="Domain" id="Domain" placeholder="domain" value="<?=$S['Domain']?>">
+            <input name="Domain" id="Domain" placeholder="domain" value="<?=$S['Domain']?>" type="text" >
+            <a href="#"id="SaveDomain" data-role="button" data-icon="check" data-iconpos="notext" data-theme="c" data-inline="true">save</a>
+            <a href="#" id="ResetDomain" data-role="button" data-icon="delete" data-iconpos="notext" data-theme="c" data-inline="true">cancel</a>
         </div>
-        <input type="submit" name="submit" value="save" data-inline="true" />
-        <input type="reset" name="reset" value="reset" data-inline="true" />
-
-<?php /*
-class="btn-success ui-btn-hidden" aria-disabled="false"
-data-role="button" data-icon="check" data-iconpos="notext" data-theme="c" data-inline="true"
-
-            <a href="#" class="btn-danger" data-role="button" data-icon="delete" data-iconpos="notext" data-theme="c" data-inline="true">cancel</a>
-        </div>
-*/ ?>
-
-            </form>
-
 
         <div data-role="fieldcontain">
-            <input name="BaseURL" id="textinput2" placeholder="base URL" value="" type="url">
-            <a href="#" class="btn-success" data-role="button" data-icon="check" data-iconpos="notext" data-theme="c" data-inline="true">save</a>
-            <a href="#" class="btn-danger" data-role="button" data-icon="delete" data-iconpos="notext" data-theme="c" data-inline="true">cancel</a>
+            <label for="BaseURL" class="ui-hidden-accessible">BaseURL:</label>
+            <input name="BaseURL" id="BaseURL" placeholder="base URL" value="<?=$S['BaseURL']?>" type="url">
+            <a href="#"id="SaveBaseURL" data-role="button" data-icon="check" data-iconpos="notext" data-theme="c" data-inline="true">save</a>
+            <a href="#" id="ResetBaseURL" data-role="button" data-icon="delete" data-iconpos="notext" data-theme="c" data-inline="true">cancel</a>
         </div>
 
         <ul data-role="listview" data-divider-theme="" data-inset="true">
@@ -51,6 +41,8 @@ data-role="button" data-icon="check" data-iconpos="notext" data-theme="c" data-i
         </ul>
 
         <div data-role="fieldcontain">
-            <?php $this->EditRoutine(array('RoutineBody'=>\fw\Struct::Get(0,$S['Routine']))); ?>
+            <label for="Routine" class="ui-hidden-accessible">Routine:</label>
+            <?php $this->EditRoutine(array('Method'=>'site_set_routine','Routine'=>\fw\Struct::Get(0,$S['Routine']))); ?>
         </div>
     </div>
+

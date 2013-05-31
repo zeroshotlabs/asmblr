@@ -64,12 +64,10 @@
 
 
 @@@EditRoutine
-<h3>Routine</h3>
-<textarea id="routine_body" name="Routine"><?=$this($RoutineBody)?></textarea>
-<div>
-    <button id="save_routine_body" class="btn btn-success" data-pk="" disabled="disabled">Save</button>
-    <div id="routine_msg">sssss</div>
+<textarea data-method="<?=$Method?>" data-role="none" id="Routine" name="Routine"><?=$this($Routine)?></textarea>
+<div style="margin-left: 22px;">
+<a href="#" id="SaveRoutine" data-role="button" data-icon="check" data-iconpos="notext" data-theme="c" data-inline="true">save</a>
+<a href="#" id="ResetRoutine" data-role="button" data-icon="delete" data-iconpos="notext" data-theme="c" data-inline="true">cancel</a>
 </div>
-
 <?php $this->Stack('JSEditRoutine','ajax'); ?>
 
