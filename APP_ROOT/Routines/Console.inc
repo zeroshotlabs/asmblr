@@ -65,7 +65,7 @@ abstract class Console extends \fw\RoutineSet
 
         asm()->Wire(array('lp'=>$lp,'ls'=>$ls));
 
-        fw('html')->ReMap('Article','Site');
+//        fw('html')->ReMap('Article','Site');
         fw('html')->ReMap('Base','m_Base');
         fw('page')->PageID = 'jqm_site';
         fw('html')->ReMap('Page','m_Site');
@@ -82,6 +82,7 @@ abstract class Console extends \fw\RoutineSet
             fw()->NoPageHandler();
 
         fw('page')->ActiveNav = 'Page';
+        fw('page')->Page_id = \fw\Request::Path(-1);
 
         $S = asm('ss')->Read(new \MongoId($P['Site_id']));
 
@@ -91,12 +92,22 @@ abstract class Console extends \fw\RoutineSet
         fw('page')->Domain = $S['Domain'];
         fw('page')->Path = $P['Path'];
 
+        $PL = fw('asmps')->Listing($S['_id']);
+        $TL = fw('asmts')->Listing($S['_id']);
+
+        fw('html')->Connect($PL,'PL');
+        fw('html')->Connect($TL,'TL');
+
         fw('html')->Connect($S,'S');
         fw('html')->Connect($P,'P');
 
         fw('html')->Connect(asm()->DirWireables,'DirectiveNames');
 
-        fw('html')->ReMap('Article','Page');
+//        fw('html')->ReMap('Article','Page');
+        fw('html')->ReMap('Base','m_Base');
+        fw('page')->PageID = 'jqm_page';
+        fw('html')->ReMap('Page','m_Page');
+
     }
 
     public static function Template()

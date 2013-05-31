@@ -164,10 +164,10 @@ abstract class rv
     {
         return v::Path($N,$_POST);
     }
-    // should be checking that value is known status per REST::util_site_statuses
     public static function Status( $N = 'Status' )
     {
-        return v::Name($N,$_POST);
+        if( v::Name($N,$_POST) )
+            return in_array($_POST[$N],asm()->SiteStatuses,TRUE);
     }
     public static function Site_id( $N = 'Site_id' )
     {

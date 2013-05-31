@@ -216,7 +216,7 @@ class REST extends \fw\RoutineSet
             static::$Response = JSONResponse::Fail('Database error');
     }
 
-    // public
+    // public - might not be needed
     protected static function util_site_statuses()
     {
         $N = array();
@@ -336,10 +336,16 @@ class REST extends \fw\RoutineSet
 
     protected static function site_set_domain()
     {
-        if( !rv::Site_id() || !rv::Domain() )
+        if( !rv::Site_id() )
             \fw\HTTP::_400();
 
         static::AuthSite(new \MongoId($_POST['Site_id']));
+
+        if( !rv::Domain() )
+        {
+            static::$Response = JSONResponse::Fail('Domain is required.');
+            return;
+        }
 
         try
         {
@@ -361,10 +367,16 @@ class REST extends \fw\RoutineSet
 
     protected static function site_set_status()
     {
-        if( !rv::Site_id() || !rv::Status() )
+        if( !rv::Site_id() )
             \fw\HTTP::_400();
 
         static::AuthSite(new \MongoId($_POST['Site_id']));
+
+        if( !rv::Status() )
+        {
+            static::$Response = JSONResponse::Fail('Unknown status.');
+            return;
+        }
 
         $R = static::$ss->SetStatus($_POST['Status'],static::$Site);
 

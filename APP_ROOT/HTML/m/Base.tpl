@@ -21,7 +21,6 @@
 <script src="https://d10ajoocuyu32n.cloudfront.net/mobile/1.3.1/jquery.mobile-1.3.1.min.js"></script>
 <script src="<?=$lp('JS','>bootstrap.min.js?')?>"></script>
 
-
 <script src="<?=$ls('/jslib/codemirror-3.13/lib/codemirror.js')?>"></script>
 <script src="<?=$ls('/jslib/codemirror-3.13/addon/edit/matchbrackets.js')?>"></script>
 <script src="<?=$ls('/jslib/codemirror-3.13/mode/htmlmixed/htmlmixed.js')?>"></script>
@@ -38,11 +37,13 @@
     <?php $this->Page(); ?>
 
     <?php $this->m_Panels(); ?>
-</div>
 
 <script><?php $this->m_JSBase(); ?></script>
 
 <?php $this->Unstack('ajax'); ?>
+
+</div>
+
 
 </body>
 </html>
