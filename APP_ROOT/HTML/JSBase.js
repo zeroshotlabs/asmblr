@@ -1,4 +1,95 @@
 
+function aapi_method2url( Method )
+{
+	switch( Method )
+	{
+		case 'site_set_baseurl':
+			url = '<?=$lr('site_set_baseurl')?>';
+			break;
+		case 'site_set_domain':
+			url = '<?=$lr('site_set_domain')?>';
+			break;
+		case 'site_set_routine':
+			url = '<?=$lr('site_set_routine')?>';
+			break;
+		case 'site_set_status':
+			url = '<?=$lr('site_set_status')?>';
+			break;
+		case 'page_create':
+			url = '<?=$lr('page_create')?>';
+			break;
+		case 'page_set_name':
+			url = '<?=$lr('page_set_name')?>';
+			break;
+		case 'page_set_path':
+			url = '<?=$lr('page_set_path')?>';
+			break;
+		case 'page_set_status':
+			url = '<?=$lr('page_set_status')?>';
+			break;
+		default:
+			url = 'unknown';
+	}
+
+	return url;
+}
+
+
+
+function aapi_status( Class,Tag,Method )
+{
+    t = $('button.'+Class);
+    if( t.data('status') === 'Active' )
+    {
+        t.addClass('btn-success');
+        t.html(Tag+' is on');
+        t.attr('title','click to turn off');
+    }
+    else
+    {
+        t.addClass('btn-danger');
+        t.html(Tag+' is off');
+        t.attr('title','click to turn on');
+    }
+
+    url = aapi_method2url(Method);
+    
+    $('button.'+Class).on('click',function(e){
+        t = $(e.currentTarget);
+        if( t.data('status') === 'Active' )
+        {
+        	$.ajax({url:url,data:{Status:'Disabled'}})
+        	 .done(function(data){
+           		 if( data.Status === true )
+           		 {
+                     t.removeClass('btn-success');
+                     t.addClass('btn-danger');
+                     t.html(Tag+' is off');
+                     t.data('status','Disabled');
+                     t.attr('title','click to turn on');
+           		 }
+           }).fail(function(data) { $('#aapi_msg').html('connection error'); });
+        }
+        else
+        {
+        	$.ajax({url:url,data:{Status:'Active'}})
+       	     .done(function(data){
+           		 if( data.Status === true )
+           		 {
+                     t.removeClass('btn-danger');
+                     t.addClass('btn-success');
+                     t.html(Tag+' is on');
+                     t.data('status','Active');
+                     t.attr('title','click to turn off');
+           		 }
+          }).fail(function(data) { $('#aapi_msg').html('connection error'); });
+        }
+	});
+}
+
+
+
+
 // because JS confuses itself
 var NormParams = function( p )
 {

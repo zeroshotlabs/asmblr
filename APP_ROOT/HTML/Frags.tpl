@@ -1,30 +1,22 @@
 
-@@@Error404
-<h1>Not Found</h1>
-<div>
-    <p>Ten-four, that's a four-oh-four.</p>
-</div>
-
-
-@@@Error500
-<h1>Server Error</h1>
-
-
 @@@Breadcrumb
 <ul class="breadcrumb">
-<li><a href="<?=$lp('Home')?>">all sites</a></li>
 
 <?php if( $page->ActiveNav === 'Site' ): ?>
-<li>
-<span class="divider">|</span> <?=$S['Domain']?>
+<li><?=$S['Domain']?>
 &nbsp;<a target="_blank" href="<?=asm('lp')->Link('Home')?>"><img src="<?=$ls('/img/ext-link.png')?>" /></a>
+</li>
+<li>
+    <a class="new-page" data-type="page" data-showbuttons="bottom" data-url="<?=$lr('page_create')?>">new page</a>
+</li>
+<li>
+    <a class="new-template" data-type="text" data-showbuttons="bottom" data-url="<?=$lr('template_create')?>" data-placeholder="TemplateName" data-name="Name" href="#">new template</a>
 </li>
 <li>
 &nbsp;&nbsp;<small><a href="#" class="set-status" data-type="select" data-url="<?=$lr('site_set_status')?>" data-value="<?=$S['Status']?>" data-name="Status"><?=strtolower($S['Status'])?></a></small>
 </li>
 <?php elseif( $page->ActiveNav === 'Page' ): ?>
-<li>
-<span class="divider">|</span> <a href="<?=$lp('Site','>'.$S['_id'])?>"><?=$S['Domain']?></a><?=$P['Path']?>
+<li><a href="<?=$lp('Site','>'.$S['_id'])?>"><?=$S['Domain']?></a><?=$P['Path']?>
 &nbsp;<a target="_blank" href="<?=asm('lp')->Link($P['Name'])?>"><img src="<?=$ls('/img/ext-link.png')?>" /></a>
 </li>
 <li> <span class="divider">|</span> <?=$P['Name']?></li>
@@ -37,8 +29,7 @@
     </a>
 </li>
 <?php elseif( $page->ActiveNav === 'Template' ): ?>
-<li>
-<span class="divider">|</span> <a href="<?=$lp('Site','>'.$S['_id'])?>"><?=$S['Domain']?></a>
+<li><a href="<?=$lp('Site','>'.$S['_id'])?>"><?=$S['Domain']?></a>
 </li>
 <li> <span class="divider">|</span> <?=$T['Name']?></li>
 <li class="pull-right">
@@ -63,11 +54,14 @@
 </div>
 
 
-@@@EditRoutine
-<textarea data-method="<?=$Method?>" data-role="none" id="Routine" name="Routine"><?=$this($Routine)?></textarea>
-<div style="margin-left: 22px;">
-<a href="#" id="SaveRoutine" data-role="button" data-icon="check" data-iconpos="notext" data-theme="c" data-inline="true">save</a>
-<a href="#" id="ResetRoutine" data-role="button" data-icon="delete" data-iconpos="notext" data-theme="c" data-inline="true">cancel</a>
+
+@@@Error404
+<h1>Not Found</h1>
+<div>
+    <p>Ten-four, that's a four-oh-four.</p>
 </div>
-<?php $this->Stack('JSEditRoutine','ajax'); ?>
+
+
+@@@Error500
+<h1>Server Error</h1>
 

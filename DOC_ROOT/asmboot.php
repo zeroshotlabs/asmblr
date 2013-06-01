@@ -96,6 +96,9 @@ class asmSrv extends \fw\App
         if( ($this->SrvSite = $this->Match($Domain)) === NULL )
             \fw\HTTP::_400();
 
+        if( $this->SrvSite['Status'] !== 'Active' )
+            \fw\HTTP::_400();
+
         $this->BaseURL = $this->SrvSite['BaseURL'];
         $this->Request = $Request;
 
@@ -318,9 +321,9 @@ class fwApp extends \fw\App
 
         $ps->Create('Home','/','Console::Home');
         $ps->Create('Logout','/logout','Console::Logout');
-        $ps->Create('Site','/site/','Console::Site');
-        $ps->Create('Page','/page/','Console::Page');
-        $ps->Create('Template','/template/','Console::Template');
+        $ps->Create('Site','/site/','Console::Site',array('html,Article,Site'));
+        $ps->Create('Page','/page/','Console::Page',array('html,Article,Page'));
+        $ps->Create('Template','/template/','Console::Template',array('html,Article,Template'));
 
         $OrderedMatch = NULL;
         if( $this->MatchPath['IsRoot'] === FALSE )
@@ -350,6 +353,7 @@ class fwApp extends \fw\App
         if( isset($this->html) )
         {
             $this->html->ReMap('Article','Error404');
+            $this->html->ReMap('LeftNav',NULL);
             $this->html->Base();
         }
         exit;

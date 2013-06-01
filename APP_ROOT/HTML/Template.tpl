@@ -1,15 +1,4 @@
 
-<?php $this->Breadcrumb(); ?>
-
-<div class="clearfix"></div>
-
-<div class="row-fluid">
-    <div class="span12">
-        <h3>Name:</h3>
-        <a href="#" class="set-name" data-type="text" data-url="<?=$lr('template_set_name')?>" data-emptytext="no name" data-name="Name"><?=$T['Name']?></a>
-    </div>
-</div>
-
 <div class="row-fluid">
     <div class="span12">
         <h3>Routine:</h3>

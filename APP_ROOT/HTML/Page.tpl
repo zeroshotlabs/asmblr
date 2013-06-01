@@ -1,31 +1,4 @@
 
-<?php $this->Breadcrumb(); ?>
-
-<div class="clearfix"></div>
-
-<div class="row-fluid">
-    <div class="span12">
-        <h3>Path:</h3>
-        <a href="#" class="set-path" data-type="text" data-url="<?=$lr('page_set_path')?>" data-name="Path"><?=$P['Path']?></a>
-        <a target="_blank" href="<?=asm('lp')->Link($P['Name'])?>"><img src="<?=$ls('/img/ext-link.png')?>" /></a>
-    </div>
-</div>
-
-<div class="row-fluid">
-    <div class="span12">
-        <h3>Name:</h3>
-        <a href="#" class="set-name" data-type="text" data-url="<?=$lr('page_set_name')?>" data-emptytext="no name" data-name="Name"><?=$P['Name']?></a>
-    </div>
-</div>
-
-<div class="row-fluid">
-    <div class="span12">
-        <h3>Routine:</h3>
-        <a href="#" class="set-routine" data-type="textarea" data-url="<?=$lr('page_set_routine')?>" data-emptytext="no routine" data-name="Routine"><?=nl2br($this(\fw\Struct::Get(0,$P['Routine'])))?></a>
-    </div>
-</div>
-
-
 <div class="row-fluid" id="directives">
     <div class="span12">
         <h3>Directives:</h3>

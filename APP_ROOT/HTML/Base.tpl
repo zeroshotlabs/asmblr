@@ -31,18 +31,18 @@
         <img id="img-spinner" src="<?=$ls('/img/ajax-loader.gif')?>" alt="Loading..." />
     </div>
 
-    <section class="container-fluid">
+    <div class="container-fluid">
         <div class="row-fluid">
-            <article class="span9">
-                <?php $this->Article(); ?>
-            </article>
-           <?php if( isset($this->RightAside) === TRUE ): ?>
-            <aside id="rightaside" class="span3">
-                <?php $this->RightAside(); ?>
-            </aside>
+           <?php if( isset($this->LeftNav) ): ?>
+            <div class="span3 well">
+                <?php $this->LeftNav(); ?>
+            </div>
            <?php endif; ?>
+            <div class="span9">
+                <?php $this->Article(); ?>
+            </div>
         </div>
-    </section>
+    </div>
 
 	<footer class="container-fluid">
 	    <?php $this->Footer(); ?>
@@ -52,6 +52,7 @@
     <script src="//code.jquery.com/ui/1.10.2/jquery-ui.js"></script>
     <script src="<?=$lp('JS','>bootstrap.min.js?')?>"></script>
     <script src="//cdnjs.cloudflare.com/ajax/libs/x-editable/1.4.4/bootstrap-editable/js/bootstrap-editable.min.js"></script>
+
     <script><?php $this->JSBase(); ?></script>
 
     <?php $this->Unstack('ajax'); ?>

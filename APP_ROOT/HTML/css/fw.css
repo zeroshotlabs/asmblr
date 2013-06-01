@@ -154,6 +154,10 @@ small
 {
     margin: 5px;
 }
+button.nav-btn
+{
+	border-bottom: 1px solid #ccc;
+}
 a.new-page
 {
     cursor: pointer;

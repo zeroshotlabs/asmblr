@@ -54,12 +54,51 @@ $(document).ready(function()
 <script>
 $(document).ready(function()
 {
-	$('a.set-status').editable({placement:'bottom',source:'<?=$lr('util_site_statuses')?>'});
-    $('a.set-domain').editable({mode:'inline',inputclass: 'input-xlarge'});
-	$('a.set-baseurl').editable({mode:'inline',inputclass: 'input-xlarge'});
-	$('a.set-routine').editable({mode:'inline',inputclass: 'input-large'});
+    $('a.set-domain').editable({mode:'popup',placement:'right',inputclass: 'input-large'});
+	$('a.set-baseurl').editable({mode:'popup',placement:'right',inputclass: 'input-xlarge',validate: function(v){return '';}});
 
-	$('a.new-page').editable({value:{Path:'',Name:''},placement:'bottom',inputclass:'input-large',
+	ajfDirectives();
+
+});
+</script>
+<?php $this->JSDirectives(array('prefix'=>'site')); ?>
+
+
+
+@@@JSPage
+<script>
+$(document).ready(function()
+{
+    $('a.set-path').editable({mode:'popup',placement:'right',inputclass: 'input-xlarge'});
+	$('a.set-name').editable({mode:'popup',placement:'right'});
+
+	$('#confirm-del').on('click',function( e ) {
+		pk = $(e.currentTarget).data('pk');
+		$.ajax({ url:'<?=$lr('page_delete',">{$P['_id']}")?>',data:{},
+			success: function(data){ window.location = '<?=$lp('Site',">{$P['Site_id']}")?>'; }})
+		.fail(function(){ console.log('connection error');})
+	});
+
+	ajfDirectives();
+});
+</script>
+<?php $this->JSDirectives(array('prefix'=>'page')); ?>
+
+
+
+
+
+@@@JSLeftNav
+<script>
+$(document).ready(function()
+{
+	<?php if( $page->ActiveNav === 'Site' ): ?>
+	aapi_status('site-status','site','site_set_status');
+    <?php elseif( $page->ActiveNav === 'Page' ): ?>
+	aapi_status('page-status','page','page_set_status');
+    <?php endif; ?>
+
+	$('button.new-page').editable({display:false,showbuttons:'bottom',placement:'bottom',inputclass:'input-large',
 		success: function(r,nv){
 		    if( r.Status === false )
 		        return r.Msg;
@@ -68,7 +107,7 @@ $(document).ready(function()
 		}
 	});
 
-	$('a.new-template').editable({value:'',placement:'bottom',inputclass:'input-large',
+	$('button.new-template').editable({display:false,showbuttons:'bottom',placement:'bottom',inputclass:'input-large',
 		success: function(r,nv){
 		    if( r.Status === false )
 		        return r.Msg;
@@ -77,11 +116,10 @@ $(document).ready(function()
 		}
 	});
 
-	ajfDirectives();
-
 });
 </script>
-<?php $this->JSDirectives(array('prefix'=>'site')); ?>
+
+
 
 @@@JSEditRoutine
 <script>
@@ -114,27 +152,6 @@ $(document).on('pageshow','#jqm_site', function() {
 
 </script>
 
-
-@@@JSPage
-<script>
-$(document).ready(function()
-{
-	$('a.set-status').editable({placement:'bottom',source:'<?=$lr('util_site_statuses')?>'});
-    $('a.set-path').editable({mode:'inline',inputclass: 'input-xlarge'});
-	$('a.set-name').editable({mode:'inline'});
-	$('a.set-routine').editable({mode:'inline',inputclass: 'input-large'});
-
-	$('#confirm-del').on('click',function( e ) {
-		pk = $(e.currentTarget).data('pk');
-		$.ajax({ url:'<?=$lr('page_delete',">{$P['_id']}")?>',data:{},
-			success: function(data){ window.location = '<?=$lp('Site',">{$P['Site_id']}")?>'; }})
-		.fail(function(){ console.log('connection error');})
-	});
-
-	ajfDirectives();
-});
-</script>
-<?php $this->JSDirectives(array('prefix'=>'page')); ?>
 
 
 

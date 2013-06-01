@@ -32,46 +32,8 @@ abstract class Console extends \fw\RoutineSet
         if( !fw('page')->LoggedIn )
             fw('lp')->Go('Home');
 
-        $_id = \fw\Request::Path(-1);
-        $S = asm('ss')->Read(new \MongoId($_id));
-        if( empty($S) )
-            fw()->NoPageHandler();
-
+        static::InitSite(new \MongoId(\fw\Request::Path(-1)));
         fw('page')->ActiveNav = 'Site';
-        fw('page')->Site_id = \fw\Request::Path(-1);
-
-
-        // the beginnings of live edit?  may better be aggregated up somewhere else
-        // bring our asmblr stuff online - no site execution happens though (Go())
-        // we forge the request data to appear to hit the site; though we need a way
-        // honor the site's BaseURL (like https and path), though we run into a chicken-egg problem
-        // so it's hard wired for now
-        $R = \asm\Request::Init('http://'.$S['Domain']);
-        asm()->GetSet($S['Domain'],$R);
-
-        // should these be API calls?
-        $PL = fw('asmps')->Listing($S['_id']);
-        $TL = fw('asmts')->Listing($S['_id']);
-
-        fw('page')->Domain = $S['Domain'];
-        fw('html')->Connect($PL,'PL');
-        fw('html')->Connect($TL,'TL');
-        fw('html')->Connect($S,'S');
-
-        fw('html')->Connect(asm()->DirWireables,'DirectiveNames');
-
-        $lp = new \asm\LinkPage(asm('ps'),asm()->SiteURL);
-        $ls = new \fw\LinkSet($S['Domain']);
-
-        asm()->Wire(array('lp'=>$lp,'ls'=>$ls));
-
-        fw('html')->ReMap('Article','Site');
-        fw('html')->ReMap('Base','m_Base');
-        fw('page')->PageID = 'jqm_site';
-        fw('html')->ReMap('Page','m_Site');
-
-        $DS = new \asm\DataSet(asm('asmdb'),$S['_id'],'Directive');
-        fw('html')->Connect($DS,'DS');
     }
 
     public static function Page()
@@ -79,38 +41,9 @@ abstract class Console extends \fw\RoutineSet
         if( !fw('page')->LoggedIn )
             fw('lp')->Go('Home');
 
-        $_id = \fw\Request::Path(-1);
-        $P = fw('asmps')->Read_id(new \MongoId($_id));
-        if( empty($P) )
-            fw()->NoPageHandler();
+        static::InitPage(new \MongoId(\fw\Request::Path(-1)));
 
         fw('page')->ActiveNav = 'Page';
-        fw('page')->Page_id = \fw\Request::Path(-1);
-
-        $S = asm('ss')->Read(new \MongoId($P['Site_id']));
-
-        $R = \asm\Request::Init('http://'.$S['Domain']);
-        asm()->GetSet($S['Domain'],$R);
-
-        fw('page')->Domain = $S['Domain'];
-        fw('page')->Path = $P['Path'];
-
-        $PL = fw('asmps')->Listing($S['_id']);
-        $TL = fw('asmts')->Listing($S['_id']);
-
-        fw('html')->Connect($PL,'PL');
-        fw('html')->Connect($TL,'TL');
-
-        fw('html')->Connect($S,'S');
-        fw('html')->Connect($P,'P');
-
-        fw('html')->Connect(asm()->DirWireables,'DirectiveNames');
-
-        fw('html')->ReMap('Article','Page');
-//        fw('html')->ReMap('Base','m_Base');
-        fw('page')->PageID = 'jqm_page';
-//        fw('html')->ReMap('Page','m_Page');
-
     }
 
     public static function Template()
@@ -118,25 +51,8 @@ abstract class Console extends \fw\RoutineSet
         if( !fw('page')->LoggedIn )
             fw('lp')->Go('Home');
 
-        $_id = \fw\Request::Path(-1);
-        $T = fw('asmts')->Read_id(new \MongoId($_id));
-        if( empty($T) )
-            fw()->NoPageHandler();
-
+        static::InitTemplate(new \MongoId(\fw\Request::Path(-1)));
         fw('page')->ActiveNav = 'Template';
-
-        $S = asm('ss')->Read(new \MongoId($T['Site_id']));
-
-        $R = \asm\Request::Init('http://'.$S['Domain']);
-        asm()->GetSet($S['Domain'],$R);
-
-        fw('page')->Domain = $S['Domain'];
-        fw('page')->Name = $T['Name'];
-
-        fw('html')->Connect($S,'S');
-        fw('html')->Connect($T,'T');
-
-        fw('html')->ReMap('Article','Template');
     }
 
     // serve out HTML fragments for ajax requests
@@ -237,6 +153,60 @@ abstract class Console extends \fw\RoutineSet
             fw()->NoPageHandler();
         }
     }
+
+    protected static function InitSite( \MongoId $S )
+    {
+        $S = asm('ss')->Read($S);
+        if( empty($S) )
+            fw()->NoPageHandler();
+
+        fw('page')->Domain = $S['Domain'];
+        fw('html')->Connect(asm()->DirWireables,'DirectiveNames');
+
+        // the beginnings of live edit?  may better be aggregated up somewhere else
+        // bring our asmblr stuff online - no site execution happens though (Go())
+        // we forge the request data to appear to hit the site; though we need a way
+        // honor the site's BaseURL (like https and path), though we run into a chicken-egg problem
+        // so it's hard wired for now
+        $R = \asm\Request::Init('http://'.$S['Domain']);
+        asm()->GetSet($S['Domain'],$R);
+
+        $lp = new \asm\LinkPage(asm('ps'),asm()->SiteURL);
+        $ls = new \fw\LinkSet($S['Domain']);
+
+        asm()->Wire(array('lp'=>$lp,'ls'=>$ls));
+
+        // should these be API calls?
+        $PL = fw('asmps')->Listing($S['_id']);
+        $TL = fw('asmts')->Listing($S['_id']);
+
+        fw('html')->Connect($PL,'PL');
+        fw('html')->Connect($TL,'TL');
+        fw('html')->Connect($S,'S');
+    }
+
+    protected static function InitPage( \MongoId $P )
+    {
+        $P = fw('asmps')->Read_id($P);
+        if( empty($P) )
+            fw()->NoPageHandler();
+
+        static::InitSite($P['Site_id']);
+
+        fw('html')->Connect($P,'P');
+    }
+
+    protected static function InitTemplate( \MongoId $T )
+    {
+        $T = fw('asmts')->Read_id($T);
+        if( empty($T) )
+            fw()->NoPageHandler();
+
+        static::InitSite($T['Site_id']);
+
+        fw('html')->Connect($T,'T');
+    }
+
 }
 
 
