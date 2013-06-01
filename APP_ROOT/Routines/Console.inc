@@ -25,6 +25,7 @@ abstract class Console extends \fw\RoutineSet
 
         fw('html')->Connect($SS,'SS');
         fw('html')->ReMap('Article','Home');
+        fw('html')->ReMap('LeftNav',NULL);
     }
 
     public static function Site()

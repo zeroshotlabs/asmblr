@@ -1,14 +1,17 @@
 
-<div class="row span12">
-<ul class="breadcrumb">
+<div class="row-fluid span5">
+<ul class="nav nav-list" style="padding: 0; margin: 0;">
+    <li class="nav-header">sites</li>
    <?php foreach( $SS as $S ): ?>
-    <li><a href="<?=$lp('Site',">".(string)$S['_id'])?>"><?=$S['Domain']?></a> <span class="divider">/</span></li>
+    <li><a href="<?=$lp('Site',">".(string)$S['_id'])?>"><?=$S['Domain']?></a></li>
    <?php endforeach; ?>
 </ul>
 </div>
 
-<div class="row span12">
-<div id="createsite" class="span5">
+<div class="clearfix"></div>
+
+<div class="row-fluid span5">
+<div id="createsite" style="padding: 0; margin: 0;">
 <form id="createsite-form" method="post" action="<?=$lr('site_create')?>">
     <div class="row center">
         <div class="label-container"><div class="label label-important"></div></div>

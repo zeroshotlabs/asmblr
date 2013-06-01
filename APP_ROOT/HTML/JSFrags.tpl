@@ -54,8 +54,8 @@ $(document).ready(function()
 <script>
 $(document).ready(function()
 {
-    $('a.set-domain').editable({mode:'popup',placement:'right',inputclass: 'input-large'});
-	$('a.set-baseurl').editable({mode:'popup',placement:'right',inputclass: 'input-xlarge',validate: function(v){return '';}});
+    $('a.set-domain').editable({mode:'popup',placement:'right',inputclass:'input-large'});
+	$('a.set-baseurl').editable({mode:'popup',placement:'right',inputclass:'input-xlarge',validate:function(v){return '';}});
 
 	ajfDirectives();
 
@@ -69,7 +69,7 @@ $(document).ready(function()
 <script>
 $(document).ready(function()
 {
-    $('a.set-path').editable({mode:'popup',placement:'right',inputclass: 'input-xlarge'});
+    $('a.set-path').editable({mode:'popup',placement:'right',inputclass:'input-xlarge'});
 	$('a.set-name').editable({mode:'popup',placement:'right'});
 
 	$('#confirm-del').on('click',function( e ) {

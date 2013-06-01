@@ -1,7 +1,6 @@
 
 <div class="row-fluid" id="directives">
     <div class="span12">
-        <h3>Directives:</h3>
         <div id="dir-table-container"></div>
 
         <div id="diralert" class="alert alert-error"></div>

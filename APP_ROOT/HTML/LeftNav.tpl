@@ -1,4 +1,5 @@
 
+<div class="well">
 <div class="btn-group pull-right" style="padding: 0; margin: -20px -20px 2px 0;">
     <div class="btn-group">
        <?php if( $page->ActiveNav === 'Site' ): ?>
@@ -27,31 +28,34 @@
 <div class="pull-right" style="margin: 0 -15px 0 0; padding: 0;">
 <small><a href="<?=$lp('Site','>'.$S['_id'])?>"><?=$S['Domain']?></a></small>
 </div>
-
 <?php endif; ?>
 
-<div>
+<div style="min-height: 65px;">
    <?php if( $page->ActiveNav === 'Site' ): ?>
-    <small style="display: block;">site</small>
-    <a href="#" class="set-domain" data-type="text" data-url="<?=$lr('site_set_domain')?>" data-name="Domain"><?=$S['Domain']?></a>
-    <a target="_blank" href="<?=asm('lp')->Link('Home')?>"><img src="<?=$ls('/img/ext-link.png')?>" /></a>
-    <small style="display: block; padding-top: 2px;">
-        <a href="#" class="set-baseurl" data-type="url" data-url="<?=$lr('site_set_baseurl')?>" data-emptytext="default" data-name="BaseURL"><?=$S['BaseURL']?></a>
+    <p class="nav-header">site</p>
+    <h3><a href="#" class="set-domain" data-type="text" data-url="<?=$lr('site_set_domain')?>" data-name="Domain"><?=$S['Domain']?></a>
+        <a target="_blank" href="<?=asm('lp')->Link('Home')?>"><img src="<?=$ls('/img/ext-link.png')?>" /></a></h3>
+    <small class="mini-header2">
+        <a href="#" class="set-baseurl" data-type="url" data-url="<?=$lr('site_set_baseurl')?>" data-emptytext="default base URL" data-name="BaseURL"><?=$S['BaseURL']?></a>
     </small>
    <?php elseif( $page->ActiveNav === 'Page' ): ?>
-    <small style="display: block;">page</small>
-    <a href="#" class="set-name" data-type="text" data-url="<?=$lr('page_set_name')?>" data-name="Name"><?=$P['Name']?></a>
-    <a target="_blank" href="<?=asm('lp')->Link($P['Name'])?>"><img src="<?=$ls('/img/ext-link.png')?>" /></a>
-    <small style="display: block; padding-top: 2px;">
+    <p class="nav-header">page</p>
+    <h3><a href="#" class="set-name" data-type="text" data-url="<?=$lr('page_set_name')?>" data-name="Name"><?=$P['Name']?></a>
+        <a target="_blank" href="<?=asm('lp')->Link($P['Name'])?>"><img src="<?=$ls('/img/ext-link.png')?>" /></a></h3>
+    <small class="mini-header2">
         <a href="#" class="set-path" data-type="text" data-url="<?=$lr('page_set_path')?>" data-name="Path"><?=$P['Path']?></a>
     </small>
    <?php elseif( $page->ActiveNav === 'Template' ): ?>
-    <small style="display: block;">template</small>
-    <a href="#" class="set-name" data-type="text" data-url="<?=$lr('page_set_name')?>" data-name="Domain"><?=$T['Name']?></a>
+    <p class="nav-header">template</p>
+    <h3><a href="#" class="set-name" data-type="text" data-url="<?=$lr('page_set_name')?>" data-name="Domain"><?=$T['Name']?></a></h3>
    <?php endif; ?>
 </div>
 
-<ul class="nav nav-list" style="padding: 15px 0 0 0;">
+</div>
+
+
+<div class="well">
+<ul class="nav nav-list" style=" margin: 0; padding: 0 0 0 0;">
     <li class="nav-header">recent</li>
    <?php foreach( $PL as $P ): ?>
     <li><a href="<?=$lp('Page','>'.(string)$P['_id'])?>"><i title="new page" class="icon-list-alt"></i> <?=$P['Name']?></a></li>
@@ -60,6 +64,7 @@
     <li><a href="<?=$lp('Template','>'.(string)$T['_id'])?>"><i title="new page" class="icon-edit"></i> <?=$T['Name']?></a></li>
    <?php endforeach; ?>
 </ul>
+</div>
 
 <?php $this->Stack('JSLeftNav','ajax'); ?>
 
