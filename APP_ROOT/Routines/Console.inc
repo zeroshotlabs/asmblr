@@ -15,6 +15,8 @@ abstract class Console extends \fw\RoutineSet
 
     public static function Home()
     {
+        fw('html')->ReMap('LeftNav',NULL);
+
         if( !fw('page')->LoggedIn )
         {
             fw('html')->ReMap('Article','Login');
@@ -25,7 +27,6 @@ abstract class Console extends \fw\RoutineSet
 
         fw('html')->Connect($SS,'SS');
         fw('html')->ReMap('Article','Home');
-        fw('html')->ReMap('LeftNav',NULL);
     }
 
     public static function Site()
@@ -66,6 +67,7 @@ abstract class Console extends \fw\RoutineSet
     public static function ajfHandler()
     {
         fw('html')->SetRoutine('ajf_directive_table','Console::directive_table');
+        fw('html')->SetRoutine('ajf_directive_grid','Console::directive_table');
 
         $F = 'ajf_'.\fw\Request::Path(-1);
 
@@ -85,6 +87,8 @@ abstract class Console extends \fw\RoutineSet
     // since this is a Template Routine we can only return FALSE, not remap to NULL
     public static function directive_table()
     {
+                fw('html')->Connect(asm()->DirWireables,'DirectiveNames');
+
         if( \asm\rv::Site_id() )
         {
             $S = asm('ss')->Read(new \MongoId($_POST['Site_id']));
@@ -112,6 +116,7 @@ abstract class Console extends \fw\RoutineSet
             \fw\HTTP::_404();
             return FALSE;
         }
+
 
         if( isset($S['Site_id']) )
         {
@@ -162,7 +167,6 @@ abstract class Console extends \fw\RoutineSet
             fw()->NoPageHandler();
 
         fw('page')->Domain = $S['Domain'];
-        fw('html')->Connect(asm()->DirWireables,'DirectiveNames');
 
         // the beginnings of live edit?  may better be aggregated up somewhere else
         // bring our asmblr stuff online - no site execution happens though (Go())

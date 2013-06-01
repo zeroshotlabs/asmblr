@@ -12,6 +12,7 @@
         <link rel="stylesheet" href="//code.jquery.com/ui/1.10.2/themes/smoothness/jquery-ui.css">
         <link rel="stylesheet" href="<?=$lp('CSS','>bootstrap.min.css?')?>">
         <link rel="stylesheet" href="<?=$lp('CSS','>bootstrap-responsive.min.css?')?>">
+        <link rel="stylesheet" href="<?=$lp('CSS','>bootstrap-select.min.css?')?>">
         <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/x-editable/1.4.4/bootstrap-editable/css/bootstrap-editable.css">
         <link rel="stylesheet" href="<?=$lp('CSS','>fw.css?')?>">
 
@@ -51,6 +52,7 @@
     <script src="//code.jquery.com/jquery-latest.js"></script>
     <script src="//code.jquery.com/ui/1.10.2/jquery-ui.js"></script>
     <script src="<?=$lp('JS','>bootstrap.min.js?')?>"></script>
+    <script src="<?=$lp('JS','>bootstrap-select.min.js?')?>"></script>
     <script src="//cdnjs.cloudflare.com/ajax/libs/x-editable/1.4.4/bootstrap-editable/js/bootstrap-editable.min.js"></script>
 
     <script><?php $this->JSBase(); ?></script>

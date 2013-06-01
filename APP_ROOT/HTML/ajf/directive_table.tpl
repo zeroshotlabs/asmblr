@@ -21,4 +21,3 @@
    <?php endforeach; ?>
 </tbody>
 </table>
-

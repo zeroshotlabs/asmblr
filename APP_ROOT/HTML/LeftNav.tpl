@@ -53,12 +53,25 @@
 
 </div>
 
-
 <div class="well">
+    <form class="form-search">
+    <div class="input-prepend pull-left" style="padding: 0; margin: -20px 0px 20px -20px;">
+        <input placeholder="search" type="text" class="search-query">
+    </div>
+    </form>
+    <div class="clearfix"></div>
+    <div class="clearfix"></div>
+
 <ul class="nav nav-list" style=" margin: 0; padding: 0 0 0 0;">
     <li class="nav-header">recent</li>
    <?php foreach( $PL as $P ): ?>
-    <li><a href="<?=$lp('Page','>'.(string)$P['_id'])?>"><i title="new page" class="icon-list-alt"></i> <?=$P['Name']?></a></li>
+    <li>
+        <a href="<?=$lp('Page','>'.(string)$P['_id'])?>"><i class="icon-list-alt"></i> <?=$P['Name']?></a>
+<?php /*
+        <code class="muted page-path"><?=$P['Path']?></code>
+*/ ?>
+
+    </li>
    <?php endforeach; ?>
    <?php foreach( $TL as $T ): ?>
     <li><a href="<?=$lp('Template','>'.(string)$T['_id'])?>"><i title="new page" class="icon-edit"></i> <?=$T['Name']?></a></li>

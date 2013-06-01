@@ -15,6 +15,18 @@ function aapi_method2url( Method )
 		case 'site_set_status':
 			url = '<?=$lr('site_set_status')?>';
 			break;
+		case 'site_mv_directive':
+			url = '<?=$lr('site_mv_directive')?>';
+			break;
+		case 'site_set_directive':
+			url = '<?=$lr('site_set_directive')?>';
+			break;
+		case 'site_cp_directive':
+			url = '<?=$lr('site_cp_directive')?>';
+			break;
+		case 'site_del_directive':
+			url = '<?=$lr('site_del_directive')?>';
+			break;
 		case 'page_create':
 			url = '<?=$lr('page_create')?>';
 			break;
@@ -27,6 +39,19 @@ function aapi_method2url( Method )
 		case 'page_set_status':
 			url = '<?=$lr('page_set_status')?>';
 			break;
+		case 'page_mv_directive':
+			url = '<?=$lr('page_mv_directive')?>';
+			break;
+		case 'page_set_directive':
+			url = '<?=$lr('page_set_directive')?>';
+			break;
+		case 'page_cp_directive':
+			url = '<?=$lr('page_cp_directive')?>';
+			break;
+		case 'page_del_directive':
+			url = '<?=$lr('page_del_directive')?>';
+			break;
+			
 		default:
 			url = 'unknown';
 	}
@@ -34,6 +59,18 @@ function aapi_method2url( Method )
 	return url;
 }
 
+function aapi_set( Method,FormData )
+{
+	url = aapi_method2url(Method);
+
+	$.ajax({url:url,data:FormData})
+	 .done(function(data){
+		 if( data.Status === true )
+			 $('#aapi_msg').html('saved');
+		 else
+			 $('#aapi_msg').html(data.Msg);
+    }).fail(function(data) { $('#aapi_msg').html('connection error'); });
+}
 
 
 function aapi_status( Class,Tag,Method )
@@ -154,26 +191,13 @@ var NormDirParams = function( p )
     return p2;
 }
 
-function ajfDirectives()
+function ajfDirectives( Method )
 {
-	$('#dir-table-container').load('<?=$lp('ajfHandler','>directive_table')?>',
-	function(r,s,x)
-	{
-        $('#directives-sortable').sortable({forceHelperSize:true,opacity:.9,handle:'a.handle',placeholder:'ui-state-highlight',axis:'y',
-            helper:function(e,ui) {
-                ui.children().each(function() {
-                    $(this).width($(this).width());
-                });
-                return ui;
-            },
-            update:function(e,ui) {
-                itemid = ui.item.attr('id');
-                nextid = ui.item.next().attr('id');
-                $.ajax({ url:'<?=$lr('site_mv_directive')?>',
-                        data:{D_id:itemid,NextD_id:nextid}}).done(function(){ajfDirectives();});
-            }});
-	});
+	url = aapi_method2url(Method);
+
+	$('#dir-container').load('<?=$lp('ajfHandler','>directive_grid')?>');
 }
+
 
 // validate: function(v){return '';}
 $(document).ready(function()
@@ -223,6 +247,7 @@ $(document).ready(function()
 });
 
 
+// page custom x-editable type
 (function ($) {
     "use strict";
     
@@ -366,3 +391,5 @@ $(document).ready(function()
     $.fn.editabletypes.page = Page;
 
 }(window.jQuery));
+
+
