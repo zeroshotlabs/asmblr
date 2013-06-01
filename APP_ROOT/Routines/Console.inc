@@ -20,6 +20,7 @@ abstract class Console extends \fw\RoutineSet
         if( !fw('page')->LoggedIn )
         {
             fw('html')->ReMap('Article','Login');
+            fw('html')->Stack('JSLogin','ajax');
             return;
         }
 
@@ -27,6 +28,7 @@ abstract class Console extends \fw\RoutineSet
 
         fw('html')->Connect($SS,'SS');
         fw('html')->ReMap('Article','Home');
+        fw('html')->Stack('JSCreateSite','ajax');
     }
 
     public static function Site()
@@ -35,7 +37,9 @@ abstract class Console extends \fw\RoutineSet
             fw('lp')->Go('Home');
 
         static::InitSite(new \MongoId(\fw\Request::Path(-1)));
+
         fw('page')->ActiveNav = 'Site';
+        fw('html')->Stack('JSSite','ajax');
     }
 
     public static function Page()
@@ -46,6 +50,7 @@ abstract class Console extends \fw\RoutineSet
         static::InitPage(new \MongoId(\fw\Request::Path(-1)));
 
         fw('page')->ActiveNav = 'Page';
+        fw('html')->Stack('JSPage','ajax');
     }
 
     public static function Template()
@@ -54,7 +59,9 @@ abstract class Console extends \fw\RoutineSet
             fw('lp')->Go('Home');
 
         static::InitTemplate(new \MongoId(\fw\Request::Path(-1)));
+
         fw('page')->ActiveNav = 'Template';
+        fw('html')->Stack('JSTemplate','ajax');
     }
 
     // serve out HTML fragments for ajax requests
@@ -66,8 +73,7 @@ abstract class Console extends \fw\RoutineSet
     // URL: /ajf/some-html-fragment-name
     public static function ajfHandler()
     {
-        fw('html')->SetRoutine('ajf_directive_table','Console::directive_table');
-        fw('html')->SetRoutine('ajf_directive_grid','Console::directive_table');
+        fw('html')->SetRoutine('ajf_directive_grid','Console::directive_grid');
 
         $F = 'ajf_'.\fw\Request::Path(-1);
 
@@ -85,9 +91,9 @@ abstract class Console extends \fw\RoutineSet
 
     // for the AJFs - auth?
     // since this is a Template Routine we can only return FALSE, not remap to NULL
-    public static function directive_table()
+    public static function directive_grid()
     {
-                fw('html')->Connect(asm()->DirWireables,'DirectiveNames');
+        fw('html')->Connect(asm()->DirWireables,'DirectiveNames');
 
         if( \asm\rv::Site_id() )
         {
@@ -147,7 +153,7 @@ abstract class Console extends \fw\RoutineSet
 
     public static function JSHandler()
     {
-        $F = 'js_'.str_replace('.js','',\fw\Request::Path(-1));
+        $F = 'jsext_'.str_replace('.js','',\fw\Request::Path(-1));
 
         if( isset(fw('html')->{$F}) )
         {
@@ -188,6 +194,8 @@ abstract class Console extends \fw\RoutineSet
         fw('html')->Connect($PL,'PL');
         fw('html')->Connect($TL,'TL');
         fw('html')->Connect($S,'S');
+
+        fw('html')->Stack('JSLeftNav','ajax');
     }
 
     protected static function InitPage( \MongoId $P )

@@ -12,11 +12,6 @@
        <?php endif; ?>
     </div>
     <div class="btn-group">
-       <?php if( $page->ActiveNav === 'Site' ): ?>
-        <button class="btn btn-mini nav-btn new-directive" data-type="text" data-url="<?=$lr('site_set_directive')?>"><i title="new directive" class="icon-th-list"></i></button>
-       <?php elseif( $page->ActiveNav === 'Page' ): ?>
-        <button class="btn btn-mini nav-btn new-directive" data-type="text" data-url="<?=$lr('page_set_directive')?>"><i title="new directive" class="icon-th-list"></i></button>
-        <?php endif; ?>
         <button class="btn btn-mini nav-btn new-page" data-type="page" data-url="<?=$lr('page_create')?>"><i title="new page" class="icon-list-alt"></i></button>
         <button class="btn btn-mini nav-btn new-template" data-type="text" data-url="<?=$lr('template_create')?>" data-placeholder="TemplateName" data-name="Name"><i title="new template" class="icon-edit"></i></button>
     </div>
@@ -50,34 +45,23 @@
     <h3><a href="#" class="set-name" data-type="text" data-url="<?=$lr('page_set_name')?>" data-name="Domain"><?=$T['Name']?></a></h3>
    <?php endif; ?>
 </div>
-
 </div>
 
 <div class="well">
     <form class="form-search">
-    <div class="input-prepend pull-left" style="padding: 0; margin: -20px 0px 20px -20px;">
-        <input placeholder="search" type="text" class="search-query">
+    <div  style="text-align: center; padding: 0; margin: -10px 0 20px 0;">
+        <input style="width: 75%;" placeholder="search" type="text" class="search-query">
     </div>
     </form>
-    <div class="clearfix"></div>
-    <div class="clearfix"></div>
 
-<ul class="nav nav-list" style=" margin: 0; padding: 0 0 0 0;">
-    <li class="nav-header">recent</li>
-   <?php foreach( $PL as $P ): ?>
-    <li>
-        <a href="<?=$lp('Page','>'.(string)$P['_id'])?>"><i class="icon-list-alt"></i> <?=$P['Name']?></a>
-<?php /*
-        <code class="muted page-path"><?=$P['Path']?></code>
-*/ ?>
-
-    </li>
-   <?php endforeach; ?>
-   <?php foreach( $TL as $T ): ?>
-    <li><a href="<?=$lp('Template','>'.(string)$T['_id'])?>"><i title="new page" class="icon-edit"></i> <?=$T['Name']?></a></li>
-   <?php endforeach; ?>
-</ul>
+    <ul class="nav nav-list" style=" margin: 0; padding: 0 0 0 0;">
+        <li class="nav-header">recent</li>
+       <?php foreach( $PL as $P ): ?>
+        <li><a href="<?=$lp('Page','>'.(string)$P['_id'])?>"><i class="icon-list-alt"></i> <?=$P['Name']?></a></li>
+       <?php endforeach; ?>
+       <?php foreach( $TL as $T ): ?>
+        <li><a href="<?=$lp('Template','>'.(string)$T['_id'])?>"><i title="new page" class="icon-edit"></i> <?=$T['Name']?></a></li>
+       <?php endforeach; ?>
+    </ul>
 </div>
-
-<?php $this->Stack('JSLeftNav','ajax'); ?>
 

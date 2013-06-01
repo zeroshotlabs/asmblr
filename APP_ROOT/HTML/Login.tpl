@@ -51,5 +51,3 @@
 </div>
 </div>
 
-<?php $this->Stack('JSLogin','ajax'); ?>
-

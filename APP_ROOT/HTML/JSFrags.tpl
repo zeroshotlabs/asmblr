@@ -24,7 +24,6 @@ $(document).ready(function()
 		    	$('.label-important',e.delegateTarget).html(data.Msg);
 	    },'json').fail(function(){ $('.label-important',e.delegateTarget).html('Please complete the form.'); });
     });
-
 });
 </script>
 
@@ -59,6 +58,7 @@ $(document).ready(function()
 		pk = $(e.currentTarget).data('pk');
 
 		// work on storing a new directive - wait until we have all three data points then store
+		// and Javascript sucks
 		if( pk === '' )
 		{
 			d = {};

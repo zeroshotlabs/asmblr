@@ -26,4 +26,3 @@
 </div>
 
 
-<?php $this->Stack('JSTemplate','ajax'); ?>

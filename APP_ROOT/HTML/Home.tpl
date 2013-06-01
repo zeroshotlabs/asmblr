@@ -25,6 +25,3 @@
 </form>
 </div>
 </div>
-
-<?php $this->Stack('JSCreateSite','ajax'); ?>
-

@@ -32,5 +32,3 @@
 </div>
 
 
-
-<?php $this->Stack('JSPage','ajax'); ?>

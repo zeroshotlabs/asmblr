@@ -1,4 +1,13 @@
 
+
+function ajfDirectives( Method )
+{
+	url = aapi_method2url(Method);
+
+	$('#dir-container').load('<?=$lp('ajfHandler','>directive_grid')?>');
+}
+
+
 function aapi_method2url( Method )
 {
 	switch( Method )
@@ -164,39 +173,6 @@ var NormParams = function( p )
     return n;
 }
 
-var NormDirParams = function( p )
-{
-	p2 = {};
-	if( p.name === 'Name' )
-	{
-	    p2['Name'] = p.value;
-	    p2['Key'] = $('#'+p.pk+' a.set-directive-key').text();
-	    p2['Value'] = $('#'+p.pk+' a.set-directive-value').text();
-	}
-	else if( p.name === 'Key' )
-	{
-	    p2['Name'] = $('#'+p.pk+' a.set-directive-name').text();
-	    p2['Key'] = p.value;
-	    p2['Value'] = $('#'+p.pk+' a.set-directive-value').text();
-	}
-	else if( p.name === 'Value' )
-	{
-	    p2['Name'] = $('#'+p.pk+' a.set-directive-name').text();
-	    p2['Key'] = $('#'+p.pk+' a.set-directive-key').text();
-	    p2['Value'] = p.value;
-	}
-
-    p2['D_id'] = p['pk'];
-
-    return p2;
-}
-
-function ajfDirectives( Method )
-{
-	url = aapi_method2url(Method);
-
-	$('#dir-container').load('<?=$lp('ajfHandler','>directive_grid')?>');
-}
 
 
 // validate: function(v){return '';}
@@ -236,15 +212,8 @@ $(document).ready(function()
 	$.fn.editable.defaults.success = function(r,nv){ if( r.Status === false ) return r.Msg; };
 	$.fn.editable.defaults.validate = function(v){if($.trim(v)=='') return 'Required.';};
 	$.fn.editable.defaults.params = NormParams;
-
-//    $('aside').on('click','a.iconlink',function(e) {
-//        $('#rightaside').load($(e.currentTarget).attr('href'),reload_aside);
-//    	e.preventDefault();
-//    });
-
-    // handle form submits  (JSON - /json/)
-//    $('#login').on('submit','#login',submit_form);
 });
+
 
 
 // page custom x-editable type
