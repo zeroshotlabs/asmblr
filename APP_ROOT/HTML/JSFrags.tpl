@@ -58,7 +58,6 @@ $(document).ready(function()
 	$('a.set-baseurl').editable({mode:'popup',placement:'right',inputclass:'input-xlarge',validate:function(v){return '';}});
 
 	ajfDirectives();
-
 });
 </script>
 <?php $this->JSDirectives(array('prefix'=>'site')); ?>

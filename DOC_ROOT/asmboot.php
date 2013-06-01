@@ -91,13 +91,11 @@ class asmSrv extends \fw\App
         ini_set('zlib.output_compression',TRUE);
     }
 
+    // this always completes if the site is found, regardless of it's status
     public function GetSet( $Domain,$Request )
     {
         if( ($this->SrvSite = $this->Match($Domain)) === NULL )
-            \fw\HTTP::_400();
-
-        if( $this->SrvSite['Status'] !== 'Active' )
-            \fw\HTTP::_400();
+            return FALSE;
 
         $this->BaseURL = $this->SrvSite['BaseURL'];
         $this->Request = $Request;
@@ -137,8 +135,12 @@ class asmSrv extends \fw\App
     //  - match and execute a page
     //  - render
     // TODO: handle lib code
+    // serve the site - will 400 if status isn't active
     public function Go()
     {
+        if( $this->SrvSite['Status'] !== 'Active' )
+            \fw\HTTP::_400();
+
         // we're doing this all over the place - need to wire/centralize somehow - or optimize even
         // since we're doing a lot of extra connections/queries/etc it seems
         // also applying directives is happening here for now, though it may be handy to have it
@@ -402,10 +404,12 @@ if( fwApp::$ConsoleDomain === $Domain )
 }
 else
 {
-    // an unknown domain/bogus request is handled in asmSrv
     $asm = new asmSrv;
-    $asm->GetSet($Domain,Request::Init());
-    $asm->Go();
+    // an unknown domain
+    if( $asm->GetSet($Domain,Request::Init()) === FALSE )
+        \fw\HTTP::_400();
+    else
+        $asm->Go();
 }
 
 

@@ -34,7 +34,7 @@
     <div class="container-fluid">
         <div class="row-fluid">
            <?php if( isset($this->LeftNav) ): ?>
-            <div class="span3  LeftNav">
+            <div class="span3 LeftNav">
                 <?php $this->LeftNav(); ?>
             </div>
            <?php endif; ?>
