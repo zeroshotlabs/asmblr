@@ -136,6 +136,8 @@ class asmSrv extends \fw\App
     //  - render
     // TODO: handle lib code
     // serve the site - will 400 if status isn't active
+    // if a page is not active, it'll throw a 400 but other pages may have executed, including the site
+    // routine, directives, etc.
     public function Go()
     {
         if( $this->SrvSite['Status'] !== 'Active' )
@@ -172,6 +174,9 @@ class asmSrv extends \fw\App
             {
                 if( ($OrderedMatch = $this->ps->Match($this->SrvSite['_id'],$V)) !== NULL )
                 {
+                    if( $OrderedMatch['Status'] !== 'Active' )
+                        \fw\HTTP::_400();
+
                     // hack and inefficient
                     $ds = new DataSet($this->asmdb,$this->SrvSite['_id'],'DirectiveP_'.$OrderedMatch['_id']);
                     $OrderedMatch['Directives'] = $ds;
@@ -184,6 +189,9 @@ class asmSrv extends \fw\App
 
         if( ($ExactMatch = $this->ps->Match($this->SrvSite['_id'],\fw\Path::ToString($this->MatchPath))) !== NULL )
         {
+            if( $ExactMatch['Status'] !== 'Active' )
+                \fw\HTTP::_400();
+
             // hack and inefficient
             $ds = new DataSet($this->asmdb,$this->SrvSite['_id'],'DirectiveP_'.$ExactMatch['_id']);
             $ExactMatch['Directives'] = $ds;

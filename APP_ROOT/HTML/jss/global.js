@@ -37,11 +37,10 @@
 	$.fn.editable.defaults.mode = 'popup';
 	$.fn.editable.defaults.onblur = 'ignore';
 	$.fn.editable.defaults.send = 'always';
-	$.fn.editable.defaults.placement = 'top';
+	$.fn.editable.defaults.placement = 'right';
 	$.fn.editable.defaults.success = function(r,nv){ if( r.Status === false ) return r.Msg; };
 	$.fn.editable.defaults.validate = function(v){if($.trim(v)=='') return 'Required.';};
 	$.fn.editable.defaults.params = function(p){return xedit_norm(p)};
-	
 
 	// set up directives - this is going to fire a lot of AAPI requests but for now so what
 	// since our parent can be called multiple times, will this be a problem and stackup?
@@ -66,8 +65,7 @@
 			if( i === 3 )
 			{
 				aapi_set(Type+'_set_directive',d);
-    		    // recursion?
-    		    ajf_directive_grid(Type);
+				ajf_directive_grid(Type);
 			}
 		}
 		else
@@ -97,10 +95,6 @@
     		});
 
     		if( done === false )
-    		{
     		    aapi_set(Type+'_set_directive',d);
-    		    // recursion?
-    		    ajf_directive_grid(Type);
-    		}
 		}
 	});
