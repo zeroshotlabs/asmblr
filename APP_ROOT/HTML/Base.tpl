@@ -14,6 +14,7 @@
         <link rel="stylesheet" href="<?=$lp('CSS','>bootstrap-responsive.min.css?')?>">
         <link rel="stylesheet" href="<?=$lp('CSS','>bootstrap-select.min.css?')?>">
         <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/x-editable/1.4.4/bootstrap-editable/css/bootstrap-editable.css">
+        <link rel="stylesheet" href="<?=$ls('/jslib/codemirror-3.13/lib/codemirror.css')?>" />
         <link rel="stylesheet" href="<?=$lp('CSS','>fw.css?')?>">
 
         <script src="<?=$lp('JS','>modernizr-2.6.2-respond-1.1.0.min.js?')?>"></script>
@@ -55,10 +56,24 @@
     <script src="<?=$lp('JS','>bootstrap-select.min.js?')?>"></script>
     <script src="//cdnjs.cloudflare.com/ajax/libs/x-editable/1.4.4/bootstrap-editable/js/bootstrap-editable.min.js"></script>
 
-    <script><?php $this->JSBase(); ?></script>
+    <script src="<?=$ls('/jslib/codemirror-3.13/lib/codemirror.js')?>"></script>
+    <script src="<?=$ls('/jslib/codemirror-3.13/addon/edit/matchbrackets.js')?>"></script>
+    <script src="<?=$ls('/jslib/codemirror-3.13/mode/htmlmixed/htmlmixed.js')?>"></script>
+    <script src="<?=$ls('/jslib/codemirror-3.13/mode/xml/xml.js')?>"></script>
+    <script src="<?=$ls('/jslib/codemirror-3.13/mode/javascript/javascript.js')?>"></script>
+    <script src="<?=$ls('/jslib/codemirror-3.13/mode/css/css.js')?>"></script>
+    <script src="<?=$ls('/jslib/codemirror-3.13/mode/clike/clike.js')?>"></script>
+    <script src="<?=$ls('/jslib/codemirror-3.13/mode/php/php.js')?>"></script>
 
-    <?php $this->Unstack('ajax'); ?>
-
+    <script>
+        <?php $this->jss_lib(); ?>
+        $(function(){
+        <?php
+            $this->jss_global();
+            $this->Unstack('jsready');
+        ?>
+        });
+    </script>
 	</body>
 </html>
 

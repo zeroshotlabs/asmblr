@@ -42,7 +42,7 @@
     </small>
    <?php elseif( $page->ActiveNav === 'Template' ): ?>
     <p class="nav-header">template</p>
-    <h3><a href="#" class="set-name" data-type="text" data-url="<?=$lr('page_set_name')?>" data-name="Domain"><?=$T['Name']?></a></h3>
+    <h3><a href="#" class="set-name" data-type="text" data-url="<?=$lr('template_set_name')?>" data-name="Name"><?=$T['Name']?></a></h3>
    <?php endif; ?>
 </div>
 </div>

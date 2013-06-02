@@ -167,7 +167,7 @@ class PageSet extends MongoSet
     // different - returns NULL or the new Data struct
     public function MoveDirective( \MongoId $D_id,\MongoId $NextD_id = NULL,&$P )
     {
-        $ds = new DataSet($this->MDB,$SP['Site_id'],'DirectiveP_'.$P['_id']);
+        $ds = new DataSet($this->MDB,$P['Site_id'],'DirectiveP_'.$P['_id']);
 
         $D = $ds->Read($D_id);
         if( empty($D) )

@@ -1,16 +1,29 @@
 
-<div class="row-fluid">
+<div class="row-fluid" id="directives">
     <div class="span12">
-        <h3>Routine:</h3>
-        <a href="#" class="set-routine" data-type="textarea" data-url="<?=$lr('template_set_routine')?>" data-emptytext="no routine" data-name="Routine"><?=\fw\Struct::Get(0,$T['Routine'])?></a>
+        <div id="routine-container"></div>
     </div>
 </div>
 
-<div class="row-fluid">
+<div class="row-fluid" id="directives">
     <div class="span12">
-        <h3>Body:</h3>
-        <a href="#" class="set-body" data-type="textarea" data-url="<?=$lr('template_set_body')?>" data-emptytext="no body" data-name="Body"><?=nl2br($this($T['Body']))?></a>
+        <div id="body-container"></div>
     </div>
+</div>
+
+
+<ul class="nav nav-tabs" id="template_edit">
+    <li class="active"><a href="#routine">Routine</a></li>
+    <li><a href="#body">Body</a></li>
+</ul>
+
+<div class="tab-content">
+  <div class="tab-pane active" id="routine">
+     <?php $this->EditRoutine(); ?>
+  </div>
+  <div class="tab-pane" id="body">
+     <?php $this->EditRoutine(); ?>
+  </div>
 </div>
 
 

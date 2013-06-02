@@ -20,7 +20,7 @@ abstract class Console extends \fw\RoutineSet
         if( !fw('page')->LoggedIn )
         {
             fw('html')->ReMap('Article','Login');
-            fw('html')->Stack('JSLogin','ajax');
+            fw('html')->Stack('login','jsready');
             return;
         }
 
@@ -28,7 +28,7 @@ abstract class Console extends \fw\RoutineSet
 
         fw('html')->Connect($SS,'SS');
         fw('html')->ReMap('Article','Home');
-        fw('html')->Stack('JSCreateSite','ajax');
+        fw('html')->Stack('jss_createsite','jsready');
     }
 
     public static function Site()
@@ -39,7 +39,9 @@ abstract class Console extends \fw\RoutineSet
         static::InitSite(new \MongoId(\fw\Request::Path(-1)));
 
         fw('page')->ActiveNav = 'Site';
-        fw('html')->Stack('JSSite','ajax');
+        fw('html')->Stack('jss_site','jsready');
+//        fw('html')->Stack('JSEditRoutine','ajax');
+
     }
 
     public static function Page()
@@ -50,7 +52,7 @@ abstract class Console extends \fw\RoutineSet
         static::InitPage(new \MongoId(\fw\Request::Path(-1)));
 
         fw('page')->ActiveNav = 'Page';
-        fw('html')->Stack('JSPage','ajax');
+        fw('html')->Stack('jss_page','jsready');
     }
 
     public static function Template()
@@ -61,7 +63,7 @@ abstract class Console extends \fw\RoutineSet
         static::InitTemplate(new \MongoId(\fw\Request::Path(-1)));
 
         fw('page')->ActiveNav = 'Template';
-        fw('html')->Stack('JSTemplate','ajax');
+        fw('html')->Stack('jss_template','jsready');
     }
 
     // serve out HTML fragments for ajax requests
@@ -95,34 +97,25 @@ abstract class Console extends \fw\RoutineSet
     {
         fw('html')->Connect(asm()->DirWireables,'DirectiveNames');
 
-        if( \asm\rv::Site_id() )
-        {
-            $S = asm('ss')->Read(new \MongoId($_POST['Site_id']));
-            $Tag = 'Directive';
-        }
-        else if( \asm\rv::Page_id() )
+        // order is important
+        if( \asm\rv::Page_id() )
         {
             $S = fw('asmps')->Read_id(new \MongoId($_POST['Page_id']));
             $Tag = 'DirectiveP_';
         }
-/*
-        // wait do templates have directives?  not yet anyway...
-        else if( \asm\rv::Template_id() )
+        else if( \asm\rv::Site_id() )
         {
-            $S = asm('ts')->Read(new \MongoId($_POST['Template_id']));
-            $Tag = 'DirectiveT_';
+            $S = asm('ss')->Read(new \MongoId($_POST['Site_id']));
+            $Tag = 'Directive';
         }
-*/
         else
             \fw\HTTP::_400();
-
 
         if( empty($S) )
         {
             \fw\HTTP::_404();
             return FALSE;
         }
-
 
         if( isset($S['Site_id']) )
         {
@@ -195,7 +188,7 @@ abstract class Console extends \fw\RoutineSet
         fw('html')->Connect($TL,'TL');
         fw('html')->Connect($S,'S');
 
-        fw('html')->Stack('JSLeftNav','ajax');
+        fw('html')->Stack('jss_leftnav','jsready');
     }
 
     protected static function InitPage( \MongoId $P )

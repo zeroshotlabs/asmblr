@@ -1,6 +1,6 @@
 
 <div class="sortable" id="directives-sortable">
-    <?php foreach( $DS as $K => $D ): ?>
+   <?php foreach( $DS as $K => $D ): ?>
     <div id="<?=$K?>">
         <div class="input-prepend">
             <select name="Name" class="selectpicker dir-part" data-width="auto" data-pk="<?=$K?>" >
@@ -17,13 +17,13 @@
             <input class="input-xxlarge dir-part" name="Value" data-pk="<?=$K?>" type="text" value="<?=$this($D['Value'])?>" />
         </div>
     </div>
-    <?php endforeach; ?>
+   <?php endforeach; ?>
 </div>
 
 <div id="new-directive">
     <div class="input-prepend">
         <select name="Name" class="selectpicker dir-part inverse" data-width="103"  data-style="btn-warning" data-pk="" >
-            <option value="">new</option>
+            <option data-divider="true">create</option>
            <?php foreach( $DirectiveNames as $V ): ?>
             <option value="<?=$V?>" ><?=$V?></option>
            <?php endforeach; ?>
@@ -33,27 +33,4 @@
         <input class="input-xxlarge dir-part" name="Value" data-pk="" type="text" value="" placeholder="value" />
     </div>
 </div>
-
-
-<script>
-$(document).ready(function()
-{
-	$('.selectpicker').selectpicker();
-
-    $('#directives-sortable').sortable({forceHelperSize:true,opacity:.9,handle:'div.handle',placeholder:'ui-state-highlight',axis:'y',
-        helper:function(e,ui) {
-            ui.children().each(function() {
-                $(this).width($(this).width());
-            });
-            return ui;
-        },
-        update:function(e,ui) {
-            itemid = ui.item.attr('id');
-            nextid = ui.item.next().attr('id');
-            $.ajax({ url:url,
-                    data:{D_id:itemid,NextD_id:nextid}}).done(function(){ajfDirectives();});
-        }});
-
-});
-</script>
 

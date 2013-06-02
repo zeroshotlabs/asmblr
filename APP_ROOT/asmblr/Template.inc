@@ -86,6 +86,11 @@ class TemplateSet extends MongoSet
         return $this->SetKV('Body',$Body,'_id',$T);
     }
 
+    public function SetName( $Name,&$T )
+    {
+        return $this->SetKV('Name',$Name,'_id',$T);
+    }
+
     public function Listing( \MongoId $S )
     {
         // $Fields = array('Path'=>1,'Domain'=>1,'Name'=>1,'Status'=>1,'CreateTS'=>1,'UpdateTS'=>1);
