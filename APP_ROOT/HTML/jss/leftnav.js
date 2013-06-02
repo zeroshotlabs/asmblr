@@ -1,4 +1,12 @@
 
+<?php if( $page->ActiveNav === 'Site' ): ?>
+aapi_status('site-status','site','site_set_status');
+<?php elseif( $page->ActiveNav === 'Page' ): ?>
+aapi_status('page-status','page','page_set_status');
+<?php endif; ?>
+
+
+
 $('button.new-page').editable({display:false,showbuttons:'bottom',placement:'bottom',inputclass:'input-large',
 	success: function(r,nv){
 	    if( r.Status === false )
