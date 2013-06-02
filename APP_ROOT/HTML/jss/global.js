@@ -90,6 +90,7 @@
     				.fail(function(){console.log('connection error');});
     				done = true;
     			}
+    			// will end up updating
     			else if( done === false )
     			    d[v2[0].name] = v2.val();
     		});

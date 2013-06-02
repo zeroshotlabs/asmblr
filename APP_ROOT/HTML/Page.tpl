@@ -1,17 +1,21 @@
 
-<div class="row-fluid" id="directives">
-    <div class="span12">
+<ul class="nav nav-tabs" id="page_tabs">
+    <li><a class="tab_link" href="#directives_tab" data-toggle="tab">Directives</a></li>
+    <li><a class="cm_tab_link" href="#routine_tab" data-toggle="tab" data-taid="page_routine">Routine</a></li>
+</ul>
+
+<div class="tab-content">
+    <div class="tab-pane" id="directives_tab">
         <div id="dir-container"></div>
     </div>
+    <div class="tab-pane" id="routine_tab">
+        <textarea id="page_routine" name="Routine" data-method="page_set_routine" data-mode="text/x-php" data-hasShown=""><?=$this(\fw\Struct::Get(0,$P['Routine']))?></textarea>
+        <div>
+            <a href="#" id="page_routine_save" class="btn">save</a>
+            <a href="#" id="page_routine_reset" class="btn">cancel</a>
+        </div>
+    </div>
 </div>
-
-
-<?php /*         <a title="edit" data-toggle="modal" data-target="#routine_modal" href="#">edit</a> */ ?>
-
-<?php // $this->EditRoutine(array('Method'=>'site_set_routine','Routine'=>\fw\Struct::Get(0,$S['Routine']))); ?>
-
-
-
 
 <div id="page_delete" class="modal hide">
     <div class="modal-header">
