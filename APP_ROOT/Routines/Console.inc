@@ -2,7 +2,6 @@
 
 // don't we need auth checks for things like Site, Page, Template, ?
 // we're back and forth between asm() and fw()
-// random usage of DataSet
 abstract class Console extends \fw\RoutineSet
 {
     public static function Logout()
@@ -40,8 +39,6 @@ abstract class Console extends \fw\RoutineSet
 
         fw('page')->ActiveNav = 'Site';
         fw('html')->Stack('jss_site','jsready');
-//        fw('html')->Stack('JSEditRoutine','ajax');
-
     }
 
     public static function Page()
@@ -96,6 +93,31 @@ abstract class Console extends \fw\RoutineSet
     public static function directive_grid()
     {
         fw('html')->Connect(asm()->DirWireables,'DirectiveNames');
+
+        if( \asm\rv::Page_id() )
+        {
+            $P = fw('asmps')->Read_id(new \MongoId($_POST['Page_id']));
+            if( empty($P) )
+                \fw\HTTP::_400();
+
+            $ds = new \asm\DirectiveSet(asm('asmdb'),$P['Site_id']);
+            fw('html')->Connect($ds->PageList($P),'DS');
+        }
+        else if( \asm\rv::Site_id() )
+        {
+            $S = asm('ss')->Read(new \MongoId($_POST['Site_id']));
+            if( empty($S) )
+                \fw\HTTP::_400();
+
+            $ds = new \asm\DirectiveSet(asm('asmdb'),$S['_id']);
+            fw('html')->Connect($ds->SiteList($S),'DS');
+        }
+        else
+            \fw\HTTP::_400();
+
+
+        return;
+
 
         // order is important
         if( \asm\rv::Page_id() )

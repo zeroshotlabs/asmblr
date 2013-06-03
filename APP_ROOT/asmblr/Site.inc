@@ -68,12 +68,12 @@ class SiteSet extends MongoSet
 
     public function SetDirective( $Directive,&$S,\MongoId $D_id = NULL )
     {
-        $ds = new DataSet($this->MDB,$S['_id'],'Directive');
+        $ds = new DirectiveSet($this->MDB,$S['_id']);
 
         // create new directive, append to end
         if( empty($D_id) )
         {
-            $ds[] = $Directive;
+            $ds->SiteSet($S,$Directive);
             return TRUE;
         }
         // update existing directive
@@ -90,7 +90,7 @@ class SiteSet extends MongoSet
 
     public function DeleteDirective( \MongoId $D_id,&$S )
     {
-        $ds = new DataSet($this->MDB,$S['_id'],'Directive');
+        $ds = new DirectiveSet($this->MDB,$S['_id']);
 
         // good example of when we institute CurrentTS checking, we couldn't do this
         // as the Data struct would need to be passed to us
@@ -107,7 +107,7 @@ class SiteSet extends MongoSet
     // different - returns NULL or the new Data struct
     public function CopyDirective( \MongoId $D_id,&$S )
     {
-        $ds = new DataSet($this->MDB,$S['_id'],'Directive');
+        $ds = new DirectiveSet($this->MDB,$S['_id'],'Directive');
 
         $D = $ds->Read($D_id);
         if( empty($D) )
@@ -124,7 +124,7 @@ class SiteSet extends MongoSet
     // different - returns NULL or the new Data struct
     public function MoveDirective( \MongoId $D_id,\MongoId $NextD_id = NULL,&$S )
     {
-        $ds = new DataSet($this->MDB,$S['_id'],'Directive');
+        $ds = new DirectiveSet($this->MDB,$S['_id']);
 
         $D = $ds->Read($D_id);
         if( empty($D) )

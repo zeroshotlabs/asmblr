@@ -112,12 +112,12 @@ class PageSet extends MongoSet
     // following three same basically as in SiteSet
     public function SetDirective( $Directive,&$P,\MongoId $D_id = NULL )
     {
-        $ds = new DataSet($this->MDB,$P['Site_id'],'DirectiveP_'.$P['_id']);
+        $ds = new DirectiveSet($this->MDB,$P['Site_id']);
 
         // create new directive, append to end
         if( empty($D_id) )
         {
-            $ds[] = $Directive;
+            $ds->PageSet($P,$Directive);
             return TRUE;
         }
         // update existing directive
@@ -134,7 +134,7 @@ class PageSet extends MongoSet
 
     public function DeleteDirective( \MongoId $D_id,&$P )
     {
-        $ds = new DataSet($this->MDB,$P['Site_id'],'DirectiveP_'.$P['_id']);
+        $ds = new DirectiveSet($this->MDB,$P['Site_id']);
 
         // good example of when we institute CurrentTS checking, we couldn't do this
         // as the Data struct would need to be passed to us
@@ -151,7 +151,7 @@ class PageSet extends MongoSet
     // different - returns NULL or the new Data struct
     public function CopyDirective( \MongoId $D_id,&$P )
     {
-        $ds = new DataSet($this->MDB,$P['Site_id'],'DirectiveP_'.$P['_id']);
+        $ds = new DirectiveSet($this->MDB,$P['Site_id']);
 
         $D = $ds->Read($D_id);
         if( empty($D) )
@@ -168,7 +168,7 @@ class PageSet extends MongoSet
     // different - returns NULL or the new Data struct
     public function MoveDirective( \MongoId $D_id,\MongoId $NextD_id = NULL,&$P )
     {
-        $ds = new DataSet($this->MDB,$P['Site_id'],'DirectiveP_'.$P['_id']);
+        $ds = new DirectiveSet($this->MDB,$P['Site_id']);
 
         $D = $ds->Read($D_id);
         if( empty($D) )

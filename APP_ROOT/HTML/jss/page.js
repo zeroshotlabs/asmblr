@@ -22,3 +22,18 @@ $('a.tab_link','#page_tabs').click(function (e) {
 });
 
 
+checkhash(window.location.hash);
+
+$(window).on('hashchange',function(e){
+	checkhash(window.location.hash);
+});
+
+function checkhash( hash )
+{
+	if( hash === '#directives_tab' )
+		$('a.tab_link','#page_tabs').click();
+	else if( hash === '#routine_tab' )
+		$('a.cm_tab_link','#page_tabs').click();
+}
+
+

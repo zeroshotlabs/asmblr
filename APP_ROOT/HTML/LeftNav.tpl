@@ -1,11 +1,38 @@
+<?php
+if( !empty($P) )
+{
+    $sts = $P['Status'];
+    $type = 'page';
+}
+else if( !empty($S) )
+{
+    $sts = $S['Status'];
+    $type = 'site';
+}
 
+if( !empty($sts) )
+{
+    if( $sts === 'Active' )
+    {
+        $page->sts_html = "{$type} is on";
+        $page->sts_title = 'click to turn off';
+        $page->sts_class = 'btn-success';
+    }
+    else
+    {
+        $page->sts_html = "{$type} is off";
+        $page->sts_title = 'click to turn on';
+        $page->sts_class = 'btn-danger';
+    }
+}
+?>
 <div class="well">
 <div class="btn-group pull-right" style="padding: 0; margin: -20px -20px 2px 0;">
     <div class="btn-group">
        <?php if( $page->ActiveNav === 'Site' ): ?>
-        <button class="btn btn-mini nav-btn site-status" data-toggle="button" data-status="<?=$S['Status']?>"></button>
+        <button class="btn btn-mini nav-btn site-status <?=$page->sts_class?>" title="<?=$page->sts_title?>" data-toggle="button" data-status="<?=$S['Status']?>"><?=$page->sts_html?></button>
        <?php elseif( $page->ActiveNav === 'Page' ): ?>
-        <button class="btn btn-mini nav-btn page-status" data-toggle="button" data-status="<?=$P['Status']?>"></button>
+        <button class="btn btn-mini nav-btn page-status <?=$page->sts_class?>" title="<?=$page->sts_title?>"data-toggle="button" data-status="<?=$P['Status']?>"><?=$page->sts_html?></button>
         <button class="btn btn-mini nav-btn delete_page" data-toggle="modal" data-target="#page_delete"><i title="delete page" class="icon-remove"></i></button>
        <?php elseif( $page->ActiveNav === 'Template' ): ?>
         <button class="btn btn-mini nav-btn delete_template" data-toggle="modal" data-target="#template_delete"><i title="delete template" class="icon-remove"></i></button>
@@ -14,6 +41,7 @@
     <div class="btn-group">
         <button class="btn btn-mini nav-btn new-page" data-type="page" data-url="<?=$lr('page_create')?>"><i title="new page" class="icon-list-alt"></i></button>
         <button class="btn btn-mini nav-btn new-template" data-type="text" data-url="<?=$lr('template_create')?>" data-placeholder="TemplateName" data-name="Name"><i title="new template" class="icon-edit"></i></button>
+        <button class="btn btn-mini nav-btn new-content" data-type="text" data-url="<?=$lr('content_create')?>" data-placeholder="ContentName" data-name="Name"><i title="new content" class="icon-file"></i></button>
     </div>
 </div>
 
@@ -57,10 +85,20 @@
     <ul class="nav nav-list" style=" margin: 0; padding: 0 0 0 0;">
         <li class="nav-header">recent</li>
        <?php foreach( $PL as $P ): ?>
-        <li><a href="<?=$lp('Page','>'.(string)$P['_id'])?>"><i class="icon-list-alt"></i> <?=$P['Name']?></a></li>
+        <li>
+            <a href="<?=$lp('Page','>'.(string)$P['_id'])?>"><i class="icon-list-alt"></i> <?=$P['Name']?></a>
+            <div style="margin: -9px 0 0 22px; font-size: .93em;">
+            <small><a href="<?=$lp('Page','>'.(string)$P['_id'])?>#directives_tab">directives</a>&nbsp;|&nbsp;<a href="<?=$lp('Page','>'.(string)$P['_id'])?>#routine_tab">routine</a></small>
+            </div>
+        </li>
        <?php endforeach; ?>
        <?php foreach( $TL as $T ): ?>
-        <li><a href="<?=$lp('Template','>'.(string)$T['_id'])?>"><i title="new page" class="icon-edit"></i> <?=$T['Name']?></a></li>
+        <li>
+            <a href="<?=$lp('Template','>'.(string)$T['_id'])?>"><i class="icon-edit"></i> <?=$T['Name']?></a>
+            <div style="margin: -9px 0 0 22px; font-size: .93em;">
+            <small><a href="<?=$lp('Template','>'.(string)$T['_id'])?>#routine_tab">routine</a>&nbsp;|&nbsp;<a href="<?=$lp('Template','>'.(string)$T['_id'])?>#body_tab">body</a></small>
+            </div>
+        </li>
        <?php endforeach; ?>
     </ul>
 </div>

@@ -114,18 +114,6 @@ function aapi_set( Method,FormData )
 function aapi_status( Class,Tag,Method )
 {
     t = $('button.'+Class);
-    if( t.data('status') === 'Active' )
-    {
-        t.addClass('btn-success');
-        t.html(Tag+' is on');
-        t.attr('title','click to turn off');
-    }
-    else
-    {
-        t.addClass('btn-danger');
-        t.html(Tag+' is off');
-        t.attr('title','click to turn on');
-    }
 
     url = aapi_method2url(Method);
     

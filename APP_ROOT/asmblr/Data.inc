@@ -32,6 +32,9 @@ abstract class Data extends MongoStruct
 // O is the position of the data within the set
 // this loads/refreshes the entire data set as MongoCursor
 // also does a lot of redundant queries that could be optimized like Refresh()
+
+// this index may be all that we need - though it can't be unique because we can't do ordered update for Expand()
+// $asmdb->DataSet->ensureIndex(array('Site_id'=>TRUE,'Tags.T'=>TRUE,'Tags.O'=>TRUE),array('unique'=>FALSE));
 class DataSet extends \fw\WireableBase implements \Iterator,\Countable,\ArrayAccess
 {
     protected $MC;
@@ -52,6 +55,20 @@ class DataSet extends \fw\WireableBase implements \Iterator,\Countable,\ArrayAcc
         $this->Tag = $Tag;
         $this->ASC = $ASC;
 
+        $this->Refresh();
+    }
+
+    // change the tag of the current DataSet object - doesn't touch the database itself
+    // all of these refreshes are probably overkill
+    public function ReTag( $Tag )
+    {
+        $this->Tag = $Tag;
+        $this->Refresh();
+    }
+
+    public function ReSite( \MongoId $Site_id )
+    {
+        $this->Site_id = $Site_id;
         $this->Refresh();
     }
 

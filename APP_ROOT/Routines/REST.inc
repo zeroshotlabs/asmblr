@@ -35,10 +35,6 @@ class REST extends \fw\RoutineSet
         $asmdb->PageSet->ensureIndex(array('Site_id'=>TRUE,'Name'=>TRUE),array('unique'=>TRUE));
         $asmdb->TemplateSet->ensureIndex(array('Site_id'=>TRUE,'Name'=>TRUE),array('unique'=>TRUE));
         $asmdb->ContentSet->ensureIndex(array('Site_id'=>TRUE,'Path'=>TRUE),array('unique'=>TRUE));
-        // DataSet for directives are instantiated in the method
-//        $asmdb->DataSet->ensureIndex(array('Site_id'=>TRUE,'Tags'=>TRUE),array('unique'=>TRUE));
-        // this index may be all that we need - though it can't be unique because we can't do ordered update for Expand()
-        $asmdb->DataSet->ensureIndex(array('Site_id'=>TRUE,'Tags.T'=>TRUE,'Tags.O'=>TRUE),array('unique'=>FALSE));
 
         static::$as = $as = asm('as');
         static::$ss = asm('ss');
@@ -416,7 +412,7 @@ class REST extends \fw\RoutineSet
             static::$Response = JSONResponse::Fail('Database error');
     }
 
-    // will need directive/dataset specific security
+    // will need directive set specific security
     protected static function site_set_directive()
     {
         if( !rv::Site_id() || !rv::Directive() )
@@ -622,7 +618,7 @@ class REST extends \fw\RoutineSet
             static::$Response = JSONResponse::Fail('Database error');
     }
 
-    // will need directive/dataset specific security
+    // will need directive set specific security
     protected static function page_set_directive()
     {
         if( !rv::Page_id() || !rv::Directive() )

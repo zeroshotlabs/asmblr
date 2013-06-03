@@ -120,7 +120,9 @@ class asmSrv extends \fw\App
         $lp = new \asm\LinkPage($ps,$this->SiteURL);
         $ls = new \fw\LinkSet($this->SrvSite['Domain']);
 
-        $this->Wire(array('page'=>$page,'html'=>$html,'ps'=>$ps,'lp'=>$lp,'ls'=>$ls));
+        $ds = new \asm\DirectiveSet($this->asmdb,$this->SrvSite['_id']);
+
+        $this->Wire(array('page'=>$page,'html'=>$html,'ps'=>$ps,'lp'=>$lp,'ls'=>$ls,'ds'=>$ds));
 
         // double wire - have to straighten out our naming between srv and console
 //        $this->Wire(array('html'=>$html,'ts'=>$html,'ps'=>$ps,'lp'=>$lp,'ls'=>$ls));
@@ -135,7 +137,7 @@ class asmSrv extends \fw\App
     //  - match and execute a page
     //  - render
     // TODO: handle lib code
-    // serve the site - will 400 if status isn't active
+    // serve the site - will 404 if status isn't active
     // if a page is not active, it'll throw a 400 but other pages may have executed, including the site
     // routine, directives, etc.
     public function Go()
@@ -143,12 +145,10 @@ class asmSrv extends \fw\App
         if( $this->SrvSite['Status'] !== 'Active' )
             \fw\HTTP::_400();
 
-        // we're doing this all over the place - need to wire/centralize somehow - or optimize even
-        // since we're doing a lot of extra connections/queries/etc it seems
-        // also applying directives is happening here for now, though it may be handy to have it
-        // happen in GetSet() - or callable as we need it to be
-        $ds = new DataSet($this->asmdb,$this->SrvSite['_id'],'Directive');
-        foreach( $ds as $V )
+        // applying directives is happening here for now, though it may be handy to have it
+        // happen in GetSet() - or callable as we need it to be - or group all of this stuff and do
+        // together once pages are known
+        foreach( $this->ds->SiteList($this->SrvSite) as $V )
         {
             if( ($W = $this->{$V['Name']}) === NULL )
                 throw new Exception("Directive object {$V['Name']}' doesn't exist while executing Site '{$this->SrvSite['Domain']}'.");
@@ -175,11 +175,16 @@ class asmSrv extends \fw\App
                 if( ($OrderedMatch = $this->ps->Match($this->SrvSite['_id'],$V)) !== NULL )
                 {
                     if( $OrderedMatch['Status'] !== 'Active' )
-                        \fw\HTTP::_400();
+                    {
+                        \fw\HTTP::_404();
+                        return FALSE;
+                    }
 
-                    // hack and inefficient
-                    $ds = new DataSet($this->asmdb,$this->SrvSite['_id'],'DirectiveP_'.$OrderedMatch['_id']);
-                    $OrderedMatch['Directives'] = $ds;
+                    $OrderedMatch['Directives'] = $this->ds->PageList($OrderedMatch);
+
+//                     // hack and inefficient
+//                     $ds = new DataSet($this->asmdb,$this->SrvSite['_id'],'DirectiveP_'.$OrderedMatch['_id']);
+//                     $OrderedMatch['Directives'] = $ds;
 
                     $this->ps->Execute($OrderedMatch);
                     break;
@@ -190,17 +195,26 @@ class asmSrv extends \fw\App
         if( ($ExactMatch = $this->ps->Match($this->SrvSite['_id'],\fw\Path::ToString($this->MatchPath))) !== NULL )
         {
             if( $ExactMatch['Status'] !== 'Active' )
-                \fw\HTTP::_400();
+            {
+                \fw\HTTP::_404();
+                return FALSE;
+            }
 
-            // hack and inefficient
-            $ds = new DataSet($this->asmdb,$this->SrvSite['_id'],'DirectiveP_'.$ExactMatch['_id']);
-            $ExactMatch['Directives'] = $ds;
+            $ExactMatch['Directives'] = $this->ds->PageList($ExactMatch);
+
+//             // hack and inefficient
+//             $ds = new DataSet($this->asmdb,$this->SrvSite['_id'],'DirectiveP_'.$ExactMatch['_id']);
+//             $ExactMatch['Directives'] = $ds;
 
             $this->ps->Execute($ExactMatch);
         }
 
+        // this will need some type of configurability per site
         if( $ExactMatch === NULL && $OrderedMatch === NULL )
-            $this->NoPageHandler();
+        {
+            \fw\HTTP::_404();
+            return FALSE;
+        }
 
         $this->html->Base();
     }
@@ -294,7 +308,7 @@ class fwApp extends \fw\App
         $asm = new asmSrv;
 
         // create generic sets for helpers - these are in standalone mode
-        // these are used by the API which also ties us together
+        // these are used by the API which also ties us to that code base
         $asmps = new \asm\PageSet(asm()->asmdb);
         $asmts = new \asm\TemplateSet(asm()->asmdb);
         $this->Wire(array('asmps'=>$asmps,'asmts'=>$asmts));
@@ -322,7 +336,7 @@ class fwApp extends \fw\App
 
         $html->RightAside = NULL;
 
-        // helps us form the breadcrumb - either Site, Page or Template
+        // either Site, Page or Template or Content
         $page->ActiveNav = NULL;
 
         $ps->Create('CSS','/css/','Console::CSSHandler');
@@ -410,6 +424,9 @@ if( fwApp::$ConsoleDomain === $Domain )
     $fw = new fwApp;
     $fw->Go();
 }
+// when serving a site, perhaps we should kill the fw() function somehow
+// so people can't tap into it - or prevent it from containing anything in the
+// first place, which maybe is so?
 else
 {
     $asm = new asmSrv;

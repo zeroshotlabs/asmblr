@@ -153,6 +153,16 @@ div.handle
     vertical-align: middle;
 }
 
+div.tab-content
+{
+	overflow: visible;
+}
+
+
+div.CodeMirror-scroll
+{
+	border: 1px solid #99999;
+}
 
 /** http://stackoverflow.com/questions/10349395/bootstrap-form-layout-the-correct-way  */
  
