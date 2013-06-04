@@ -113,6 +113,7 @@ class PageSet extends MongoSet
     public function SetDirective( $Directive,&$P,\MongoId $D_id = NULL )
     {
         $ds = new DirectiveSet($this->MDB,$P['Site_id']);
+        $ds->PageTag($P);
 
         // create new directive, append to end
         if( empty($D_id) )
@@ -135,6 +136,7 @@ class PageSet extends MongoSet
     public function DeleteDirective( \MongoId $D_id,&$P )
     {
         $ds = new DirectiveSet($this->MDB,$P['Site_id']);
+        $ds->PageTag($P);
 
         // good example of when we institute CurrentTS checking, we couldn't do this
         // as the Data struct would need to be passed to us
@@ -152,6 +154,7 @@ class PageSet extends MongoSet
     public function CopyDirective( \MongoId $D_id,&$P )
     {
         $ds = new DirectiveSet($this->MDB,$P['Site_id']);
+        $ds->PageTag($P);
 
         $D = $ds->Read($D_id);
         if( empty($D) )
@@ -169,6 +172,9 @@ class PageSet extends MongoSet
     public function MoveDirective( \MongoId $D_id,\MongoId $NextD_id = NULL,&$P )
     {
         $ds = new DirectiveSet($this->MDB,$P['Site_id']);
+        // forgetting to do this results in nasty bugs - perhaps we find a way to prevent it
+        // maybe a site_id isn't part of the constructor so a site or page has to be set?
+        $ds->PageTag($P);
 
         $D = $ds->Read($D_id);
         if( empty($D) )

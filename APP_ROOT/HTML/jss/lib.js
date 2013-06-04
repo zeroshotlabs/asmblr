@@ -9,7 +9,7 @@ function ajf_directive_grid( Type )
 	            itemid = ui.item.attr('id');
 	            nextid = ui.item.next().attr('id');
 	            $.ajax({ url:aapi_method2url(Type+'_mv_directive'),
-	                    data:{D_id:itemid,NextD_id:nextid}}).done(function(){ajf_directive_grid(Type);});
+	                    data:{D_id:itemid,NextD_id:nextid}}).done(function(d){ajf_directive_grid(Type);});
 	    }});
 	});
 }

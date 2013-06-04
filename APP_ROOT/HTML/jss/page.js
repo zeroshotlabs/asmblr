@@ -18,9 +18,8 @@ $('a.cm_tab_link','#page_tabs').click(function (e) {
 $('a.tab_link','#page_tabs').click(function (e) {
 	e.preventDefault();
 	$(this).tab('show');
-	ajf_directive_grid('site');
+	ajf_directive_grid('page');
 });
-
 
 checkhash(window.location.hash);
 
