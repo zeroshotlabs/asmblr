@@ -28,15 +28,3 @@
 </nav>
 </div>
 
-
-
-<?php /*
-<form class="form-search">
-    <div class="input-append">
-    <input type="text" class="span6 search-query">
-    <button type="submit" class="btn"><i class="icon-search"></i></button>
-    </div>
-</form>
-*/ ?>
-
-
