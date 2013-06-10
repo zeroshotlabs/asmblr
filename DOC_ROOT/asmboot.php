@@ -124,9 +124,9 @@ class asmSrv extends \fw\App
 
         $this->Wire(array('page'=>$page,'html'=>$html,'ps'=>$ps,'lp'=>$lp,'ls'=>$ls,'ds'=>$ds));
 
-        // double wire - have to straighten out our naming between srv and console
-//        $this->Wire(array('html'=>$html,'ts'=>$html,'ps'=>$ps,'lp'=>$lp,'ls'=>$ls));
-        $html->ConnectWireables($lp,$ls,$page);
+        // $html is automatically available as $this but to stay inline with directive's names
+        // we connect it in as $html
+        $html->ConnectWireables($lp,$ls,$page,$html);
     }
 
     // Executing a site involves:
