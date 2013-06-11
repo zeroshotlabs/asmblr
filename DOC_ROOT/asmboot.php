@@ -80,6 +80,8 @@ class asmSrv extends \fw\App
 
         // now do more site specific stuff
         // TODO: these may become configurable in Site['Config']
+        // to handle parse errors in routines/templates, enable $html/$ps debugging
+        // which should probably be config options similar to LogPublic
         set_error_handler(array($this,'ErrorHandler'));
         set_exception_handler(array($this,'UncaughtExceptionHandler'));
         register_shutdown_function(array($this,'FatalErrorHandler'));
