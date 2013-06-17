@@ -3,23 +3,178 @@ namespace asm;
 
 
 // Collection: ContentSet
-// Unique: DomainPath
+// would we want something like Site_id/Tag/Name as unique fields?
+// content is active by default
 abstract class Content extends MongoStruct
 {
-    protected static $Skel = array('DomainPath'=>'',
-                                   'CurrentTS'=>0,'Status'=>'Unpublished',
-                                   'Name'=>'','Body'=>'','Config'=>array());
+    protected static $Skel = array('Site_id'=>'','Path'=>'','CurrentTS'=>0,
+                                   'Status'=>'Active','PathStruct'=>array(),
+                                   'Type'=>'','Length'=>0,
+                                   'Body'=>'','Meta'=>array());
 
-    public static function Init( $Domain,$Path,$Body = '' )
+    // Path, Body, Type (or detected)
+    // stored as UTF8 text or MongoBin based on type
+    public static function Init( \MongoId $S,$Path,$Body,$Type = '' )
     {
         $Content = static::$Skel;
-        $T = \fw\Path::Init(strtolower('/'.$Path));
-        $Content['DomainPath'] = strtolower($Domain).\fw\Path::ToURLString($T);
-        $Content['Body'] = $Body;
+        $Content['Site_id'] = $S;
+
+        $T = \fw\Path::Init(strtolower($Path));
+        $T['IsDir'] = $T['IsAbs'] = FALSE;
+
+        $Content['Path'] = \fw\Path::ToURLString($T);
+        $Content['PathStruct'] = $T;
+
+        static::SetBody($Body,$Content,$Type);
         return $Content;
+    }
+
+    // modifies Type, Body and Length - an empty body is always text/plain
+    public static function SetBody( $Body,&$C,$Type = '' )
+    {
+        if( empty($Body) )
+        {
+            $C['Body'] = '';
+            $C['Type'] = \fw\HTTP::ResolveContentType('txt');
+            $C['Length'] = 0;
+        }
+        else
+        {
+            if( empty($Type) )
+            {
+                $finfo = new \finfo(FILEINFO_MIME);
+                $C['Type'] = $finfo->buffer($Body);
+
+                // if a text type, try to use the filename since finfo can be unreliable for text
+                // otherwise we'll stick with that finfo gave us
+                // this still doesn't work 100% for small snippets of HTML/CSS/PHP
+                if( strpos($C['Type'],'text/') === 0 )
+                {
+                    $T = \fw\HTTP::Filename2ContentType(\fw\Path::Bottom($C['PathStruct']));
+                    if( !empty($T) )
+                        $C['Type'] = $T;
+                }
+            }
+            else
+                $C['Type'] = \fw\HTTP::ResolveContentType($Type);
+
+            // little hack for PHP
+            if( strpos($C['Type'],'text/') === 0 || strpos($C['Type'],'php') !== FALSE )
+            {
+                \fw\Struct::ToUTF8($Body);
+                $C['Body'] = $Body;
+                $C['Length'] = strlen($C['Body']);
+            }
+            else
+            {
+                $C['Body'] = new \MongoBinData($Body,2);
+                $C['Length'] = strlen($Body);
+            }
+        }
     }
 }
 
 
+// similar to PageSet
+class ContentSet extends MongoSet
+{
+    protected $Site_id;
+
+
+    // supports standalone mode like PageSet and TemplateSet
+    public function __construct( \fw\MongoDB $MDB,\MongoId $Site_id = NULL,$Collection = NULL )
+    {
+        parent::__construct($MDB,$Collection);
+
+        if( !empty($Site_id) )
+            $this->Site_id = $Site_id;
+    }
+
+    public function Create( &$C )
+    {
+        $C['_id'] = new \MongoId;
+        $this->MDC->insert($C);
+    }
+
+//     public function Read( $Name )
+//     {
+//         return $this->MDC->findOne(array('Site_id'=>$this->Site_id,'Name'=>$Name));
+//     }
+
+    // ContentSet is basically always in standalone mode but we stick with the naming convention
+    public function Read_id( \MongoId $C )
+    {
+        return $this->MDC->findOne(array('_id'=>$C));
+    }
+
+    public function Delete( $C )
+    {
+        return $this->MDC->remove(array('_id'=>$C['_id'],'CurrentTS'=>$C['CurrentTS']))['n'];
+    }
+
+    public function SetStatus( $Status,&$C )
+    {
+        return $this->SetKV('Status',$Status,'_id',$C);
+    }
+
+//     // things like content type could potentially get "out of sync" if name and path are changed around
+//     public function SetName( $Name,&$C )
+//     {
+//         return $this->SetKV('Name',$Name,'_id',$C);
+//     }
+
+    // could use some more validation or something maybe
+    public function SetPath( $Path,&$C )
+    {
+        // maybe there should be a method in Content for this but they should be kept in sync
+        $Path = \fw\Path::Init($Path);
+        $Path['IsDir'] = $Path['IsAbs'] = FALSE;
+
+        return $this->SetKV('Path',\fw\Path::ToURLString($Path),'_id',$C) && $this->SetKV('PathStruct',$Path,'_id',$C);
+    }
+
+    public function SetBody( $Body,&$C )
+    {
+        Content::SetBody($Body,$C);
+
+        // yay noSQL!
+        $this->SetKV('Type',$C['Type'],'_id',$C);
+        $this->SetKV('Body',$C['Body'],'_id',$C);
+        return $this->SetKV('Length',$C['Length'],'_id',$C);
+    }
+
+    public function SetType( $Type,&$C )
+    {
+        return $this->SetKV('Type',\fw\HTTP::ResolveContentType($Type),'_id',$C);
+    }
+
+    // "atomic" :)  overwrites existing Meta data
+    public function SetMeta( $Meta,&$C )
+    {
+        return $this->SetKV('Meta',$Meta,'_id',$C);
+    }
+
+    // TODO: debugging
+    // need to consider delivery directly out of mongo to the browser
+    // this expects a Path struct not a string
+    public function Match( \MongoId $S,$Path )
+    {
+        // ditto here for Path - and really this practice probably makes sense for Page/PageSet too
+//        $T = \fw\Path::Init($Path);
+        $Path['IsDir'] = $Path['IsAbs'] = FALSE;
+        $DP = \fw\Path::ToURLString($Path);
+
+        if( ($C = $this->MDC->findOne(array('Site_id'=>$S,'Path'=>$DP))) !== NULL )
+            return $C;
+        else
+            return NULL;
+    }
+
+    // will need to be handled differently somehow for Content
+    public function Listing( \MongoId $S )
+    {
+        return iterator_to_array($this->MDC->find((array('Site_id'=>$S))));
+    }
+}
 
 

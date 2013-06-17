@@ -54,6 +54,17 @@ class AccountSet extends MongoSet
 //         return $this->MDC->findOne(array('_id'=>$AAID,'Password'=>md5($Password)));
 //     }
 
+//     public function Grant( $Email,$Domain,$Level )
+//     {
+//         $R = $this->MDB->SiteMeta->update(array('Domain'=>$Domain),array('$addToSet'=>array('Users'=>array('Email'=>$Email,'Level'=>(int)$Level))),array('safe'=>TRUE));
+//         return $R['n']===1?TRUE:FALSE;
+//     }
+
+//     public function Revoke( $Email,$Domain )
+//     {
+//         $this->MDB->SiteMeta->update(array('Domain'=>$Domain),array('$pull'=>array('Users'=>array('Email'=>$Email))));
+//     }
+
     // private API
     public function Create( &$A )
     {

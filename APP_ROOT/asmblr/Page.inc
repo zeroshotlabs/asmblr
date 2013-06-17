@@ -3,7 +3,7 @@ namespace asm;
 
 
 // Collection: PageSet
-// Unique: Name, Path  (see REST.inc for definitve)
+// Unique: Site_id/Name, Site_id/Path  (see REST.inc for definitve)
 abstract class Page extends MongoStruct
 {
     protected static $Skel = array('Site_id'=>'','Path'=>'','Name'=>'',
@@ -35,7 +35,6 @@ class PageSet extends MongoSet
     protected $PageMap = array();
 
 
-    // should be also for templateset?
     public function __construct( \fw\MongoDB $MDB,\MongoId $Site_id = NULL,$Collection = NULL )
     {
         parent::__construct($MDB,$Collection);
@@ -66,7 +65,6 @@ class PageSet extends MongoSet
         $this->PageMap[$P['Name']] = $P['Path'];
     }
 
-    // what about template/site?  should they also have the Read/Read_id convention?
     // so we have two modes - tied to a Site_id or not - if not, this method won't work
     // in asmSrv we're in Site_id mode - in console we typically aren't
     // the rest of the CRUD methods work by Page _id so they always work and can reach

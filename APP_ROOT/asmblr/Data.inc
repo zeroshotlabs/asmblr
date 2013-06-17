@@ -44,7 +44,8 @@ class DataSet extends \fw\WireableBase implements \Iterator,\Countable,\ArrayAcc
     protected $Tag;
 
 
-    public function __construct( \fw\MongoDB $MDB,\MongoId $Site_id,$Tag,$ASC = TRUE,$Collection = NULL )
+    // Collection is required because this is reused often
+    public function __construct( \fw\MongoDB $MDB,\MongoId $Site_id,$Tag,$Collection,$ASC = TRUE )
     {
         if( empty($Collection) )
             $Collection = str_replace('asm\\','',get_class($this));

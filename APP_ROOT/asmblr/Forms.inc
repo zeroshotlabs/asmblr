@@ -89,8 +89,29 @@ abstract class v extends \fw\enUS
             return TRUE;
         }
 
-        // really need a separate validator
-        return static::Textarea($N,$H);
+        // really need a separate validator - maybe a binary/non?
+        // return static::Textarea($N,$H);
+        return TRUE;
+    }
+
+
+    public static function ContentType( $N,&$H )
+    {
+        if( empty($H[$N]) )
+        {
+            $H[$N] = '';
+            return TRUE;
+        }
+
+        $T = \fw\HTTP::ResolveContentType($H[$N],TRUE);
+
+        if( !empty($T) )
+        {
+            $H[$N] = $T;
+            return TRUE;
+        }
+        else
+            return FALSE;
     }
 
     // a directive is three part array, Name, Key, Value, contained directly in $_POST
@@ -144,6 +165,22 @@ abstract class v extends \fw\enUS
 // default names for each type
 abstract class rv
 {
+    public static function Site_id( $N = 'Site_id' )
+    {
+        return v::_id($N,$_POST);
+    }
+    public static function Page_id( $N = 'Page_id' )
+    {
+        return v::_id($N,$_POST);
+    }
+    public static function Template_id( $N = 'Template_id' )
+    {
+        return v::_id($N,$_POST);
+    }
+    public static function Content_id( $N = 'Content_id' )
+    {
+        return v::_id($N,$_POST);
+    }
     public static function Email( $N = 'Email' )
     {
         return v::Email($N,$_POST);
@@ -169,18 +206,6 @@ abstract class rv
         if( v::Name($N,$_POST) )
             return in_array($_POST[$N],asm()->SiteStatuses,TRUE);
     }
-    public static function Site_id( $N = 'Site_id' )
-    {
-        return v::_id($N,$_POST);
-    }
-    public static function Page_id( $N = 'Page_id' )
-    {
-        return v::_id($N,$_POST);
-    }
-    public static function Template_id( $N = 'Template_id' )
-    {
-        return v::_id($N,$_POST);
-    }
     public static function BaseURL( $N = 'BaseURL' )
     {
         return v::URL($N,$_POST);
@@ -201,6 +226,10 @@ abstract class rv
     public static function Body( $N = 'Body' )
     {
         return v::Body($N,$_POST);
+    }
+    public static function ContentType( $N = 'Type' )
+    {
+        return v::ContentType($N,$_POST);
     }
 }
 

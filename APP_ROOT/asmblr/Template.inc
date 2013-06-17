@@ -7,7 +7,7 @@ namespace asm;
 abstract class Template extends MongoStruct
 {
     protected static $Skel = array('Site_id'=>'','Name'=>'','CurrentTS'=>0,
-                                   'Body'=>'','Routine'=>array());
+                                   'Routine'=>array(),'Body'=>'');
 
     // TODO: we probably want to encode/newline normalize/etc all input through out, esp. templates/etc. and content
     public static function Init( \MongoId $S,$Name,$Body = '' )
@@ -31,7 +31,7 @@ class TemplateSet extends MongoSet
 
     protected $Site_id;
 
-    // see also PageSet
+
     public function __construct( \fw\MongoDB $MDB,\MongoId $Site_id = NULL,$Collection = NULL )
     {
         parent::__construct($MDB,$Collection);

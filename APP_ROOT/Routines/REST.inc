@@ -12,14 +12,15 @@ class REST extends \fw\RoutineSet
     protected static $ss;
     protected static $ps;
     protected static $ts;
+    protected static $cs;
 
     protected static $MatchPath;
 
     protected static $IsSU = FALSE;
     protected static $Account;
     protected static $Site;
-    protected static $Template;
     protected static $Page;
+    protected static $Template;
     protected static $Content;
 
     public static $Response;
@@ -29,18 +30,24 @@ class REST extends \fw\RoutineSet
     {
         $asmdb = asm('asmdb');
         $asmdb->AccountSet->ensureIndex(array('Email'=>TRUE),array('unique'=>TRUE));
+
         $asmdb->SiteSet->ensureIndex(array('Domain'=>TRUE),array('unique'=>TRUE));
         $asmdb->SiteSet->ensureIndex(array('AAID'=>TRUE));
+
         $asmdb->PageSet->ensureIndex(array('Site_id'=>TRUE,'Path'=>TRUE),array('unique'=>TRUE));
         $asmdb->PageSet->ensureIndex(array('Site_id'=>TRUE,'Name'=>TRUE),array('unique'=>TRUE));
+
         $asmdb->TemplateSet->ensureIndex(array('Site_id'=>TRUE,'Name'=>TRUE),array('unique'=>TRUE));
+
         $asmdb->ContentSet->ensureIndex(array('Site_id'=>TRUE,'Path'=>TRUE),array('unique'=>TRUE));
+//        $asmdb->ContentSet->ensureIndex(array('Site_id'=>TRUE,'Name'=>TRUE),array('unique'=>TRUE));
 
         static::$as = $as = asm('as');
         static::$ss = asm('ss');
         // use standalone sets from our console regular framewire app
         static::$ps = fw('asmps');
         static::$ts = fw('asmts');
+        static::$cs = fw('asmcs');
 
         \fw\Path::Del(0,$MatchPath);
         static::$MatchPath = $MatchPath;
@@ -146,6 +153,67 @@ class REST extends \fw\RoutineSet
         static::$Template = $T;
     }
 
+    protected static function AuthContent( \MongoId $C_id )
+    {
+        $C = static::$cs->Read_id($C_id);
+        if( empty($C) )
+            \fw\HTTP::_400();
+
+        static::AuthSite($C['Site_id']);
+        static::$Content = $C;
+    }
+
+    // public - might not be needed
+    protected static function util_site_statuses()
+    {
+        $N = array();
+        foreach( asm()->SiteStatuses as $V )
+            $N[] = array('value'=>$V,'text'=>$V);
+
+        static::$Response = $N;
+    }
+
+    // public - hard wired "security" so that we only reveal
+    // certain wireables that can be used, but real security should be considered
+    protected static function util_dir_names()
+    {
+        $N = array();
+        foreach( asm()->DirWireables as $V )
+            $N[] = array('value'=>$V,'text'=>$V);
+
+//         // this will need revisiting/security/etc
+//         $N = array();
+//         foreach( asm()->GetWired() as $K => $V )
+//             $N[] = array('value'=>$K,'text'=>$K);
+
+        static::$Response = $N;
+    }
+
+
+    // PUBLIC - WE ALSO START A SESSION which ties us together with the console webapp
+    // among some other things like LinkREST - when we break console apart from REST,
+    // we'd have a console method Login() which calls this via curl (which would have the SU key) and we can
+    // remove the session from here - so this is a temp. convience hack - ditto for register/account_create
+    protected static function account_auth()
+    {
+        if( !rv::Email() || !rv::Password() )
+            \fw\HTTP::_400();
+
+        $A = static::$as->Auth($_POST['Email'],$_POST['Password']);
+
+        if( empty($A) )
+            static::$Response = JSONResponse::Fail('Invalid credentials.');
+        else
+        {
+            session_set_save_handler(new SessionStoreMongoDB(asm('asmdb')));
+            session_start();
+            $_SESSION['LoggedIn'] = TRUE;
+            $_SESSION['Account'] = $A;
+
+            static::$Response = JSONResponse::Ok($A);
+        }
+    }
+
     // SU
     protected static function account_create()
     {
@@ -212,56 +280,6 @@ class REST extends \fw\RoutineSet
             static::$Response = JSONResponse::Fail('Database error');
     }
 
-    // public - might not be needed
-    protected static function util_site_statuses()
-    {
-        $N = array();
-        foreach( asm()->SiteStatuses as $V )
-            $N[] = array('value'=>$V,'text'=>$V);
-
-        static::$Response = $N;
-    }
-
-    // public - hard wired "security" so that we only reveal
-    // certain wireables that can be used, but real security should be considered
-    protected static function util_dir_names()
-    {
-        $N = array();
-        foreach( asm()->DirWireables as $V )
-            $N[] = array('value'=>$V,'text'=>$V);
-
-//         // this will need revisiting/security/etc
-//         $N = array();
-//         foreach( asm()->GetWired() as $K => $V )
-//             $N[] = array('value'=>$K,'text'=>$K);
-
-        static::$Response = $N;
-    }
-
-    // PUBLIC - WE ALSO START A SESSION which ties us together with the console webapp
-    // among some other things like LinkREST - when we break console apart from REST,
-    // we'd have a console method Login() which calls this via curl (which would have the SU key) and we can
-    // remove the session from here - so this is a temp. convience hack - ditto for register/account_create
-    protected static function account_auth()
-    {
-        if( !rv::Email() || !rv::Password() )
-            \fw\HTTP::_400();
-
-        $A = static::$as->Auth($_POST['Email'],$_POST['Password']);
-
-        if( empty($A) )
-            static::$Response = JSONResponse::Fail('Invalid credentials.');
-        else
-        {
-            session_set_save_handler(new SessionStoreMongoDB(asm('asmdb')));
-            session_start();
-            $_SESSION['LoggedIn'] = TRUE;
-            $_SESSION['Account'] = $A;
-
-            static::$Response = JSONResponse::Ok($A);
-        }
-    }
-
     protected static function account_set_password()
     {
         if( !rv::Password() )
@@ -300,7 +318,6 @@ class REST extends \fw\RoutineSet
         else
             static::$Response = JSONResponse::Fail('Database error');
     }
-
 
     protected static function site_read()
     {
@@ -489,7 +506,7 @@ class REST extends \fw\RoutineSet
         else
             static::$Response = JSONResponse::Ok($D);
     }
-
+/*
     protected static function site_set_config()
     {
         if(!rv::Site_id() || !rv::Config() )
@@ -504,6 +521,7 @@ class REST extends \fw\RoutineSet
         else
             static::$Response = JSONResponse::Fail('Database error');
     }
+*/
 
     protected static function page_read()
     {
@@ -783,6 +801,194 @@ class REST extends \fw\RoutineSet
 
         if( $R === TRUE )
             static::$Response = JSONResponse::Ok(static::$Template);
+        else
+            static::$Response = JSONResponse::Fail('Database error');
+    }
+
+    protected static function content_read()
+    {
+        static::AuthContent(new \MongoId(\fw\Path::Bottom(static::$MatchPath)));
+
+        static::$Response = JSONResponse::Ok(static::$Content);
+    }
+
+    protected static function content_delete()
+    {
+        static::AuthContent(new \MongoId(\fw\Path::Bottom(static::$MatchPath)));
+
+        if( static::$cs->Delete(static::$Content) )
+            static::$Response = JSONResponse::Ok('Deleted');
+        else
+            static::$Response = JSONResponse::Fail('Database error');
+    }
+/*
+    protected static function content_create_blob()
+    {
+        if( !rv::Site_id() || !rv::Name() || !rv::Body() || !rv::ContentType() )
+            \fw\HTTP::_400();
+
+        if( !empty($_POST['Path']) )
+        {
+            if( !rv::Path() )
+                \fw\HTTP::_400();
+            else
+                $Path = $_POST['Path'];
+        }
+        else
+            $Path = '';
+
+        static::AuthSite(new \MongoId($_POST['Site_id']));
+
+        $C = Content::InitBlob(static::$Site['_id'],$_POST['Name'],$_POST['Body'],$Path,$_POST['Type']);
+
+        try
+        {
+            static::$cs->Create($C);
+            static::$Response = JSONResponse::Ok($C);
+        }
+        catch( \Exception $E )
+        {
+            if( static::$cs->IsDupeE($E) )
+                static::$Response = JSONResponse::Fail('Duplicate Name');
+            else
+                static::$Response = JSONResponse::Fail('Database error');
+        }
+    }
+*/
+
+    // this will not work for browser file uploads
+    protected static function content_create()
+    {
+        if( !rv::Site_id() || !rv::Path() || !rv::Body() )
+            \fw\HTTP::_400();
+
+        static::AuthSite(new \MongoId($_POST['Site_id']));
+
+        $C = Content::Init(static::$Site['_id'],$_POST['Path'],$_POST['Body']);
+
+        try
+        {
+            static::$cs->Create($C);
+            static::$Response = JSONResponse::Ok($C);
+        }
+        catch( \Exception $E )
+        {
+            if( static::$cs->IsDupeE($E) )
+                static::$Response = JSONResponse::Fail('Duplicate Name');
+            else
+                static::$Response = JSONResponse::Fail('Database error');
+        }
+    }
+
+/*
+    protected static function content_set_name()
+    {
+        if( !rv::Content_id() || !rv::Name() )
+            \fw\HTTP::_400();
+
+        static::AuthContent(new \MongoId($_POST['Content_id']));
+
+        try
+        {
+            static::$cs->SetName($_POST['Name'],static::$Content);
+            static::$Response = JSONResponse::Ok(static::$Content);
+        }
+        catch( \Exception $E )
+        {
+            if( static::$cs->IsDupeE($E) )
+                static::$Response = JSONResponse::Fail('Duplicate Name');
+            else
+                static::$Response = JSONResponse::Fail('Database error');
+        }
+    }
+*/
+
+    protected static function content_set_path()
+    {
+        if( !rv::Content_id() || !rv::Path() )
+            \fw\HTTP::_400();
+
+        static::AuthContent(new \MongoId($_POST['Content_id']));
+
+        try
+        {
+            static::$cs->SetPath($_POST['Path'],static::$Content);
+            static::$Response = JSONResponse::Ok(static::$Content);
+        }
+        catch( \Exception $E )
+        {
+            if( static::$cs->IsDupeE($E) )
+                static::$Response = JSONResponse::Fail('Duplicate Path');
+            else
+                static::$Response = JSONResponse::Fail('Database error');
+        }
+    }
+
+    protected static function content_set_status()
+    {
+        if( !rv::Content_id() || !rv::Status() )
+            \fw\HTTP::_400();
+
+        static::AuthContent(new \MongoId($_POST['Content_id']));
+
+        $R = static::$cs->SetStatus($_POST['Status'],static::$Content);
+
+        if( $R === TRUE )
+            static::$Response = JSONResponse::Ok(static::$Content);
+        else
+            static::$Response = JSONResponse::Fail('Database error');
+    }
+
+    // this will replace a body with empty if Body doesn't exist
+    // this will not work for browser file uploads
+    // for binary files especially, we probably don't want to send back the
+    // whole body - here and elsewhere
+    protected static function content_set_body()
+    {
+        if( !rv::Content_id() || !rv::Body() )
+            \fw\HTTP::_400();
+
+        static::AuthContent(new \MongoId($_POST['Content_id']));
+
+        $R = static::$cs->SetBody($_POST['Body'],static::$Content);
+
+        if( $R === TRUE )
+            static::$Response = JSONResponse::Ok(static::$Content);
+        else
+            static::$Response = JSONResponse::Fail('Database error');
+    }
+
+    protected static function content_set_type()
+    {
+        // the content type is required - this type of thing probably needs to be fixed elsewhere
+        if( !rv::Content_id() || !rv::ContentType() || empty($_POST['Type']) )
+            \fw\HTTP::_400();
+
+        static::AuthContent(new \MongoId($_POST['Content_id']));
+
+        $R = static::$cs->SetType($_POST['Type'],static::$Content);
+
+        if( $R === TRUE )
+            static::$Response = JSONResponse::Ok(static::$Content);
+        else
+            static::$Response = JSONResponse::Fail('Database error');
+    }
+
+    protected static function content_set_meta()
+    {
+        // we don't actually care what Meta is but is should be a set of key/value pairs
+        if( empty($_POST['Meta']) )
+            $_POST['Meta'] = array();
+
+        if( !rv::Content_id() )
+            \fw\HTTP::_400();
+
+        static::AuthContent(new \MongoId($_POST['Content_id']));
+
+        $R = static::$cs->SetMeta($_POST['Meta'],static::$Content);
+
+        if( $R === TRUE )
+            static::$Response = JSONResponse::Ok(static::$Content);
         else
             static::$Response = JSONResponse::Fail('Database error');
     }

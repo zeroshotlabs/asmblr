@@ -15,6 +15,7 @@
         <link rel="stylesheet" href="<?=$lp('CSS','>bootstrap-select.min.css?')?>">
         <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/x-editable/1.4.4/bootstrap-editable/css/bootstrap-editable.css">
         <link rel="stylesheet" href="<?=$ls('/jslib/codemirror-3.13/lib/codemirror.css')?>" />
+        <link rel="stylesheet" href="<?=$ls('/jslib/jQuery-File-Upload-8.3.2/css/jquery.fileupload-ui.css')?>" />
         <link rel="stylesheet" href="<?=$lp('CSS','>fw.css?')?>">
 
         <script src="<?=$lp('JS','>modernizr-2.6.2-respond-1.1.0.min.js?')?>"></script>
@@ -64,6 +65,25 @@
     <script src="<?=$ls('/jslib/codemirror-3.13/mode/css/css.js')?>"></script>
     <script src="<?=$ls('/jslib/codemirror-3.13/mode/clike/clike.js')?>"></script>
     <script src="<?=$ls('/jslib/codemirror-3.13/mode/php/php.js')?>"></script>
+
+<?php /*
+    <script src="http://blueimp.github.io/cdn/js/bootstrap.min.js"></script>
+
+    <script src="http://blueimp.github.io/JavaScript-Canvas-to-Blob/canvas-to-blob.min.js"></script>
+*/ ?>
+    <script src="http://blueimp.github.io/Bootstrap-Image-Gallery/js/bootstrap-image-gallery.min.js"></script>
+    <script src="http://blueimp.github.io/JavaScript-Templates/tmpl.min.js"></script>
+
+    <script src="http://blueimp.github.io/JavaScript-Load-Image/load-image.min.js"></script>
+    <script src="<?=$ls('/jslib/jQuery-File-Upload-8.3.2/js/jquery.iframe-transport.js')?>"></script>
+    <script src="<?=$ls('/jslib/jQuery-File-Upload-8.3.2/js/jquery.fileupload.js')?>"></script>
+    <script src="<?=$ls('/jslib/jQuery-File-Upload-8.3.2/js/jquery.fileupload-process.js')?>"></script>
+    <script src="<?=$ls('/jslib/jQuery-File-Upload-8.3.2/js/jquery.fileupload-image.js')?>"></script>
+    <script src="<?=$ls('/jslib/jQuery-File-Upload-8.3.2/js/jquery.fileupload-audio.js')?>"></script>
+    <script src="<?=$ls('/jslib/jQuery-File-Upload-8.3.2/js/jquery.fileupload-video.js')?>"></script>
+    <script src="<?=$ls('/jslib/jQuery-File-Upload-8.3.2/js/jquery.fileupload-validate.js')?>"></script>
+    <script src="<?=$ls('/jslib/jQuery-File-Upload-8.3.2/js/jquery.fileupload-ui.js')?>"></script>
+    <!--[if gte IE 8]><script src="<?=$ls('/jslib/jQuery-File-Upload-8.3.2/js/cors/jquery.xdr-transport.js')?>"></script><![endif]-->
 
     <script>
         <?php $this->jss_lib(); ?>

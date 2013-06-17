@@ -14,7 +14,7 @@
     </div>
     <div class="tab-pane" id="body_tab">
         <textarea id="template_body" name="Body" data-method="template_set_body" data-mode="application/x-httpd-php" data-hasShown=""><?=$this($T['Body'])?></textarea>
-        <div style="margin-left: 22px;">
+        <div>
             <a href="#" id="template_body_save" class="btn">save</a>
             <a href="#" id="template_body_reset" class="btn">cancel</a>
         </div>

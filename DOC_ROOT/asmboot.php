@@ -50,7 +50,9 @@ require('../../framewire/Load.inc');
 class asmSrv extends \fw\App
 {
     protected $asmdb;
-    protected $SrvSite;
+
+    // why wouldn't this be public?
+    public $SrvSite;
 
     public $SysOp = 'asmblr@stackware.com';
     // will need some way to reliably control this
@@ -90,6 +92,7 @@ class asmSrv extends \fw\App
         // problematic with media serving
         \fw\HTTP::ContentType('text/html','utf-8');
         mb_http_output('UTF-8');
+        // this needs to be configurable - may not always want it - and especially for cnvyr URLs
         ini_set('zlib.output_compression',TRUE);
     }
 
@@ -114,21 +117,25 @@ class asmSrv extends \fw\App
         // probably should be protected better, but handy for now
         $page->ActiveSite = $this->SrvSite;
 
-        // have to manually set collection to TemplateSet
-        $html = new enUSHTMLSet($this->asmdb,$this->SrvSite['_id'],'TemplateSet');
+        // have to manually set collection to TemplateSet; for other locale, maybe they are different colelctions?
+        $html = new \asm\enUSHTMLSet($this->asmdb,$this->SrvSite['_id'],'TemplateSet');
 
-        $ps = new PageSet($this->asmdb,$this->SrvSite['_id']);
+        $content = new \asm\ContentSet($this->asmdb,$this->SrvSite['_id']);
+        // the /csrv/ needs to be configurable somehow!!
+        $lc = new \fw\LinkSet($this->SrvSite['Domain'].'/csrv/');
 
+        $ps = new \asm\PageSet($this->asmdb,$this->SrvSite['_id']);
         $lp = new \asm\LinkPage($ps,$this->SiteURL);
         $ls = new \fw\LinkSet($this->SrvSite['Domain']);
 
         $ds = new \asm\DirectiveSet($this->asmdb,$this->SrvSite['_id']);
 
-        $this->Wire(array('page'=>$page,'html'=>$html,'ps'=>$ps,'lp'=>$lp,'ls'=>$ls,'ds'=>$ds));
+        $this->Wire(array('page'=>$page,'html'=>$html,'content'=>$content,'ps'=>$ps,'lp'=>$lp,'ls'=>$ls,'lc'=>$lc,'ds'=>$ds));
 
         // $html is automatically available as $this but to stay inline with directive's names
-        // we connect it in as $html
-        $html->ConnectWireables($lp,$ls,$page,$html);
+        // we connect it in as $html - hmm, $page vs $ps is confusing - basically let's say that
+        // things given fullnames (aside from lp/ls) are connected to $html - bleh
+        $html->ConnectWireables($lp,$ls,$lc,$page,$html,$content);
     }
 
     // Executing a site involves:
@@ -184,10 +191,6 @@ class asmSrv extends \fw\App
 
                     $OrderedMatch['Directives'] = $this->ds->PageList($OrderedMatch);
 
-//                     // hack and inefficient
-//                     $ds = new DataSet($this->asmdb,$this->SrvSite['_id'],'DirectiveP_'.$OrderedMatch['_id']);
-//                     $OrderedMatch['Directives'] = $ds;
-
                     $this->ps->Execute($OrderedMatch);
                     break;
                 }
@@ -203,10 +206,6 @@ class asmSrv extends \fw\App
             }
 
             $ExactMatch['Directives'] = $this->ds->PageList($ExactMatch);
-
-//             // hack and inefficient
-//             $ds = new DataSet($this->asmdb,$this->SrvSite['_id'],'DirectiveP_'.$ExactMatch['_id']);
-//             $ExactMatch['Directives'] = $ds;
 
             $this->ps->Execute($ExactMatch);
         }
@@ -309,11 +308,12 @@ class fwApp extends \fw\App
         // to setup site specific sets for Page/Template - these sets will be in Site_id mode
         $asm = new asmSrv;
 
-        // create generic sets for helpers - these are in standalone mode
+        // create generic sets as console/api helpers - these are in standalone mode
         // these are used by the API which also ties us to that code base
         $asmps = new \asm\PageSet(asm()->asmdb);
         $asmts = new \asm\TemplateSet(asm()->asmdb);
-        $this->Wire(array('asmps'=>$asmps,'asmts'=>$asmts));
+        $asmcs = new \asm\ContentSet(asm()->asmdb);
+        $this->Wire(array('asmps'=>$asmps,'asmts'=>$asmts,'asmcs'=>$asmcs));
 
         // no session created in account_auth which ties us back to this code base
         // this could probably go higher up, before $page, etc. though we use the
@@ -350,6 +350,13 @@ class fwApp extends \fw\App
         $ps->Create('Site','/site/','Console::Site',array('html,Article,Site'));
         $ps->Create('Page','/page/','Console::Page',array('html,Article,Page'));
         $ps->Create('Template','/template/','Console::Template',array('html,Article,Template'));
+        $ps->Create('Content','/content/','Console::Content',array('html,Article,Content'));
+        $ps->Create('ContentUpload','/content-upload/','Console::ContentUpload',array('html,Article,ContentUpload'));
+
+        $ps->Create('aj_content_upload','/aj_c_u','Console::aj_content_upload');
+
+        // hardwired in here for now - probably belongs also/instead in asmSrv
+        // $ps->Create('cnvyr','/cnvyr/','Console::cnvyr');
 
         $OrderedMatch = NULL;
         if( $this->MatchPath['IsRoot'] === FALSE )

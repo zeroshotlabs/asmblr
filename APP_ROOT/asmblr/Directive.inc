@@ -14,7 +14,7 @@ class DirectiveSet extends DataSet
 
     public function __construct( \fw\MongoDB $MDB,\MongoId $Site_id )
     {
-        parent::__construct($MDB,$Site_id,$this->SiteTag.$Site_id,TRUE,'DirectiveSet');
+        parent::__construct($MDB,$Site_id,$this->SiteTag.$Site_id,'DirectiveSet');
     }
 
     public function SiteTag( $S )

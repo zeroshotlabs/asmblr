@@ -4,6 +4,11 @@ if( !empty($P) )
     $sts = $P['Status'];
     $type = 'page';
 }
+else if( !empty($C) )
+{
+    $sts = $C['Status'];
+    $type = 'content';
+}
 else if( !empty($S) )
 {
     $sts = $S['Status'];
@@ -30,18 +35,22 @@ if( !empty($sts) )
 <div class="btn-group pull-right" style="padding: 0; margin: -20px -20px 2px 0;">
     <div class="btn-group">
        <?php if( $page->ActiveNav === 'Site' ): ?>
-        <button class="btn btn-mini nav-btn site-status <?=$page->sts_class?>" title="<?=$page->sts_title?>" data-toggle="button" data-status="<?=$S['Status']?>"><?=$page->sts_html?></button>
+        <button class="btn btn-small nav-btn site-status <?=$page->sts_class?>" title="<?=$page->sts_title?>" data-toggle="button" data-status="<?=$S['Status']?>"><?=$page->sts_html?></button>
        <?php elseif( $page->ActiveNav === 'Page' ): ?>
-        <button class="btn btn-mini nav-btn page-status <?=$page->sts_class?>" title="<?=$page->sts_title?>"data-toggle="button" data-status="<?=$P['Status']?>"><?=$page->sts_html?></button>
-        <button class="btn btn-mini nav-btn delete_page" data-toggle="modal" data-target="#page_delete"><i title="delete page" class="icon-remove"></i></button>
+        <button class="btn btn-small nav-btn page-status <?=$page->sts_class?>" title="<?=$page->sts_title?>" data-toggle="button" data-status="<?=$P['Status']?>"><?=$page->sts_html?></button>
+        <button class="btn btn-small nav-btn delete_page" data-toggle="modal" data-target="#page_delete"><i title="delete page" class="icon-remove"></i></button>
        <?php elseif( $page->ActiveNav === 'Template' ): ?>
-        <button class="btn btn-mini nav-btn delete_template" data-toggle="modal" data-target="#template_delete"><i title="delete template" class="icon-remove"></i></button>
+        <button class="btn btn-small nav-btn delete_template" data-toggle="modal" data-target="#template_delete"><i title="delete template" class="icon-remove"></i></button>
+       <?php elseif( $page->ActiveNav === 'Content' ): ?>
+        <button class="btn btn-small nav-btn content-status <?=$page->sts_class?>" title="<?=$page->sts_title?>"data-toggle="button" data-status="<?=$C['Status']?>"><?=$page->sts_html?></button>
+        <button class="btn btn-small nav-btn delete_content" data-toggle="modal" data-target="#content_delete"><i title="delete content" class="icon-remove"></i></button>
        <?php endif; ?>
     </div>
     <div class="btn-group">
-        <button class="btn btn-mini nav-btn new-page" data-type="page" data-url="<?=$lr('page_create')?>"><i title="new page" class="icon-list-alt"></i></button>
-        <button class="btn btn-mini nav-btn new-template" data-type="text" data-url="<?=$lr('template_create')?>" data-placeholder="TemplateName" data-name="Name"><i title="new template" class="icon-edit"></i></button>
-        <button class="btn btn-mini nav-btn new-content" data-type="text" data-url="<?=$lr('content_create')?>" data-placeholder="ContentName" data-name="Name"><i title="new content" class="icon-file"></i></button>
+        <button class="btn btn-small nav-btn new-page" data-type="page" data-url="<?=$lr('page_create')?>"><i title="new page" class="icon-list-alt"></i></button>
+        <button class="btn btn-small nav-btn new-template" data-type="text" data-url="<?=$lr('template_create')?>" data-placeholder="TemplateName" data-name="Name"><i title="new template" class="icon-edit"></i></button>
+        <button class="btn btn-small nav-btn new-content" data-type="text" data-url="<?=$lr('content_create')?>" data-placeholder="relative/path" data-name="Path"><i title="new content" class="icon-file"></i></button>
+        <a class="btn btn-small nav-btn new-content" href="<?=$lp('ContentUpload',">{$S['_id']}")?>"><i title="upload content" class="icon-upload"></i></a>
     </div>
 </div>
 
@@ -53,7 +62,7 @@ if( !empty($sts) )
 </div>
 <?php endif; ?>
 
-<div style="min-height: 65px;">
+<div style="min-height: 65px; margin-top: 15px;">
    <?php if( $page->ActiveNav === 'Site' ): ?>
     <p class="nav-header">site</p>
     <h3><a href="#" class="set-domain" data-type="text" data-url="<?=$lr('site_set_domain')?>" data-name="Domain"><?=$S['Domain']?></a>
@@ -71,6 +80,13 @@ if( !empty($sts) )
    <?php elseif( $page->ActiveNav === 'Template' ): ?>
     <p class="nav-header">template</p>
     <h3><a href="#" class="set-name" data-type="text" data-url="<?=$lr('template_set_name')?>" data-name="Name"><?=$T['Name']?></a></h3>
+   <?php elseif( $page->ActiveNav === 'Content' ): ?>
+    <p class="nav-header">content</p>
+    <h3><a href="#" class="set-path" data-type="text" data-url="<?=$lr('content_set_path')?>" data-name="Path"><?=$C['Path']?></a>
+        <a target="_blank" href="<?=asm('lc')->Link($C['Path'])?>"><img src="<?=$ls('/img/ext-link.png')?>" /></a></h3>
+    <small class="mini-header2">
+        <a href="#" class="set-type" data-type="typeahead" data-url="<?=$lr('content_set_type')?>" data-name="Type"><?=$C['Type']?></a>
+    </small>
    <?php endif; ?>
 </div>
 </div>
@@ -97,6 +113,14 @@ if( !empty($sts) )
             <a href="<?=$lp('Template','>'.(string)$T['_id'])?>"><i class="icon-edit"></i> <?=$T['Name']?></a>
             <div style="margin: -9px 0 0 22px; font-size: .93em;">
             <small><a href="<?=$lp('Template','>'.(string)$T['_id'])?>#routine_tab">routine</a>&nbsp;|&nbsp;<a href="<?=$lp('Template','>'.(string)$T['_id'])?>#body_tab">body</a></small>
+            </div>
+        </li>
+       <?php endforeach; ?>
+       <?php foreach( $CL as $C ): ?>
+        <li>
+            <a href="<?=$lp('Content','>'.(string)$C['_id'])?>"><i class="icon-file"></i> <?=$C['Path']?></a>
+            <div style="margin: -9px 0 0 22px; font-size: .93em;">
+            <small><a href="<?=$lp('Content','>'.(string)$C['_id'])?>#body_tab">body</a>&nbsp;|&nbsp;<a href="<?=$lp('Content','>'.(string)$C['_id'])?>#meta_tab">meta</a></small></small>
             </div>
         </li>
        <?php endforeach; ?>

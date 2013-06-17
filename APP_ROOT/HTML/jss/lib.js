@@ -90,6 +90,25 @@ function aapi_method2url( Method )
 			url = '<?=$lr('template_set_body')?>';
 			break;
 
+		case 'content_create':
+			url = '<?=$lr('content_create')?>';
+			break;
+		case 'content_set_path':
+			url = '<?=$lr('content_set_path')?>';
+			break;
+		case 'content_set_status':
+			url = '<?=$lr('content_set_status')?>';
+			break;
+		case 'content_set_body':
+			url = '<?=$lr('content_set_body')?>';
+			break;
+		case 'content_set_type':
+			url = '<?=$lr('content_set_type')?>';
+			break;
+		case 'content_set_meta':
+			url = '<?=$lr('content_set_meta')?>';
+			break;
+
 		default:
 			url = 'unknown';
 	}
@@ -190,7 +209,7 @@ function cm_init( TextareaID )
 		$('#'+TextareaID+'_save').removeClass('btn-warning');
 		$('#'+TextareaID+'_reset').removeClass('btn-primary');
 	});
-	
+
 	$('#'+TextareaID+'_reset').on('click',function(e){
 		e.preventDefault();
 		cm_init.Editors[TextareaID].setValue(cm_init.Editors[TextareaID].getTextArea().defaultValue);

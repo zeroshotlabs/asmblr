@@ -12,23 +12,27 @@
 
     ActiveNav = '<?=$page->ActiveNav?>';
     
-    data = {};
+    asmblr_ids = {};
    <?php if( $page->ActiveNav === 'Site' ): ?>
-    data['Site_id'] = '<?=$S['_id']?>';
+    asmblr_ids['Site_id'] = '<?=$S['_id']?>';
     Type = 'site';
    <?php elseif( $page->ActiveNav === 'Page' ): ?>
-    data['Page_id'] = '<?=$P['_id']?>';
-    data['Site_id'] = '<?=$S['_id']?>';
+    asmblr_ids['Page_id'] = '<?=$P['_id']?>';
+    asmblr_ids['Site_id'] = '<?=$S['_id']?>';
     Type = 'page';
    <?php elseif( $page->ActiveNav === 'Template' ): ?>
-    data['Template_id'] = '<?=$T['_id']?>';
-    data['Site_id'] = '<?=$S['_id']?>';
+    asmblr_ids['Template_id'] = '<?=$T['_id']?>';
+    asmblr_ids['Site_id'] = '<?=$S['_id']?>';
     Type = 'template';
+   <?php elseif( $page->ActiveNav === 'Content' ): ?>
+    asmblr_ids['Content_id'] = '<?=$C['_id']?>';
+    asmblr_ids['Site_id'] = '<?=$S['_id']?>';
+    Type = 'content';
    <?php else: ?>
     Type = '';
    <?php endif; ?>
 
-    $.ajaxSetup({headers:headers,data:data,dataType:'json',type:'POST'});
+    $.ajaxSetup({headers:headers,data:asmblr_ids,dataType:'json',type:'POST'});
 
 	// setup editable defaults
     // upon click to edit we could pull the latest value and compare timestamps/values and

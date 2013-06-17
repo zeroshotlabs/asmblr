@@ -63,6 +63,114 @@ abstract class Console extends \fw\RoutineSet
         fw('html')->Stack('jss_template','jsready');
     }
 
+    public static function Content()
+    {
+        if( !fw('page')->LoggedIn )
+            fw('lp')->Go('Home');
+
+        static::InitContent(new \MongoId(\fw\Request::Path(-1)));
+
+        fw('page')->ActiveNav = 'Content';
+        fw('html')->Stack('jss_content','jsready');
+    }
+
+    public static function ContentUpload()
+    {
+        static::InitSite(new \MongoId(\fw\Request::Path(-1)));
+
+        fw('page')->ActiveNav = 'Site';
+        fw('html')->Stack('jss_content_upload','jsready');
+    }
+
+    public static function aj_content_upload()
+    {
+        // this will add a new content on upload, or replace if content_id is given
+        // || !\asm\rv::Content_id()
+        if( !fw('page')->LoggedIn  )
+            \fw\HTTP::_400();
+
+        \fw\HTTP::ContentType('json');
+        fw('html')->ReMap('Base','JSONResponse');
+
+        $F = \fw\FileUpload::Init('files');
+
+        if( empty($_POST['Content_id']) )
+            $CH = curl_init(fw('lr')->Link('content_create'));
+        else
+            $CH = curl_init(fw('lr')->Link('content_set_body'));
+
+        curl_setopt($CH,CURLOPT_RETURNTRANSFER,TRUE);
+        // curl_setopt($CH,CURLOPT_SSL_VERIFYPEER,FALSE);
+        // curl_setopt($CH,CURLOPT_SSL_VERIFYHOST,0);
+        // curl_setopt($CH,CURLOPT_SSLCERT,fw('page')->Cert);
+        // curl_setopt($CH,CURLOPT_SSLCERTPASSWD,fw('page')->Passwd);
+        // curl_setopt($CH,CURLOPT_CERTINFO,TRUE);
+        curl_setopt($CH,CURLINFO_HEADER_OUT,TRUE);
+        curl_setopt($CH,CURLOPT_VERBOSE,TRUE);
+
+        curl_setopt($CH,CURLOPT_HTTPHEADER,array("X-ASMBLR-USER: {$_SESSION['Account']['_id']}",
+                                                   "X-ASMBLR-PW: {$_SESSION['Account']['Password']}",
+                                                        'Expect:'));
+
+        curl_setopt($CH,CURLOPT_POST,TRUE);
+
+        $P = array('Body'=>'','Content_id'=>\fw\Struct::Get('Content_id',$_POST),
+                              'Site_id'=>\fw\Struct::Get('Site_id',$_POST));
+
+        // this could use some error checking/handling/messages/etc
+        foreach( $F as $FU )
+        {
+            if( !\fw\FileUpload::IsOk($FU) )
+                continue;
+
+            $P['Body'] = file_get_contents($FU['TmpPath']);
+
+            if( empty($_POST['Content_id']) )
+            {
+                if( !empty($_POST['Prefix']) )
+                    $T = \fw\Path::Init($_POST['Prefix'].'/'.$FU['Filename']);
+                else
+                    $T = \fw\Path::Init($FU['Filename']);
+
+                $T['IsAbs'] = $T['IsDir'] = FALSE;
+                // should we be encoding the URL?  decoding?
+                $P['Path'] = \fw\Path::ToString($T);
+            }
+
+            curl_setopt($CH,CURLOPT_POSTFIELDS,$P);
+
+            $Response = curl_exec($CH);
+            $LastError = curl_error($CH);
+
+            if( !empty($LastError) )
+            {
+                $R = \asm\JSONResponse::Fail($LastError);
+                fw('html')->Connect($R,'Response');
+                return;
+            }
+/*
+            $LINFO = curl_getinfo($CH);
+            $LRR = json_decode($Response);
+
+            llog($LINFO);
+            llog($LRR);
+*/
+        }
+
+        $R = \asm\JSONResponse::Ok('replaced');
+        fw('html')->Connect($R,'Response');
+    }
+
+    // x-sendfile/headers/cache/etc ?
+    /*
+    public static function cnvyr()
+    {
+        $P = \fw\Path::Bottom(static::$MatchPath);
+
+        static::$Response = JSONResponse::Ok(static::$Content);
+    }
+    */
+
     // serve out HTML fragments for ajax requests
     // we don't use HTML/Javascript to generate itself because they're not designed for it
     // PHP is in case people haven't noticed; however, this structure may not be ideal since it
@@ -114,41 +222,6 @@ abstract class Console extends \fw\RoutineSet
         }
         else
             \fw\HTTP::_400();
-
-
-        return;
-
-
-        // order is important
-        if( \asm\rv::Page_id() )
-        {
-            $S = fw('asmps')->Read_id(new \MongoId($_POST['Page_id']));
-            $Tag = 'DirectiveP_';
-        }
-        else if( \asm\rv::Site_id() )
-        {
-            $S = asm('ss')->Read(new \MongoId($_POST['Site_id']));
-            $Tag = 'Directive';
-        }
-        else
-            \fw\HTTP::_400();
-
-        if( empty($S) )
-        {
-            \fw\HTTP::_404();
-            return FALSE;
-        }
-
-        if( isset($S['Site_id']) )
-        {
-            $Site_id = $S['Site_id'];
-            $Tag = $Tag.$S['_id'];
-        }
-        else
-            $Site_id = $S['_id'];
-
-        $DS = new \asm\DataSet(asm('asmdb'),$Site_id,$Tag);
-        fw('html')->Connect($DS,'DS');
     }
 
     public static function CSSHandler()
@@ -205,9 +278,11 @@ abstract class Console extends \fw\RoutineSet
         // should these be API calls?
         $PL = fw('asmps')->Listing($S['_id']);
         $TL = fw('asmts')->Listing($S['_id']);
+        $CL = fw('asmcs')->Listing($S['_id']);
 
         fw('html')->Connect($PL,'PL');
         fw('html')->Connect($TL,'TL');
+        fw('html')->Connect($CL,'CL');
         fw('html')->Connect($S,'S');
 
         fw('html')->Stack('jss_leftnav','jsready');
@@ -235,6 +310,15 @@ abstract class Console extends \fw\RoutineSet
         fw('html')->Connect($T,'T');
     }
 
-}
+    protected static function InitContent( \MongoId $C )
+    {
+        $C = fw('asmcs')->Read_id($C);
+        if( empty($C) )
+            fw()->NoPageHandler();
 
+        static::InitSite($C['Site_id']);
+
+        fw('html')->Connect($C,'C');
+    }
+}
 
