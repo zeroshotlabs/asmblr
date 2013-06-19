@@ -33,9 +33,6 @@ $('#content_upload').fileupload({
 		 aid = [{name:'Site_id',value:asmblr_ids['Site_id']},
 		        {name:'UploadPrefix',value:$('.set-prefix').editable('getValue').UploadPrefix}
 		 	   ];
-//		 console.log($('.set-prefix').editable('getValue'));
-//		 aid['UploadPrefix'] = $('.set-prefix').editable('getValue').UploadPrefix;
-//		 console.log(aid);
 		 return aid;
 	 }
 }).bind('fileuploaddone',function(e,data){

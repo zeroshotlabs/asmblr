@@ -42,7 +42,15 @@ class SiteSet extends MongoSet
 
     public function Delete( $S )
     {
-        return $this->MDC->remove(array('_id'=>$S['_id'],'CurrentTS'=>$S['CurrentTS']))['n'];
+        $R = $this->MDC->remove(array('_id'=>$S['_id'],'CurrentTS'=>$S['CurrentTS']))['n'];
+
+        if( !empty($R) )
+        {
+            $ds = new DirectiveSet($this->MDB,$S['_id']);
+            $ds->SiteDelete($S);
+        }
+
+        return $R;
     }
 
     public function SetDomain( $Domain,&$S )

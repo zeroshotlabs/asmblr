@@ -9,7 +9,7 @@
     <div style="min-height: 40px;" class="span6 offset3">
     <div class="alert" style="display: none; margin: 0;">
         <button type="button" class="close" data-dismiss="alert">&times;</button>
-        <strong class="alert-header">Aborted!</strong>
+        <strong class="alert-header"></strong>
         <span class="alert-body"></span>
     </div>
     </div>

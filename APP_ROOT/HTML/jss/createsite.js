@@ -6,7 +6,7 @@ $(document).ready(function()
 		e.preventDefault();
 		$.ajax({
 			type: "POST",url: $form.attr('action'),dataType: 'json',data: $form.serialize(),
-			success: function(data){console.log(data);
+			success: function(data){
 		    if( data.Status === true )
 			    window.location.href = '<?=$lp('Site')?>'+data.Data._id;
 		    else

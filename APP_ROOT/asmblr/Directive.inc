@@ -23,12 +23,6 @@ class DirectiveSet extends DataSet
         $this->ReSite($S['_id']);
         return $this;
     }
-    public function PageTag( $P )
-    {
-        $this->ReTag($this->PageTag.$P['_id']);
-        $this->ReSite($P['Site_id']);
-        return $this;
-    }
     public function SiteList( $S )
     {
         $this->SiteTag($S);
@@ -39,6 +33,23 @@ class DirectiveSet extends DataSet
         $this->SiteTag($S);
         $this[] = $D;
     }
+    public function SiteDelete( $S )
+    {
+        $this->SiteTag($S);
+
+        // this hack is required because DataSet is doing too many Refresh() etc as part of Delete
+        // and also iterating over a DataSet doesn't include _id (just Data) - perhaps this should change
+        // same in PageDelete
+        foreach( $this->Refresh() as $D )
+            $this->Delete($D);
+    }
+
+    public function PageTag( $P )
+    {
+        $this->ReTag($this->PageTag.$P['_id']);
+        $this->ReSite($P['Site_id']);
+        return $this;
+    }
     public function PageList( $P )
     {
         $this->PageTag($P);
@@ -48,6 +59,24 @@ class DirectiveSet extends DataSet
     {
         $this->PageTag($P);
         $this[] = $D;
+    }
+    public function PageDelete( $P )
+    {
+        $this->PageTag($P);
+
+        foreach( $this->Refresh() as $D )
+            $this->Delete($D);
+/*
+        // this hack is required because DataSet is doing too many Refresh() etc as part of Delete
+        $Ds = array();
+        foreach( $this as $D )
+            $Ds[] = $D;
+        foreach( $Ds as $D )
+        {
+            llog($D);
+//            $this->Delete($D);
+        }
+*/
     }
 }
 

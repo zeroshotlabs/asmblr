@@ -17,3 +17,16 @@
     </div>
 </div>
 
+
+<div id="site_delete" class="modal hide">
+    <div class="modal-header">
+        <h3>Delete ENTIRE site?</h3>
+    </div>
+    <div class="modal-body">
+        <p>This wipes out all Pages, Templates and Content!</p>
+        <p>It cannot be undone.</p>
+        <button class="btn" data-dismiss="modal" aria-hidden="true">Cancel</button>
+        <button id="confirm-del" class="btn btn-danger" data-pk="<?=$S['_id']?>">Delete</button>
+    </div>
+</div>
+

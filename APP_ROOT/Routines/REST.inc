@@ -328,6 +328,27 @@ class REST extends \fw\RoutineSet
         static::$Response = JSONResponse::Ok(static::$Site);
     }
 
+    protected static function site_delete()
+    {
+        static::AuthSite(new \MongoId(\fw\Path::Bottom(static::$MatchPath)));
+
+        if( static::$ss->Delete(static::$Site) )
+        {
+            foreach( static::$ps->Listing(static::$Site['_id']) as $P )
+                static::$ps->Delete($P);
+
+            foreach( static::$ts->Listing(static::$Site['_id']) as $T )
+                static::$ts->Delete($T);
+
+            foreach( static::$cs->Listing(static::$Site['_id']) as $C )
+                static::$cs->Delete($C);
+
+            static::$Response = JSONResponse::Ok('Deleted');
+        }
+        else
+            static::$Response = JSONResponse::Fail('Database error');
+    }
+
     protected static function site_create()
     {
         if( !rv::Domain() )

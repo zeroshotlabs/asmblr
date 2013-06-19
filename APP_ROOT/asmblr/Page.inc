@@ -79,10 +79,17 @@ class PageSet extends MongoSet
         return $this->MDC->findOne(array('_id'=>$P));
     }
 
-    // we need to delete directives
     public function Delete( $P )
     {
-        return $this->MDC->remove(array('_id'=>$P['_id'],'CurrentTS'=>$P['CurrentTS']))['n'];
+        $R = $this->MDC->remove(array('_id'=>$P['_id'],'CurrentTS'=>$P['CurrentTS']))['n'];
+
+        if( !empty($R) )
+        {
+            $ds = new DirectiveSet($this->MDB,$P['Site_id']);
+            $ds->PageDelete($P);
+        }
+
+        return $R;
     }
 
     public function SetStatus( $Status,&$P )

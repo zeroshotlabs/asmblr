@@ -36,6 +36,7 @@ if( !empty($sts) )
     <div class="btn-group">
        <?php if( $page->ActiveNav === 'Site' ): ?>
         <button class="btn btn-small nav-btn site-status <?=$page->sts_class?>" title="<?=$page->sts_title?>" data-toggle="button" data-status="<?=$S['Status']?>"><?=$page->sts_html?></button>
+        <button class="btn btn-small nav-btn delete_site" data-toggle="modal" data-target="#site_delete"><i title="delete site" class="icon-remove"></i></button>
        <?php elseif( $page->ActiveNav === 'Page' ): ?>
         <button class="btn btn-small nav-btn page-status <?=$page->sts_class?>" title="<?=$page->sts_title?>" data-toggle="button" data-status="<?=$P['Status']?>"><?=$page->sts_html?></button>
         <button class="btn btn-small nav-btn delete_page" data-toggle="modal" data-target="#page_delete"><i title="delete page" class="icon-remove"></i></button>

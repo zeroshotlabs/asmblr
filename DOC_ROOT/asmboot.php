@@ -298,8 +298,8 @@ class fwApp extends \fw\App
 
         $html->ConnectWireables($page,$lp,$ls,$lr,$msg,$vr);
 
-        $page->Title = 'asmblr Console';
-        $page->Description = 'asmblr Console';
+        $page->Title = 'asmblr - The PHP Cloud CMS Framework';
+        $page->Description = 'Multi-site custom CMS platform-as-a-service (PaaS), with full-text search, thumbnail generation, SEO delivery, and more.';
 
         $html->LoadDir('HTML');
 
