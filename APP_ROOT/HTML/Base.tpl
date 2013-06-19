@@ -71,21 +71,18 @@
     <script src="http://blueimp.github.io/JavaScript-Canvas-to-Blob/canvas-to-blob.min.js"></script>
     <script src="http://blueimp.github.io/Bootstrap-Image-Gallery/js/bootstrap-image-gallery.min.js"></script>
     <script src="http://blueimp.github.io/JavaScript-Templates/tmpl.min.js"></script>
-
-*/ ?>
-
     <script src="http://blueimp.github.io/JavaScript-Load-Image/load-image.min.js"></script>
-    <script src="<?=$ls('/jslib/jQuery-File-Upload-8.3.2/js/jquery.iframe-transport.js')?>"></script>
-    <script src="<?=$ls('/jslib/jQuery-File-Upload-8.3.2/js/jquery.fileupload.js')?>"></script>
-    <script src="<?=$ls('/jslib/jQuery-File-Upload-8.3.2/js/jquery.fileupload-process.js')?>"></script>
     <script src="<?=$ls('/jslib/jQuery-File-Upload-8.3.2/js/jquery.fileupload-image.js')?>"></script>
     <script src="<?=$ls('/jslib/jQuery-File-Upload-8.3.2/js/jquery.fileupload-audio.js')?>"></script>
     <script src="<?=$ls('/jslib/jQuery-File-Upload-8.3.2/js/jquery.fileupload-video.js')?>"></script>
     <script src="<?=$ls('/jslib/jQuery-File-Upload-8.3.2/js/jquery.fileupload-validate.js')?>"></script>
+*/ ?>
+
+    <script src="<?=$ls('/jslib/jQuery-File-Upload-8.3.2/js/jquery.iframe-transport.js')?>"></script>
+    <script src="<?=$ls('/jslib/jQuery-File-Upload-8.3.2/js/jquery.fileupload.js')?>"></script>
+    <script src="<?=$ls('/jslib/jQuery-File-Upload-8.3.2/js/jquery.fileupload-process.js')?>"></script>
     <script src="<?=$ls('/jslib/jQuery-File-Upload-8.3.2/js/jquery.fileupload-ui.js')?>"></script>
     <!--[if gte IE 8]><script src="<?=$ls('/jslib/jQuery-File-Upload-8.3.2/js/cors/jquery.xdr-transport.js')?>"></script><![endif]-->
-
-    <script src="//static.cnvyr.io/masonry.pkgd.min.js"></script>
 
     <script>
         <?php $this->jss_lib(); ?>
