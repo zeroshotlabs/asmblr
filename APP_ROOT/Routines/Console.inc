@@ -18,7 +18,8 @@ abstract class Console extends \fw\RoutineSet
 
         if( !fw('page')->LoggedIn )
         {
-            fw('html')->ReMap('Article','Login');
+            fw('html')->ReMap('Article','Landing');
+            fw('html')->ReMap('Header',NULL);
             fw('html')->Stack('jss_login','jsready');
             return;
         }

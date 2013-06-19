@@ -88,11 +88,7 @@ div.alert-container
     text-align: center;
     margin: 15px 0 5px 0;
 }
-div.label-container
-{
-    min-height: 20px;
-    padding: 5px 0 5px 0;
-}
+
 input.error
 {
     border-color: #b94a48;
@@ -113,6 +109,15 @@ aside .btn-group
 }
 
 */
+
+
+div.label-container
+{
+    min-height: 20px;
+    padding: 5px 0 5px 0;
+    text-align: center;
+}
+
 
 h1,div.upload_dropzone h3
 {

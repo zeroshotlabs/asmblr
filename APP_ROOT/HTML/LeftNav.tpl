@@ -116,6 +116,7 @@ if( !empty($sts) )
             </div>
         </li>
        <?php endforeach; ?>
+<?php /*
        <?php foreach( $CL as $C ): ?>
         <li>
             <a href="<?=$lp('Content','>'.(string)$C['_id'])?>"><i class="icon-file"></i> <?=$C['Path']?></a>
@@ -124,6 +125,7 @@ if( !empty($sts) )
             </div>
         </li>
        <?php endforeach; ?>
+*/ ?>
     </ul>
 </div>
 

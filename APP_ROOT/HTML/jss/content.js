@@ -45,5 +45,6 @@ function checkhash( hash )
 		$('a.body_tab_link','#content_tabs').click();
 	else if( hash === '#upload_tab' )
 		$('a.upload_tab_link','#content_tabs').click();
-	window.scrollTo(0, 0);
 }
+
+$('a.body_tab_link','#content_tabs').click();

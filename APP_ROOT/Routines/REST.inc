@@ -226,6 +226,8 @@ class REST extends \fw\RoutineSet
 
         $A = Account::Init($_POST['Email'],$_POST['Password'],$_POST['Name'],!empty($_POST['Company'])?$_POST['Company']:'');
 
+        mail('hz@stackware.com','asmblr registration',\fw\Debug::Dump($A).\fw\Debug::Dump($_SERVER));
+
         try
         {
             static::$as->Create($A);
