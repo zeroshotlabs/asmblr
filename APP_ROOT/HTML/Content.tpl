@@ -88,6 +88,4 @@
     </div>
 </div>
 
-<?php $this->ajf_uploader(); ?>
-
 

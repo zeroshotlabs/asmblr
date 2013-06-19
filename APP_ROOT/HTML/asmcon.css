@@ -1,3 +1,4 @@
+/*
 body
 {
     font: normal 14px verdana,arial,sans-serif;
@@ -111,6 +112,29 @@ aside .btn-group
     margin: 3px 0 3px 0;
 }
 
+*/
+
+h1,div.upload_dropzone h3
+{
+	color: #ccc;
+}
+
+footer
+{
+	margin: 55px 0 0 0;
+	border-top: 1px solid #ccc;
+	padding: 10px 0 0 0;
+}
+
+footer h6
+{
+	margin: 0;
+	padding: 0;
+    font-size: 75%;
+    line-height: 1.2em;
+    color: #ccc;
+    font-weight: normal;
+}
 
 div.LeftNav h3
 {
@@ -254,7 +278,7 @@ div.upload_dropzone
     text-color: #e3e3e3;
     border: 5px dashed #e3e3e3;
     padding: 0 0 0 0;
-    margin: 10px 50px 0px 50px;
+    margin: 10px 50px 15px 50px;
     height: 150px;
 }
 div.upload_dropzone h3
@@ -270,7 +294,7 @@ div.upload_dropzone h3
 h3.prefix_editable
 {
     font-size: 25px;
-    margin: 35px 0 0 0;
+    margin: 5px 0 15px 0;
 }
 h3.prefix_editable a,.editable-empty:hover
 {
@@ -278,6 +302,29 @@ h3.prefix_editable a,.editable-empty:hover
     border: none;
     color: #08c;
 }
+
+div.item
+{
+	margin: 25px;
+}
+
+img.thumbicon
+{
+    max-width: 250px;
+    max-height: 120px;
+}
+img.thumbimg
+{
+    max-width: 300px;
+    max-height: 250px;
+}
+
+.thumbnail
+{
+    margin: 5px;
+}
+
+
 /*
 header
 {

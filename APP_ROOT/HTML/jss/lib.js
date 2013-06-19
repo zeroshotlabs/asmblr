@@ -14,6 +14,11 @@ function ajf_directive_grid( Type )
 	});
 }
 
+function ajf_content_grid()
+{
+	$('#grid_container').load('<?=$lp('ajfHandler','>content_grid')?>');
+}
+
 
 function aapi_method2url( Method )
 {
@@ -123,13 +128,7 @@ function aapi_set( Method,FormData )
 	$.ajax({url:url,data:FormData})
 	 .done(function(data){
 		 if( data.Status === true )
-	     {
-//			 if( typeof onS != undefined )
-//				 onS();
-			 
 			 $('#aapi_msg').html('saved');
-			 
-	     }
 		 else
 			 $('#aapi_msg').html(data.Msg);
     }).fail(function(data) { $('#aapi_msg').html('connection error'); });

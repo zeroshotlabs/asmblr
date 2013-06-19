@@ -171,9 +171,9 @@ class ContentSet extends MongoSet
     }
 
     // will need to be handled differently somehow for Content
-    public function Listing( \MongoId $S )
+    public function Listing( \MongoId $S,$ASC = FALSE )
     {
-        return iterator_to_array($this->MDC->find((array('Site_id'=>$S))));
+        return iterator_to_array($this->MDC->find((array('Site_id'=>$S)))->sort(array('_id'=>$ASC?1:-1)));
     }
 }
 

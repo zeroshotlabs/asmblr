@@ -84,7 +84,7 @@ abstract class Console extends \fw\RoutineSet
 
     public static function aj_content_upload()
     {
-        // this will add a new content on upload, or replace if content_id is given
+        // this will add a new content on upload, or replace if Content_id is given
         // || !\asm\rv::Content_id()
         if( !fw('page')->LoggedIn  )
             \fw\HTTP::_400();
@@ -127,8 +127,8 @@ abstract class Console extends \fw\RoutineSet
 
             if( empty($_POST['Content_id']) )
             {
-                if( !empty($_POST['Prefix']) )
-                    $T = \fw\Path::Init($_POST['Prefix'].'/'.$FU['Filename']);
+                if( !empty($_POST['UploadPrefix']) )
+                    $T = \fw\Path::Init($_POST['UploadPrefix'].'/'.$FU['Filename']);
                 else
                     $T = \fw\Path::Init($FU['Filename']);
 
@@ -144,20 +144,23 @@ abstract class Console extends \fw\RoutineSet
 
             if( !empty($LastError) )
             {
-                $R = \asm\JSONResponse::Fail($LastError);
+                $R = \asm\JSONResponse::Fail("Connection error: {$LastError}");
                 fw('html')->Connect($R,'Response');
                 return;
             }
-/*
-            $LINFO = curl_getinfo($CH);
-            $LRR = json_decode($Response);
 
-            llog($LINFO);
-            llog($LRR);
-*/
+            $R = json_decode($Response,TRUE);
+
+            if( $R['Status'] === FALSE )
+            {
+                $R = \asm\JSONResponse::Fail($R['Msg']);
+                $R['files'] = array(array('result'=>$R['Status'],'textStatus'=>$R['Msg']));
+                fw('html')->Connect($R,'Response');
+                return;
+            }
         }
 
-        $R = \asm\JSONResponse::Ok('replaced');
+        $R = \asm\JSONResponse::Ok($P['Path']);
         fw('html')->Connect($R,'Response');
     }
 
@@ -181,6 +184,7 @@ abstract class Console extends \fw\RoutineSet
     public static function ajfHandler()
     {
         fw('html')->SetRoutine('ajf_directive_grid','Console::directive_grid');
+        fw('html')->SetRoutine('ajf_content_grid','Console::content_grid');
 
         $F = 'ajf_'.\fw\Request::Path(-1);
 
@@ -224,21 +228,34 @@ abstract class Console extends \fw\RoutineSet
             \fw\HTTP::_400();
     }
 
-    public static function CSSHandler()
+    public static function content_grid()
     {
+        if( \asm\rv::Site_id() )
+        {
+            static::InitSite(new \MongoId($_POST['Site_id']));
+        }
+    }
+
+    public static function asmconcss()
+    {
+/*
         $F = 'css_'.str_replace('.css','',\fw\Request::Path(-1));
 
         if( isset(fw('html')->{$F}) )
         {
+*/
             \fw\HTTP::ContentType('css','utf-8');
-            fw('html')->ReMap('Base',$F);
+            fw('html')->ReMap('Base','asmcon');
+/*
         }
         else
         {
             fw()->NoPageHandler();
         }
+*/
     }
 
+/*
     public static function JSHandler()
     {
         $F = 'jsext_'.str_replace('.js','',\fw\Request::Path(-1));
@@ -253,6 +270,7 @@ abstract class Console extends \fw\RoutineSet
             fw()->NoPageHandler();
         }
     }
+*/
 
     protected static function InitSite( \MongoId $S )
     {
@@ -275,7 +293,7 @@ abstract class Console extends \fw\RoutineSet
 
         asm()->Wire(array('lp'=>$lp,'ls'=>$ls));
 
-        // should these be API calls?
+        // should these be API calls?  and not really good to do all of these on every call
         $PL = fw('asmps')->Listing($S['_id']);
         $TL = fw('asmts')->Listing($S['_id']);
         $CL = fw('asmcs')->Listing($S['_id']);

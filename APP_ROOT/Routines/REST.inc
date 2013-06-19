@@ -874,7 +874,7 @@ class REST extends \fw\RoutineSet
         catch( \Exception $E )
         {
             if( static::$cs->IsDupeE($E) )
-                static::$Response = JSONResponse::Fail('Duplicate Name');
+                static::$Response = JSONResponse::Fail('Duplicate Path');
             else
                 static::$Response = JSONResponse::Fail('Database error');
         }

@@ -82,8 +82,8 @@ if( !empty($sts) )
     <h3><a href="#" class="set-name" data-type="text" data-url="<?=$lr('template_set_name')?>" data-name="Name"><?=$T['Name']?></a></h3>
    <?php elseif( $page->ActiveNav === 'Content' ): ?>
     <p class="nav-header">content</p>
-    <h3><a href="#" class="set-path" data-type="text" data-url="<?=$lr('content_set_path')?>" data-name="Path"><?=$C['Path']?></a>
-        <a target="_blank" href="<?=asm('lc')->Link($C['Path'])?>"><img src="<?=$ls('/img/ext-link.png')?>" /></a></h3>
+    <a href="#" class="set-path" data-type="text" data-url="<?=$lr('content_set_path')?>" data-name="Path"><?=$C['Path']?></a>
+        <a target="_blank" href="<?=asm('lc')->Link($C['Path'])?>"><img src="<?=$ls('/img/ext-link.png')?>" /></a>
     <small class="mini-header2">
         <a href="#" class="set-type" data-type="typeahead" data-url="<?=$lr('content_set_type')?>" data-name="Type"><?=$C['Type']?></a>
     </small>

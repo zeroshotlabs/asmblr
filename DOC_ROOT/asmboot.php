@@ -341,8 +341,8 @@ class fwApp extends \fw\App
         // either Site, Page or Template or Content
         $page->ActiveNav = NULL;
 
-        $ps->Create('CSS','/css/','Console::CSSHandler');
-        $ps->Create('JS','/js/','Console::JSHandler');
+        $ps->Create('asmconcss','/css/asmcon.css','Console::asmconcss');
+//        $ps->Create('JS','/js/','Console::JSHandler');
         $ps->Create('ajfHandler','/ajf/','Console::ajfHandler');
 
         $ps->Create('Home','/','Console::Home');
@@ -357,6 +357,12 @@ class fwApp extends \fw\App
 
         // hardwired in here for now - probably belongs also/instead in asmSrv
         // $ps->Create('cnvyr','/cnvyr/','Console::cnvyr');
+
+        // cheesy
+        if( $page->LoggedIn !== TRUE && $this->MatchPath['IsRoot'] === FALSE && $this->MatchPath['Segments'][0] !== 'css' )
+        {
+            $lp->Go('Home');
+        }
 
         $OrderedMatch = NULL;
         if( $this->MatchPath['IsRoot'] === FALSE )

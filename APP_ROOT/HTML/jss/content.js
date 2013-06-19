@@ -12,7 +12,7 @@ $('a.set-type').editable({mode:'popup',placement:'right',source:cts,value:''});
 $('#confirm-del').on('click',function( e ) {
 	pk = $(e.currentTarget).data('pk');
 	$.ajax({ url:'<?=$lr('content_delete',">{$C['_id']}")?>',data:{},
-		success: function(data){ window.location = '<?=$lp('Site',">{$C['Site_id']}")?>'; }})
+		success: function(data){ window.location = '<?=$lp('ContentUpload',">{$C['Site_id']}")?>'; }})
 	.fail(function(){ console.log('connection error');})
 });
 
@@ -45,5 +45,5 @@ function checkhash( hash )
 		$('a.body_tab_link','#content_tabs').click();
 	else if( hash === '#upload_tab' )
 		$('a.upload_tab_link','#content_tabs').click();
+	window.scrollTo(0, 0);
 }
-
