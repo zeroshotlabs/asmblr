@@ -13,7 +13,7 @@
    <?php foreach( $SS as $S ): ?>
    <div style="margin: 15px 0 15px 0;">
     <a href="<?=$lp('Site',">".(string)$S['_id'])?>" class="btn btn-block <?=$S['Status']==='Active'?'btn-success':'btn-warning'?>"><?=$S['Domain']?></a>
-    </div>
+   </div>
    <?php endforeach; ?>
    <?php endif; ?>
 </div>
@@ -21,21 +21,23 @@
 
 <div class="row-fluid">
     <div class="span5" style="margin-top: 20px;">
-        <dl>
+    <p>asmblr is an intuitive set of code and APIs that makes modern web development easier, faster and better.</p>
+    <dl>
             <dt class="text-info"><i title="new page" class="icon-list-alt"></i> Page</dt>
-            <dd>Ties a URL to some logic, configuration settings, and templates.</dd>
+            <dd>Tie a URL to config Directives, HTML Templates, and maybe a PHP Routine.</dd>
         </dl>
         <dl>
             <dt class="text-info"><i title="new template" class="icon-edit"></i> Template</dt>
-            <dd>Store and dynamically generates HTML, CSS and Javascript.</dd>
+            <dd>Dynamically embed, stack, and generate HTML, CSS and Javascript.</dd>
         </dl>
         <dl>
             <dt class="text-info"><i title="new content" class="icon-file"></i> Content</dt>
-            <dd>Store and index multi-lingual blocks of written content or images/video/documents.</dd>
+            <dd>Asset manipulation, full-text search and PageSpeed-optimized delivery of multi-lingual
+            content, documents, images, videos and more.</dd>
         </dl>
         <dl>
             <dt class="text-info"><i title="upload content" class="icon-upload"></i> Data</dt>
-            <dd>Store and tag ordered lists of anything.</dd>
+            <dd>Create ordered lists and tag taxonomies out of anything.</dd>
         </dl>
     </div>
 </div>

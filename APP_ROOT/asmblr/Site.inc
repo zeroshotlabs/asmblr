@@ -1,9 +1,21 @@
 <?php
 namespace asm;
 
+/*
 //     protected static $Skel = array('OwningAccount_id'=>'',
 //                                   'Users_id'=>array(array('_id'=>'','Level'=>'100')));
 
+    public function Grant( $Email,$Domain,$Level )
+    {
+        $R = $this->MDB->SiteMeta->update(array('Domain'=>$Domain),array('$addToSet'=>array('Users'=>array('Email'=>$Email,'Level'=>(int)$Level))),array('safe'=>TRUE));
+        return $R['n']===1?TRUE:FALSE;
+    }
+
+    public function Revoke( $Email,$Domain )
+    {
+        $this->MDB->SiteMeta->update(array('Domain'=>$Domain),array('$pull'=>array('Users'=>array('Email'=>$Email))));
+    }
+*/
 
 // Collection: SiteSet
 // Unique: Domain

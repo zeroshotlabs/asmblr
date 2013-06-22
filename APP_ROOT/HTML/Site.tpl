@@ -1,10 +1,16 @@
 
 <ul class="nav nav-tabs" id="site_tabs">
+    <li><a class="tab_link" href="#manage_tab" data-toggle="tab">Manage</a></li>
     <li><a class="tab_link" href="#directives_tab" data-toggle="tab">Directives</a></li>
     <li><a class="cm_tab_link" href="#routine_tab" data-toggle="tab" data-taid="site_routine">Routine</a></li>
 </ul>
 
 <div class="tab-content">
+    <div class="tab-pane" id="manage_tab">
+        <div class="span3">
+            <a href="<?=$lp('Site',">".(string)$S['_id'])?>?export" class="btn btn-block btn-success">Export Site</a>
+        </div>
+    </div>
     <div class="tab-pane" id="directives_tab">
         <div id="dir-container"></div>
     </div>
@@ -16,7 +22,6 @@
         </div>
     </div>
 </div>
-
 
 <div id="site_delete" class="modal hide">
     <div class="modal-header">
