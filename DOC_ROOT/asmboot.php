@@ -147,16 +147,22 @@ class asmSrv extends \fw\App
     //  - render
     // TODO: handle lib code
     // serve the site - will 404 if status isn't active
-    // if a page is not active, it'll throw a 400 but other pages may have executed, including the site
+    // if a page is not active, it'll throw a 404 but other pages may have executed, including the site
     // routine, directives, etc.
     public function Go()
     {
         if( $this->SrvSite['Status'] !== 'Active' )
             \fw\HTTP::_400();
+var_export($this->SrvSite);
 
         // applying directives is happening here for now, though it may be handy to have it
         // happen in GetSet() - or callable as we need it to be - or group all of this stuff and do
         // together once pages are known
+        // and this could probably be optimized since we're going to support only a finite set
+        // of wired objects that can have directives set
+
+var_export($this->ds->SiteList($this->SrvSite));
+
         foreach( $this->ds->SiteList($this->SrvSite) as $V )
         {
             if( ($W = $this->{$V['Name']}) === NULL )
@@ -208,6 +214,7 @@ class asmSrv extends \fw\App
             $ExactMatch['Directives'] = $this->ds->PageList($ExactMatch);
 
             $this->ps->Execute($ExactMatch);
+var_export($ExactMatch);
         }
 
         // this will need some type of configurability per site

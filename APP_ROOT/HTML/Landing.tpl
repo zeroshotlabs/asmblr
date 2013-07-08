@@ -29,7 +29,7 @@
                 </div>
             </div>
             <div class="controls row-fluid">
-                <button type="submit" value="Submit" name="Submit" class="btn btn-primary">Login</button>
+                <button id="loginsubmit" disabled="disabled" type="submit" value="Submit" name="Submit" class="btn btn-primary">Login</button>
             </div>
         </form>
     </div>
