@@ -4,6 +4,7 @@ namespace asm;
 
 // Collection: PageSet
 // Unique: Site_id/Name, Site_id/Path  (see REST.inc for definitve)
+// The Directives element is stored empty and only populated from DataSet upon Match/Read
 abstract class Page extends MongoStruct
 {
     protected static $Skel = array('Site_id'=>'','Path'=>'','Name'=>'',
@@ -19,6 +20,35 @@ abstract class Page extends MongoStruct
         $Page['Path'] = \fw\Path::ToURLString($T);
         $Page['PathStruct'] = $T;
         return $Page;
+    }
+
+    // converts a Page Struct to a string (PHP code), suitable for saving/editing as a file
+    // the Page Name is NOT saved, since the file name dictates that
+    // Directives is assumed to be PageSet::Flatten()'d already
+    public static function ToPHP( $P )
+    {
+        $Buf = "<?php\n\n";
+        $Buf .= "\$Status = '{$P['Status']}';";
+        $Buf .= "\n\$Path = '{$P['Path']}';\n\n";
+
+        foreach( $P['Directives'] as $D )
+            $Buf .= "\n\$Directives[] = ".var_export($D,TRUE).';';
+
+        // review compatibility with Pointer routines
+        $Buf .= "\n\n\n/*** START ROUTINE ***/";
+        $Buf .= "\n\$Routine = <<<'_EO_ROUTINE_'\n\n".\fw\Struct::Get(0,$P['Routine'])."\n_EO_ROUTINE_;\n\n";
+
+        return $Buf;
+    }
+
+    public static function FromPHP( $PHP )
+    {
+        $Directives = array();
+        eval('?>'.$PHP);
+
+
+        $A = get_defined_vars();
+        var_dump($A);
     }
 }
 
@@ -61,6 +91,8 @@ class PageSet extends MongoSet
     public function Create( &$P )
     {
         $P['_id'] = new \MongoId;
+        // Directives should always be stored in DirectiveSet
+        $P['Directives'] = array();
         $this->MDC->insert($P);
         $this->PageMap[$P['Name']] = $P['Path'];
     }
@@ -71,12 +103,18 @@ class PageSet extends MongoSet
     // across sites
     public function Read( $Name )
     {
-        return $this->MDC->findOne(array('Site_id'=>$this->Site_id,'Name'=>$Name));
+        $P = $this->MDC->findOne(array('Site_id'=>$this->Site_id,'Name'=>$Name));
+        if( !empty($P) )
+            $this->Flatten($P);
+        return $P;
     }
 
     public function Read_id( \MongoId $P )
     {
-        return $this->MDC->findOne(array('_id'=>$P));
+        $P2 = $this->MDC->findOne(array('_id'=>$P));
+        if( !empty($P2) )
+            $this->Flatten($P2);
+        return $P2;
     }
 
     public function Delete( $P )
@@ -210,9 +248,21 @@ class PageSet extends MongoSet
         $DP = \fw\Path::ToURLString($T);
 
         if( ($P = $this->MDC->findOne(array('Site_id'=>$S,'Path'=>$DP))) !== NULL )
+        {
+            $this->Flatten($P);
             return ($this->Matched[] = $P);
+        }
         else
             return NULL;
+    }
+
+    // pull in directives into Directives element
+    protected function Flatten( &$P )
+    {
+        $ds = new DirectiveSet($this->MDB,$P['Site_id']);
+        $ds->PageTag($P);
+
+        $P['Directives'] = $ds->PageList($P);
     }
 }
 

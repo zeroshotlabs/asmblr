@@ -1,7 +1,5 @@
 
 $('#login').on('submit','#login-form',function( e ) {
-    $("#loginsubmit").prop("disabled",false);
-
 	$form = $(e.target);
 	e.preventDefault();
     $.post($form.attr('action'),$form.serialize(),function(data){
@@ -23,3 +21,4 @@ $('#register').on('submit','#register-form',function( e ) {
     },'json').fail(function(){ $('.label-important',e.delegateTarget).html('Please complete the form.'); });
 });
 
+$(".btn-submit").prop("disabled",false);

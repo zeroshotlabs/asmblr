@@ -18,6 +18,21 @@ abstract class Template extends MongoStruct
         $Template['Body'] = $Body;
         return $Template;
     }
+
+    // ditto per Page - Name is not saved
+    public static function ToPHP( $T )
+    {
+        $Buf = "<?php\n\n";
+
+        // review compatibility with Pointer routines
+        $Buf .= "/*** START ROUTINE ***/";
+        $Buf .= "\n\$Routine = <<<'_EO_ROUTINE_'\n\n".\fw\Struct::Get(0,$T['Routine'])."\n_EO_ROUTINE_;\n\n";
+
+        $Buf .= "\n\n/*** START BODY ***/";
+        $Buf .= "\n\$Routine = <<<'_EO_BODY_'\n\n{$T['Body']}\n_EO_BODY_;\n\n";
+
+        return $Buf;
+    }
 }
 
 

@@ -2,7 +2,8 @@
 <ul class="nav nav-tabs" id="site_tabs">
     <li><a class="tab_link" href="#manage_tab" data-toggle="tab">Manage</a></li>
     <li><a class="tab_link" href="#directives_tab" data-toggle="tab">Directives</a></li>
-    <li><a class="cm_tab_link" href="#routine_tab" data-toggle="tab" data-taid="site_routine">Routine</a></li>
+    <li><a class="routine_tab_link" href="#routine_tab" data-toggle="tab" data-taid="site_routine">Routine</a></li>
+    <li><a class="raw_tab_link" href="#raw_tab" data-toggle="tab" data-taid="site_raw">Raw</a></li>
 </ul>
 
 <div class="tab-content">
@@ -20,6 +21,9 @@
             <a href="#" id="site_routine_save" class="btn">save</a>
             <a href="#" id="site_routine_reset" class="btn">cancel</a>
         </div>
+    </div>
+    <div class="tab-pane" id="raw_tab">
+        <textarea id="site_raw" name="Raw" data-method="site_set_raw" data-mode="text/x-php"><?=\asm\Site::ToPHP($S)?></textarea>
     </div>
 </div>
 

@@ -349,6 +349,94 @@ class REST extends \fw\RoutineSet
             static::$Response = JSONResponse::Fail('Database error');
     }
 
+    protected static function site_export()
+    {
+    }
+
+
+    // export to a zip of files of templates and routines
+    // directives/timestamps/patternurl/URL routing/prerender/etc are not exported
+    public function ExportSite2Zip( $Domain )
+    {
+        if( ($Site = \asmblr\AsmAPI::ExportSite($Domain)) === NULL )
+            fw()->Error404();
+
+        fw('html')->ReMap('Base',NULL);
+
+        $Filename = $Domain.'-'.date('Y-m-d-H-i').'.zip';
+
+        $Z = new ZipArchive;
+        if( $Z->open("/tmp/$Filename",ZIPARCHIVE::CREATE) !== TRUE )
+        {
+            fw('msg')->Header = 'Failed to create tmp zip file.';
+            return;
+        }
+
+        $Z->addFromString('SiteRoutine.inc',"<?php\r\n\r\n".$Site['Routine'][0]);
+        foreach( $Site['Templates'] as $K => $T )
+        {
+            if( \fw\Struct::Get('Level',$T) === '0' )
+                $Z->addFromString("ST-{$T['Name']}.inc","<?php\r\n\r\n".$T['Body']);
+            else
+                $Z->addFromString("ST-{$T['Name']}.tpl",$T['Body']);
+        }
+
+        foreach( $Site['Pages'] as $P )
+        {
+            if( !empty($P['Routine'][0]) )
+                $Z->addFromString("PR-{$P['Name']}.inc","<?php\r\n\r\n".$P['Routine'][0]);
+
+            foreach( $P['Templates'] as $T )
+            {
+                $Z->addFromString("PT-{$T['Name']}.inc",$T['Body']);
+            }
+        }
+
+        $Z->close();
+        \fw\HTTP::SaveAs($Filename,'zip');
+        readfile("/tmp/$Filename");
+        unlink("/tmp/$Filename");
+    }
+
+    /**
+     * Export an entire Site as an array.
+     *
+     * This will include all Site Templates and Pages.  Users and SiteMeta are not included.
+     *
+     * Media needs to be exported separately.
+     *
+     * @param string $Domain The Domain of the Site to export.
+     * @retval array The exported Site.
+     * @retval NULL The Site was not found.
+     *
+     * @note Any database/mongo specific fields and Domain prefixes are removed.
+     * @note The returned array is a Site Struct with a Pages element.
+     */
+    public static function ExportSite( $Domain )
+    {
+        $Current = fw(static::$SiteStore)->Read($Domain);
+        if( $Current === NULL )
+            return NULL;
+
+        $Current = \fw\Struct::KeyMask(array('_id'),$Current);
+
+        $Pages = array();
+        $PageStore = fw(static::$PageStore);
+        foreach( $PageStore->Listing($Domain) as $V )
+        {
+            $P = $PageStore->Read($V['Name'],$Domain);
+            $Pages[] = \fw\Struct::KeyMask(array('_id'),$P);
+        }
+
+        $Current['Pages'] = $Pages;
+
+        return $Current;
+    }
+
+
+
+
+
     protected static function site_create()
     {
         if( !rv::Domain() )
@@ -586,6 +674,16 @@ class REST extends \fw\RoutineSet
                 static::$Response = JSONResponse::Fail('Database error');
         }
     }
+
+    // overwrites an existing with details from a raw PHP representation of a page
+    // no merge is done - probably should require SU or something - Name must be specified
+    // explicitly as a parameter
+    // will do this later if needed
+//     protected static function page_set_php()
+//     {
+
+//     }
+
 
     protected static function page_set_name()
     {
@@ -1018,6 +1116,7 @@ class REST extends \fw\RoutineSet
 }
 
 
+// as we might split things up more, this probably belongs under a the console code base strictly speaking
 class LinkREST extends \fw\LinkSet
 {
     protected $Methods = array();
@@ -1053,3 +1152,109 @@ class LinkREST extends \fw\LinkSet
             return 'not-found';
     }
 }
+
+
+// and this too - also interchangeably use the terms AAPI and REST
+// we should probably also have a nice tidy class like this in Javascript
+// we'll also need to add SU support here
+// curl resource is reused
+class AAPIClient
+{
+    protected $lr;
+    protected $CH;
+
+//    public $Log = '';
+    public $ConnectionError = '';
+    public $Response = '';
+
+
+    public function __construct( \asm\LinkRest $lr,$User = NULL,$PW = NULL )
+    {
+        if( empty($User) )
+        {
+            if( empty($_SESSION['Account']['_id']) )
+                throw new Exception('AAPI User not present in session - must specify.');
+            else
+                $User = $_SESSION['Account']['_id'];
+        }
+
+        if( empty($PW) )
+        {
+            if( empty($_SESSION['Account']['Password']) )
+                throw new Exception('AAPI PW not present in session - must specify.');
+            else
+                $PW = $_SESSION['Account']['Password'];
+        }
+
+        $this->lr = $lr;
+
+        $this->CH = curl_init();
+
+        curl_setopt($this->CH,CURLOPT_RETURNTRANSFER,TRUE);
+        curl_setopt($this->CH,CURLINFO_HEADER_OUT,TRUE);
+
+        // why doesn't verbose ever work in any permutation?
+        // curl_setopt($this->CH,CURLOPT_VERBOSE,TRUE);
+        // curl_setopt($this->CH,CURLOPT_STDERR,$this->Log);
+        // $this->Log = fopen('php://memory','rw');
+
+        // curl_setopt($this->CH,CURLOPT_SSL_VERIFYPEER,FALSE);
+        // curl_setopt($this->CH,CURLOPT_SSL_VERIFYHOST,0);
+        // curl_setopt($this->CH,CURLOPT_SSLCERT,fw('page')->Cert);
+        // curl_setopt($this->CH,CURLOPT_SSLCERTPASSWD,fw('page')->Passwd);
+        // curl_setopt($this->CH,CURLOPT_CERTINFO,TRUE);
+
+        curl_setopt($this->CH,CURLOPT_HTTPHEADER,array("X-ASMBLR-USER: {$User}",
+                                                         "X-ASMBLR-PW: {$PW}",
+                                                              'Expect:'));
+    }
+
+    public function GET( $Routine,$Resource = NULL )
+    {
+        curl_setopt($this->CH,CURLOPT_HTTPGET,TRUE);
+        curl_setopt($this->CH,CURLOPT_URL,$this->lr->Link($Routine,">{$Resource}"));
+
+        return $this->Exec();
+    }
+
+    public function POST( $Routine,$Payload = NULL )
+    {
+        curl_setopt($this->CH,CURLOPT_POST,TRUE);
+        curl_setopt($this->CH,CURLOPT_URL,$this->lr->Link($Routine));
+        curl_setopt($this->CH,CURLOPT_POSTFIELDS,$Payload);
+
+        return $this->Exec();
+    }
+
+    public function GetInfo()
+    {
+        return curl_getinfo($this->CH);
+    }
+
+    // NULL is returned if a 400 bad request is encountered or a connection error happens
+    // in which case GetInfo() and $ConnectionError can be examined
+    // the response array is returned if received, which still should be checked by the caller
+    protected function Exec()
+    {
+        $this->Response = curl_exec($this->CH);
+        $this->ConnectionError = curl_error($this->CH);
+
+        if( empty($this->ConnectionError) )
+        {
+            // sort of presumes a 400 bad request
+            if( empty($this->Response) )
+            {
+                return NULL;
+            }
+            else
+            {
+                return json_decode($this->Response,TRUE);
+            }
+        }
+        else
+        {
+            return NULL;
+        }
+    }
+}
+

@@ -7,6 +7,7 @@ namespace asm;
 // this defines the tags for storing the different types of directives (site, page, etc)
 // this probably won't let two simultaneous listings of different pages/sites/etc
 // consistency checks? prevent DataSet methods from being called?
+// this is sort of messy and probably does way too many Refresh() calls
 class DirectiveSet extends DataSet
 {
     protected $SiteTag = 'DirectiveS_';

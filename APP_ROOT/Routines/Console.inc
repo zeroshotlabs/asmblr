@@ -79,7 +79,7 @@ abstract class Console extends \fw\RoutineSet
     {
         static::InitSite(new \MongoId(\fw\Request::Path(-1)));
 
-        fw('page')->ActiveNav = 'Site';
+        fw('page')->ActiveNav = 'ContentUpload';
         fw('html')->Stack('jss_content_upload','jsready');
     }
 
@@ -95,30 +95,18 @@ abstract class Console extends \fw\RoutineSet
 
         $F = \fw\FileUpload::Init('files');
 
+        $aapi = new \asm\AAPIClient(fw('lr'));
+
         if( empty($_POST['Content_id']) )
-            $CH = curl_init(fw('lr')->Link('content_create'));
+            $Routine = 'content_create';
         else
-            $CH = curl_init(fw('lr')->Link('content_set_body'));
-
-        curl_setopt($CH,CURLOPT_RETURNTRANSFER,TRUE);
-        // curl_setopt($CH,CURLOPT_SSL_VERIFYPEER,FALSE);
-        // curl_setopt($CH,CURLOPT_SSL_VERIFYHOST,0);
-        // curl_setopt($CH,CURLOPT_SSLCERT,fw('page')->Cert);
-        // curl_setopt($CH,CURLOPT_SSLCERTPASSWD,fw('page')->Passwd);
-        // curl_setopt($CH,CURLOPT_CERTINFO,TRUE);
-        curl_setopt($CH,CURLINFO_HEADER_OUT,TRUE);
-        curl_setopt($CH,CURLOPT_VERBOSE,TRUE);
-
-        curl_setopt($CH,CURLOPT_HTTPHEADER,array("X-ASMBLR-USER: {$_SESSION['Account']['_id']}",
-                                                   "X-ASMBLR-PW: {$_SESSION['Account']['Password']}",
-                                                        'Expect:'));
-
-        curl_setopt($CH,CURLOPT_POST,TRUE);
+            $Routine = 'content_set_body';
 
         $P = array('Body'=>'','Content_id'=>\fw\Struct::Get('Content_id',$_POST),
                               'Site_id'=>\fw\Struct::Get('Site_id',$_POST));
 
         // this could use some error checking/handling/messages/etc
+        $UploadedPaths = array();
         foreach( $F as $FU )
         {
             if( !\fw\FileUpload::IsOk($FU) )
@@ -138,26 +126,28 @@ abstract class Console extends \fw\RoutineSet
                 $P['Path'] = \fw\Path::ToString($T);
             }
 
-            curl_setopt($CH,CURLOPT_POSTFIELDS,$P);
+            $R = $aapi->POST($Routine,$P);
 
-            $Response = curl_exec($CH);
-            $LastError = curl_error($CH);
-
-            if( !empty($LastError) )
+            if( empty($R) )
             {
-                $R = \asm\JSONResponse::Fail("Connection error: {$LastError}");
+                $R = \asm\JSONResponse::Fail(empty($aapi->ConnectionError)?'Bad request':$aapi->ConnectionError);
                 fw('html')->Connect($R,'Response');
+                llog($P);
+//                llog($aapi->GetInfo());
+
                 return;
             }
-
-            $R = json_decode($Response,TRUE);
-
-            if( $R['Status'] === FALSE )
+            else
             {
-                $R = \asm\JSONResponse::Fail($R['Msg']);
-                $R['files'] = array(array('result'=>$R['Status'],'textStatus'=>$R['Msg']));
-                fw('html')->Connect($R,'Response');
-                return;
+                if( $R['Status'] === FALSE )
+                {
+                    $R = \asm\JSONResponse::Fail($R['Msg']);
+                    $R['files'] = array(array('result'=>$R['Status'],'textStatus'=>$R['Msg']));
+                    fw('html')->Connect($R,'Response');
+                    return;
+                }
+                else
+                    $UploadPaths[] = $P['Path'];
             }
         }
 
@@ -213,8 +203,8 @@ abstract class Console extends \fw\RoutineSet
             if( empty($P) )
                 \fw\HTTP::_400();
 
-            $ds = new \asm\DirectiveSet(asm('asmdb'),$P['Site_id']);
-            fw('html')->Connect($ds->PageList($P),'DS');
+//            $ds = new \asm\DirectiveSet(asm('asmdb'),$P['Site_id']);
+            fw('html')->Connect($P['Directives'],'DS');
         }
         else if( \asm\rv::Site_id() )
         {
@@ -222,8 +212,8 @@ abstract class Console extends \fw\RoutineSet
             if( empty($S) )
                 \fw\HTTP::_400();
 
-            $ds = new \asm\DirectiveSet(asm('asmdb'),$S['_id']);
-            fw('html')->Connect($ds->SiteList($S),'DS');
+//            $ds = new \asm\DirectiveSet(asm('asmdb'),$S['_id']);
+            fw('html')->Connect($S['Directives'],'DS');
         }
         else
             \fw\HTTP::_400();

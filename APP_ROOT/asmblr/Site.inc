@@ -19,6 +19,7 @@ namespace asm;
 
 // Collection: SiteSet
 // Unique: Domain
+// Directives treated the same way as Page/PageSet
 abstract class Site extends MongoStruct
 {
     protected static $Skel = array('Domain'=>'','AAID'=>'','CurrentTS'=>0,
@@ -33,6 +34,23 @@ abstract class Site extends MongoStruct
         $Site['AAID'] = $AAID;
         return $Site;
     }
+
+    // ditto per Page - domain is not saved
+    public static function ToPHP( $S )
+    {
+        $Buf = "<?php\n\n";
+        $Buf .= "\$Status = '{$S['Status']}';";
+        $Buf .= "\n\$BaseURL = '{$S['BaseURL']}';\n\n";
+
+        foreach( $S['Directives'] as $D )
+            $Buf .= "\n\$Directives[] = ".var_export($D,TRUE).';';
+
+        // review compatibility with Pointer routines
+        $Buf .= "\n\n\n/*** START ROUTINE ***/";
+        $Buf .= "\n\$Routine = <<<'_EO_ROUTINE_'\n\n".\fw\Struct::Get(0,$S['Routine'])."\n_EO_ROUTINE_;\n\n";
+
+        return $Buf;
+    }
 }
 
 
@@ -41,15 +59,20 @@ abstract class Site extends MongoStruct
 // ensureIndex(array('Domain'=>1),array('unique'=>TRUE));
 class SiteSet extends MongoSet
 {
+    // Directives need to be saved separately, same as PageSet
     public function Create( &$S )
     {
         $S['_id'] = new \MongoId;
+        $S['Directives'] = array();
         $this->MDC->insert($S);
     }
 
     public function Read( \MongoId $S )
     {
-        return $this->MDC->findOne(array('_id'=>$S));
+        $S2 = $this->MDC->findOne(array('_id'=>$S));
+        if( !empty($S2) )
+            $this->Flatten($S2);
+        return $S2;
     }
 
     public function Delete( $S )
@@ -127,6 +150,7 @@ class SiteSet extends MongoSet
     // different - returns NULL or the new Data struct
     public function CopyDirective( \MongoId $D_id,&$S )
     {
+        // why do we specify 'Directive' here?
         $ds = new DirectiveSet($this->MDB,$S['_id'],'Directive');
 
         $D = $ds->Read($D_id);
@@ -171,6 +195,15 @@ class SiteSet extends MongoSet
     {
         // $Fields = array('Path'=>1,'Domain'=>1,'Name'=>1,'Status'=>1,'CreateTS'=>1,'UpdateTS'=>1);
         return iterator_to_array($this->MDC->find(array('AAID'=>$AAID)));
+    }
+
+    // pull in directives into Directives element
+    protected function Flatten( &$S )
+    {
+        $ds = new DirectiveSet($this->MDB,$S['_id']);
+        $ds->SiteTag($S);
+
+        $S['Directives'] = $ds->SiteList($S);
     }
 }
 

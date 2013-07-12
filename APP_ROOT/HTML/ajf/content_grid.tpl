@@ -9,13 +9,13 @@ if( strpos($C['Type'],'image/') === 0 )
     $Class = 'thumbimg';
 }
 elseif( strpos($C['Type'],'css') !== FALSE )
-    $Src =$ls('/img/css-icon.png');
+    $Src = $ls('/img/css-icon.png');
 elseif( strpos($C['Type'],'html') !== FALSE )
-    $Src =$ls('/img/html-icon.png');
+    $Src = $ls('/img/html-icon.png');
 else if( strpos($C['Type'],'text/') === 0 || strpos($C['Type'],'php') !== FALSE )
     $Src = $ls('/img/text-icon.png');
 elseif( strpos($C['Type'],'word') !== FALSE )
-    $Src =$ls('/img/docx-win-icon.png');
+    $Src = $ls('/img/docx-win-icon.png');
 elseif( strpos($C['Type'],'pdf') !== FALSE )
     $Src = $ls('/img/pdf-icon.png');
 elseif( strpos($C['Type'],'presentation') !== FALSE )
@@ -28,7 +28,7 @@ else
 
     <div class="pull-left item">
         <a href="<?=$lp('Content',">{$C['_id']}")?>">
-            <img title="<?=$C['Path']?>" data-src="holder.js/160x120" src="<?=$Src?>" class="media-object <?=$Class?> replace_dropzone" data-contentid="<?=$C['_id']?>" alt="">
+            <img title="<?=$Src?>" data-src="holder.js/160x120" src="<?=$Src?>" class="media-object <?=$Class?> replace_dropzone" data-contentid="<?=$C['_id']?>" alt="">
         </a>
     </div>
        <?php endforeach; ?>

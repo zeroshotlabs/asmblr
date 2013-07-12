@@ -88,6 +88,8 @@ if( !empty($sts) )
     <small class="mini-header2">
         <a href="#" class="set-type" data-type="typeahead" data-url="<?=$lr('content_set_type')?>" data-name="Type"><?=$C['Type']?></a>
     </small>
+   <?php elseif( $page->ActiveNav === 'ContentUpload' ): ?>
+    <p class="nav-header">content upload</p>
    <?php endif; ?>
 </div>
 </div>

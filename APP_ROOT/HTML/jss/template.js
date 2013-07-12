@@ -8,7 +8,7 @@ $('#confirm-del').on('click',function( e ) {
 	.fail(function(){ console.log('connection error');})
 });
 
-$('a.tab_link,a.body_tab_link','#template_tabs').click(function (e) {
+$('a.tab_link,a.body_tab_link,a.raw_tab_link','#template_tabs').click(function (e) {
 	e.preventDefault();
 	$(this).tab('show');
 	cm_init($(e.currentTarget).data('taid'));

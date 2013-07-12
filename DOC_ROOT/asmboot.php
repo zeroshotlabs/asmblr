@@ -84,6 +84,7 @@ class asmSrv extends \fw\App
         // TODO: these may become configurable in Site['Config']
         // to handle parse errors in routines/templates, enable $html/$ps debugging
         // which should probably be config options similar to LogPublic
+        // http://us1.php.net/manual/en/class.errorexception.php  ???
         set_error_handler(array($this,'ErrorHandler'));
         set_exception_handler(array($this,'UncaughtExceptionHandler'));
         register_shutdown_function(array($this,'FatalErrorHandler'));
@@ -128,9 +129,9 @@ class asmSrv extends \fw\App
         $lp = new \asm\LinkPage($ps,$this->SiteURL);
         $ls = new \fw\LinkSet($this->SrvSite['Domain']);
 
-        $ds = new \asm\DirectiveSet($this->asmdb,$this->SrvSite['_id']);
+//        $ds = new \asm\DirectiveSet($this->asmdb,$this->SrvSite['_id']);
 
-        $this->Wire(array('page'=>$page,'html'=>$html,'content'=>$content,'ps'=>$ps,'lp'=>$lp,'ls'=>$ls,'lc'=>$lc,'ds'=>$ds));
+        $this->Wire(array('page'=>$page,'html'=>$html,'content'=>$content,'ps'=>$ps,'lp'=>$lp,'ls'=>$ls,'lc'=>$lc));
 
         // $html is automatically available as $this but to stay inline with directive's names
         // we connect it in as $html - hmm, $page vs $ps is confusing - basically let's say that
@@ -153,7 +154,7 @@ class asmSrv extends \fw\App
     {
         if( $this->SrvSite['Status'] !== 'Active' )
             \fw\HTTP::_400();
-var_export($this->SrvSite);
+//var_export($this->SrvSite);
 
         // applying directives is happening here for now, though it may be handy to have it
         // happen in GetSet() - or callable as we need it to be - or group all of this stuff and do
@@ -161,9 +162,8 @@ var_export($this->SrvSite);
         // and this could probably be optimized since we're going to support only a finite set
         // of wired objects that can have directives set
 
-var_export($this->ds->SiteList($this->SrvSite));
 
-        foreach( $this->ds->SiteList($this->SrvSite) as $V )
+        foreach( $this->SrvSite['Directives'] as $V )
         {
             if( ($W = $this->{$V['Name']}) === NULL )
                 throw new Exception("Directive object {$V['Name']}' doesn't exist while executing Site '{$this->SrvSite['Domain']}'.");
@@ -173,6 +173,8 @@ var_export($this->ds->SiteList($this->SrvSite));
 
         if( empty($this->SrvSite['Routine']) === FALSE )
         {
+            // hmm, so we are supporting pointer routines?  this is probably isn't compatible with our ToPHP()
+            // methods, including for a Page - and perhaps in other use cases
             if( $this->SrvSite['Routine']['Type'] === 'Pointer' )
             {
                 $S = $this->SrvSite;
@@ -195,7 +197,6 @@ var_export($this->ds->SiteList($this->SrvSite));
                         return FALSE;
                     }
 
-                    $OrderedMatch['Directives'] = $this->ds->PageList($OrderedMatch);
 
                     $this->ps->Execute($OrderedMatch);
                     break;
@@ -211,10 +212,10 @@ var_export($this->ds->SiteList($this->SrvSite));
                 return FALSE;
             }
 
-            $ExactMatch['Directives'] = $this->ds->PageList($ExactMatch);
+//            $ExactMatch['Directives'] = $this->ds->PageList($ExactMatch);
 
             $this->ps->Execute($ExactMatch);
-var_export($ExactMatch);
+//var_export($ExactMatch);
         }
 
         // this will need some type of configurability per site

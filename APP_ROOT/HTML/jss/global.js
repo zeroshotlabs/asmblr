@@ -28,6 +28,9 @@
     asmblr_ids['Content_id'] = '<?=$C['_id']?>';
     asmblr_ids['Site_id'] = '<?=$S['_id']?>';
     Type = 'content';
+   <?php elseif( $page->ActiveNav === 'ContentUpload' ): ?>
+    asmblr_ids['Site_id'] = '<?=$S['_id']?>';
+    Type = 'content';
    <?php else: ?>
     Type = '';
    <?php endif; ?>

@@ -29,7 +29,7 @@
                 </div>
             </div>
             <div class="controls row-fluid">
-                <button id="loginsubmit" disabled="disabled" type="submit" value="Submit" name="Submit" class="btn btn-primary">Login</button>
+                <button disabled="disabled" type="submit" value="Submit" name="Submit" class="btn btn-primary btn-submit">Login</button>
             </div>
         </form>
     </div>
@@ -85,7 +85,7 @@
                 </div>
             </div>
             <div class="control row-fluid">
-                <button type="submit" value="Submit" name="Submit" class="btn btn-primary">Register</button>
+                <button disabled="disabled" type="submit" value="Submit" name="Submit" class="btn btn-primary btn-submit">Register</button>
             </div>
         </form>
     </div>
