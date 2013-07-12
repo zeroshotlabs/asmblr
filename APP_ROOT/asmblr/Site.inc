@@ -30,17 +30,34 @@ abstract class Site extends MongoStruct
     public static function Init( $Domain,\MongoId $AAID )
     {
         $Site = static::$Skel;
-        $Site['Domain'] = strtolower($Domain);
         $Site['AAID'] = $AAID;
+        static::SetDomain($Domain,$Site);
+
         return $Site;
+    }
+
+    public static function SetDomain( $Domain,&$S )
+    {
+        $S['Domain'] = strtolower($Domain);
+    }
+
+    public static function SetBaseURL( $BaseURL,&$S )
+    {
+        $S['BaseURL'] = \fw\URL::ToString(\fw\URL::Init($BaseURL));
+    }
+
+    // Routine is assumed a string and set as a struct
+    public static function SetRoutine( $Routine,&$S )
+    {
+        $S['Routine'] = \fw\Routine::Init($Routine);
     }
 
     // ditto per Page - domain is not saved
     public static function ToPHP( $S )
     {
         $Buf = "<?php\n\n";
-        $Buf .= "\$Status = '{$S['Status']}';";
-        $Buf .= "\n\$BaseURL = '{$S['BaseURL']}';\n\n";
+        $Buf .= '$Status = '.var_export($S['Status'],TRUE).";\n";
+        $Buf .= '$BaseURL = '.var_export($S['BaseURL'],TRUE).";\n\n";
 
         foreach( $S['Directives'] as $D )
             $Buf .= "\n\$Directives[] = ".var_export($D,TRUE).';';
@@ -50,6 +67,20 @@ abstract class Site extends MongoStruct
         $Buf .= "\n\$Routine = <<<'_EO_ROUTINE_'\n\n".\fw\Struct::Get(0,$S['Routine'])."\n_EO_ROUTINE_;\n\n";
 
         return $Buf;
+    }
+
+    // see also Page::FromPHP
+    public static function FromPHP( $PHP,&$ToSite )
+    {
+        $Directives = array();
+        eval('?>'.$PHP);
+
+        $ToSite = static::Init($ToSite['Domain'],$ToSite['AAID']);
+
+        $ToSite['Status'] = $Status;
+        static::SetBaseURL($BaseURL,$ToSite);
+        $ToSite['Directives'] = $Directives;
+        static::SetRoutine($Routine,$ToSite);
     }
 }
 
@@ -90,6 +121,7 @@ class SiteSet extends MongoSet
 
     public function SetDomain( $Domain,&$S )
     {
+        Site::SetDomain($Domain,$S);
         return $this->SetKV('Domain',$Domain,'_id',$S);
     }
 
@@ -101,12 +133,14 @@ class SiteSet extends MongoSet
     // shouldn't we be saving BaseURL as a Path Struct?
     public function SetBaseURL( $BaseURL,&$S )
     {
+        Site::SetBaseURL($BaseURL,$S);
         return $this->SetKV('BaseURL',$BaseURL,'_id',$S);
     }
 
     public function SetRoutine( $Routine,&$S )
     {
-        return $this->SetKV('Routine',$Routine,'_id',$S);
+        Site::SetRoutine($Routine,$S);
+        return $this->SetKV('Routine',$S['Routine'],'_id',$S);
     }
 
     public function SetDirective( $Directive,&$S,\MongoId $D_id = NULL )

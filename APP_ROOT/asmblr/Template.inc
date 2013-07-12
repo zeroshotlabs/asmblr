@@ -19,6 +19,12 @@ abstract class Template extends MongoStruct
         return $Template;
     }
 
+    // Routine is assumed a string and set as a struct
+    public static function SetRoutine( $Routine,&$T )
+    {
+        $T['Routine'] = \fw\Routine::Init($Routine);
+    }
+
     // ditto per Page - Name is not saved
     public static function ToPHP( $T )
     {
@@ -29,9 +35,18 @@ abstract class Template extends MongoStruct
         $Buf .= "\n\$Routine = <<<'_EO_ROUTINE_'\n\n".\fw\Struct::Get(0,$T['Routine'])."\n_EO_ROUTINE_;\n\n";
 
         $Buf .= "\n\n/*** START BODY ***/";
-        $Buf .= "\n\$Routine = <<<'_EO_BODY_'\n\n{$T['Body']}\n_EO_BODY_;\n\n";
+        $Buf .= "\n\$Body = <<<'_EO_BODY_'\n\n{$T['Body']}\n_EO_BODY_;\n\n";
 
         return $Buf;
+    }
+
+    // see also Page::FromPHP / Site::FromPHP
+    public static function FromPHP( $PHP,&$ToTemplate )
+    {
+        eval('?>'.$PHP);
+
+        $ToTemplate = static::Init($ToTemplate['Site_id'],$ToTemplate['Name'],$Body);
+        static::SetRoutine($Routine,$ToTemplate);
     }
 }
 
@@ -93,7 +108,8 @@ class TemplateSet extends MongoSet
 
     public function SetRoutine( $Routine,&$T )
     {
-        return $this->SetKV('Routine',$Routine,'_id',$T);
+        Template::SetRoutine($Routine,$T);
+        return $this->SetKV('Routine',$T['Routine'],'_id',$T);
     }
 
     public function SetBody( $Body,&$T )

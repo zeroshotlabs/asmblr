@@ -52,6 +52,8 @@ abstract class v extends \fw\enUS
     }
 
     // this could be validated better - or really only at all since Init() assumes valid data
+    // also this used to init a routine - that stuff should really done in the Page Struct and SetRoutine
+    // sort of similar for the cleanup done by URL and Path - though we just it manually in things like Page::FromPHP
     public static function Routine( $N,&$H )
     {
         // allow to clear Routine
@@ -63,18 +65,19 @@ abstract class v extends \fw\enUS
 
         if( static::Textarea($N,$H) )
         {
-            try
-            {
-                $H[$N] = \fw\Routine::Init($H[$N]);
-                if( $H[$N]['Type'] !== 'Inline' )
-                    return FALSE;
-                else
-                    return TRUE;
-            }
-            catch( \Exception $E )
-            {
-                return FALSE;
-            }
+            return TRUE;
+//             try
+//             {
+//                 $H[$N] = \fw\Routine::Init($H[$N]);
+//                 if( $H[$N]['Type'] !== 'Inline' )
+//                     return FALSE;
+//                 else
+//                     return TRUE;
+//             }
+//             catch( \Exception $E )
+//             {
+//                 return FALSE;
+//             }
         }
         else
             return FALSE;

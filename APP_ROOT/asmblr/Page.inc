@@ -16,10 +16,21 @@ abstract class Page extends MongoStruct
         $Page = static::$Skel;
         $Page['Site_id'] = $S;
         $Page['Name'] = $Name;
-        $T = \fw\Path::Init(strtolower('/'.$Path));
-        $Page['Path'] = \fw\Path::ToURLString($T);
-        $Page['PathStruct'] = $T;
+        static::SetPath($Path,$Page);
+
         return $Page;
+    }
+
+    public static function SetPath( $Path,&$P )
+    {
+        $P['PathStruct'] = \fw\Path::Init(strtolower('/'.$Path));
+        $P['Path'] = \fw\Path::ToURLString($P['PathStruct']);
+    }
+
+    // Routine is assumed a string and set as a struct
+    public static function SetRoutine( $Routine,&$P )
+    {
+        $P['Routine'] = \fw\Routine::Init($Routine);
     }
 
     // converts a Page Struct to a string (PHP code), suitable for saving/editing as a file
@@ -28,8 +39,8 @@ abstract class Page extends MongoStruct
     public static function ToPHP( $P )
     {
         $Buf = "<?php\n\n";
-        $Buf .= "\$Status = '{$P['Status']}';";
-        $Buf .= "\n\$Path = '{$P['Path']}';\n\n";
+        $Buf .= '$Status = '.var_export($P['Status'],TRUE).";\n";
+        $Buf .= '$Path = '.var_export($P['Path'],TRUE).";\n\n";
 
         foreach( $P['Directives'] as $D )
             $Buf .= "\n\$Directives[] = ".var_export($D,TRUE).';';
@@ -41,14 +52,18 @@ abstract class Page extends MongoStruct
         return $Buf;
     }
 
-    public static function FromPHP( $PHP )
+    // probably should have some type of security and validity checks about what we end up using
+    // doesn't actually save the directives to that has to be done on it's own.
+    public static function FromPHP( $PHP,&$ToPage )
     {
         $Directives = array();
         eval('?>'.$PHP);
 
+        $ToPage = static::Init($ToPage['Site_id'],$ToPage['Name'],$Path);
 
-        $A = get_defined_vars();
-        var_dump($A);
+        $ToPage['Status'] = $Status;
+        $ToPage['Directives'] = $Directives;
+        static::SetRoutine($Routine,$ToPage);
     }
 }
 
@@ -143,13 +158,14 @@ class PageSet extends MongoSet
     // could use some more validation or something maybe
     public function SetPath( $Path,&$P )
     {
-        $Path = \fw\Path::Init(strtolower('/'.$Path));
-        return $this->SetKV('Path',\fw\Path::ToURLString($Path),'_id',$P) && $this->SetKV('PathStruct',$Path,'_id',$P);
+        Page::SetPath($Path,$P);
+        return $this->SetKV('Path',$P['Path'],'_id',$P) && $this->SetKV('PathStruct',$P['PathStruct'],'_id',$P);
     }
 
     public function SetRoutine( $Routine,&$P )
     {
-        return $this->SetKV('Routine',$Routine,'_id',$P);
+        Page::SetRoutine($Routine,$P);
+        return $this->SetKV('Routine',$P['Routine'],'_id',$P);
     }
 
     // following three same basically as in SiteSet
