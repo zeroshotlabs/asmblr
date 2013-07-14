@@ -21,7 +21,7 @@ $('a.raw_tab_link','#page_tabs').click(function (e) {
 	cm_init($(e.currentTarget).data('taid'));
 });
 
-$('a.tab_link','#page_tabs').click(function (e) {
+$('a.dirs_tab_link','#page_tabs').click(function (e) {
 	e.preventDefault();
 	$(this).tab('show');
 	ajf_directive_grid('page');
@@ -36,9 +36,9 @@ $(window).on('hashchange',function(e){
 function checkhash( hash )
 {
 	if( hash === '#directives_tab' )
-		$('a.tab_link','#page_tabs').click();
+		$('a.dirs_tab_link','#page_tabs').click();
 	else if( hash === '#routine_tab' )
-		$('a.cm_tab_link','#page_tabs').click();
+		$('a.routine_tab_link','#page_tabs').click();
 }
 
 

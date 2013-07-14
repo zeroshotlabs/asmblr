@@ -1,6 +1,6 @@
 
 <ul class="nav nav-tabs" id="page_tabs">
-    <li><a class="tab_link" href="#directives_tab" data-toggle="tab">Directives</a></li>
+    <li><a class="dirs_tab_link" href="#directives_tab" data-toggle="tab">Directives</a></li>
     <li><a class="routine_tab_link" href="#routine_tab" data-toggle="tab" data-taid="page_routine">Routine</a></li>
     <li><a class="raw_tab_link" href="#raw_tab" data-toggle="tab" data-taid="page_raw">Raw</a></li>
 </ul>

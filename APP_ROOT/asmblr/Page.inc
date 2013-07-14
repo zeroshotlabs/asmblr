@@ -28,9 +28,13 @@ abstract class Page extends MongoStruct
     }
 
     // Routine is assumed a string and set as a struct
+    // potentially a pointer routine could be mis-interpreted (security issue)
     public static function SetRoutine( $Routine,&$P )
     {
-        $P['Routine'] = \fw\Routine::Init($Routine);
+        if( trim($Routine) === '' )
+            $P['Routine'] = array();
+        else
+            $P['Routine'] = \fw\Routine::Init($Routine);
     }
 
     // converts a Page Struct to a string (PHP code), suitable for saving/editing as a file
@@ -47,12 +51,13 @@ abstract class Page extends MongoStruct
 
         // review compatibility with Pointer routines
         $Buf .= "\n\n\n/*** START ROUTINE ***/";
-        $Buf .= "\n\$Routine = <<<'_EO_ROUTINE_'\n\n".\fw\Struct::Get(0,$P['Routine'])."\n_EO_ROUTINE_;\n\n";
+        $Buf .= "\n\$Routine = <<<'_EO_ROUTINE_'\n".\fw\Struct::Get(0,$P['Routine'])."\n\n_EO_ROUTINE_;\n\n";
 
         return $Buf;
     }
 
     // probably should have some type of security and validity checks about what we end up using
+    // actually should probably use get_defined_vars() and use our form validators....
     // doesn't actually save the directives to that has to be done on it's own.
     public static function FromPHP( $PHP,&$ToPage )
     {
@@ -63,6 +68,7 @@ abstract class Page extends MongoStruct
 
         $ToPage['Status'] = $Status;
         $ToPage['Directives'] = $Directives;
+
         static::SetRoutine($Routine,$ToPage);
     }
 }
@@ -251,6 +257,7 @@ class PageSet extends MongoSet
         }
     }
 
+    // each result isn't Flatten()'d
     public function Listing( \MongoId $S )
     {
         // $Fields = array('Path'=>1,'Domain'=>1,'Name'=>1,'Status'=>1,'CreateTS'=>1,'UpdateTS'=>1);
@@ -273,7 +280,7 @@ class PageSet extends MongoSet
     }
 
     // pull in directives into Directives element
-    protected function Flatten( &$P )
+    public function Flatten( &$P )
     {
         $ds = new DirectiveSet($this->MDB,$P['Site_id']);
         $ds->PageTag($P);

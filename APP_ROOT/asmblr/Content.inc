@@ -29,6 +29,21 @@ abstract class Content extends MongoStruct
         return $Content;
     }
 
+    public static function SetPath( $Path,&$C )
+    {
+        $Path = \fw\Path::Init($Path);
+        $Path['IsDir'] = $Path['IsAbs'] = FALSE;
+
+        $C['PathStruct'] = $Path;
+        $C['Path'] = \fw\Path::ToURLString($Path);
+    }
+
+    // type is automatically set when setting Body, though this can set it explicitly afterwards
+    public static function SetType( $Type,&$C )
+    {
+        $C['Type'] = \fw\HTTP::ResolveContentType($Type);
+    }
+
     // modifies Type, Body and Length - an empty body is always text/plain
     public static function SetBody( $Body,&$C,$Type = '' )
     {
@@ -96,11 +111,6 @@ class ContentSet extends MongoSet
         $this->MDC->insert($C);
     }
 
-//     public function Read( $Name )
-//     {
-//         return $this->MDC->findOne(array('Site_id'=>$this->Site_id,'Name'=>$Name));
-//     }
-
     // ContentSet is basically always in standalone mode but we stick with the naming convention
     public function Read_id( \MongoId $C )
     {
@@ -117,20 +127,11 @@ class ContentSet extends MongoSet
         return $this->SetKV('Status',$Status,'_id',$C);
     }
 
-//     // things like content type could potentially get "out of sync" if name and path are changed around
-//     public function SetName( $Name,&$C )
-//     {
-//         return $this->SetKV('Name',$Name,'_id',$C);
-//     }
-
     // could use some more validation or something maybe
     public function SetPath( $Path,&$C )
     {
-        // maybe there should be a method in Content for this but they should be kept in sync
-        $Path = \fw\Path::Init($Path);
-        $Path['IsDir'] = $Path['IsAbs'] = FALSE;
-
-        return $this->SetKV('Path',\fw\Path::ToURLString($Path),'_id',$C) && $this->SetKV('PathStruct',$Path,'_id',$C);
+        Content::SetPath($Path,$C);
+        return $this->SetKV('Path',$C['Path'],'_id',$C) && $this->SetKV('PathStruct',$C['PathStruct'],'_id',$C);
     }
 
     public function SetBody( $Body,&$C )
@@ -140,15 +141,18 @@ class ContentSet extends MongoSet
         // yay noSQL!
         $this->SetKV('Type',$C['Type'],'_id',$C);
         $this->SetKV('Body',$C['Body'],'_id',$C);
+
         return $this->SetKV('Length',$C['Length'],'_id',$C);
     }
 
     public function SetType( $Type,&$C )
     {
-        return $this->SetKV('Type',\fw\HTTP::ResolveContentType($Type),'_id',$C);
+        Content::SetType($Type,$C);
+        return $this->SetKV('Type',$C['Type'],'_id',$C);
     }
 
     // "atomic" :)  overwrites existing Meta data
+    // not really used yet
     public function SetMeta( $Meta,&$C )
     {
         return $this->SetKV('Meta',$Meta,'_id',$C);

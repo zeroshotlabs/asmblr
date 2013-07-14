@@ -9,7 +9,7 @@
 <div class="tab-content">
     <div class="tab-pane" id="manage_tab">
         <div class="span3">
-            <a href="<?=$lp('Site',">".(string)$S['_id'])?>?export" class="btn btn-block btn-success">Export Site</a>
+            <a href="<?=$lp('aj_site_export',array('sid'=>(string)$S['_id']))?>" class="btn btn-block btn-success">Export Site</a>
         </div>
     </div>
     <div class="tab-pane" id="directives_tab">

@@ -351,91 +351,157 @@ class REST extends \fw\RoutineSet
 
     protected static function site_export()
     {
-    }
-
-
-    // export to a zip of files of templates and routines
-    // directives/timestamps/patternurl/URL routing/prerender/etc are not exported
-    public function ExportSite2Zip( $Domain )
-    {
-        if( ($Site = \asmblr\AsmAPI::ExportSite($Domain)) === NULL )
-            fw()->Error404();
+        static::AuthSite(new \MongoId(\fw\Path::Bottom(static::$MatchPath)));
 
         fw('html')->ReMap('Base',NULL);
 
-        $Filename = $Domain.'-'.date('Y-m-d-H-i').'.zip';
+        $Site = static::$Site;
 
-        $Z = new ZipArchive;
-        if( $Z->open("/tmp/$Filename",ZIPARCHIVE::CREATE) !== TRUE )
+        $Filename = $Site['Domain'].'-'.date('Y-m-d-H-i').'.zip';
+
+        $Z = new \ZipArchive;
+        if( $Z->open("/tmp/$Filename",\ZIPARCHIVE::CREATE) !== TRUE )
         {
-            fw('msg')->Header = 'Failed to create tmp zip file.';
+            static::$Response = JSONResponse::Fail("Failed to create tmp zip file at /tmp/{$Filename}.");
             return;
         }
 
-        $Z->addFromString('SiteRoutine.inc',"<?php\r\n\r\n".$Site['Routine'][0]);
-        foreach( $Site['Templates'] as $K => $T )
+        $Z->addEmptyDir('Pages');
+        $Z->addEmptyDir('Templates');
+        $Z->addEmptyDir('Content');
+
+        $Z->addFromString('Site.inc',Site::ToPHP($Site));
+
+        foreach( static::$ps->Listing($Site['_id']) as $P )
         {
-            if( \fw\Struct::Get('Level',$T) === '0' )
-                $Z->addFromString("ST-{$T['Name']}.inc","<?php\r\n\r\n".$T['Body']);
-            else
-                $Z->addFromString("ST-{$T['Name']}.tpl",$T['Body']);
+            static::$ps->Flatten($P);
+            $Z->addFromString("Pages/{$P['Name']}.inc",Page::ToPHP($P));
         }
 
-        foreach( $Site['Pages'] as $P )
-        {
-            if( !empty($P['Routine'][0]) )
-                $Z->addFromString("PR-{$P['Name']}.inc","<?php\r\n\r\n".$P['Routine'][0]);
+        foreach( static::$ts->Listing($Site['_id']) as $T )
+            $Z->addFromString("Templates/{$T['Name']}.inc",Template::ToPHP($T));
 
-            foreach( $P['Templates'] as $T )
-            {
-                $Z->addFromString("PT-{$T['Name']}.inc",$T['Body']);
-            }
+        // for very large sites, we'd want a separate content export most likely
+        // this also doesn't save any meta/etc - only content as files with full path
+        foreach( static::$cs->Listing($Site['_id']) as $C )
+        {
+            // this, and what we use in ContentSrv, could be refactored into GetBody/SendBody for
+            // unified delivery or saving of the content - this is basically duped from ContentSRv
+            // it would also need to deal with S3/GAE in addition to Mongo
+            if( is_object($C['Body']) )
+                $Z->addFromString("Content/{$C['Path']}",$C['Body']->bin);
+            else
+                $Z->addFromString("Content/{$C['Path']}",$C['Body']);
         }
 
         $Z->close();
-        \fw\HTTP::SaveAs($Filename,'zip');
-        readfile("/tmp/$Filename");
+
+        $R = array('Filename'=>$Filename,'Content'=>utf8_encode(file_get_contents("/tmp/$Filename")));
         unlink("/tmp/$Filename");
+
+        static::$Response = JSONResponse::Ok($R);
     }
 
-    /**
-     * Export an entire Site as an array.
-     *
-     * This will include all Site Templates and Pages.  Users and SiteMeta are not included.
-     *
-     * Media needs to be exported separately.
-     *
-     * @param string $Domain The Domain of the Site to export.
-     * @retval array The exported Site.
-     * @retval NULL The Site was not found.
-     *
-     * @note Any database/mongo specific fields and Domain prefixes are removed.
-     * @note The returned array is a Site Struct with a Pages element.
-     */
-    public static function ExportSite( $Domain )
+    // uses regular file upload so must be sent as such file upload POST
+    protected static function site_import()
     {
-        $Current = fw(static::$SiteStore)->Read($Domain);
-        if( $Current === NULL )
-            return NULL;
+        if( !rv::Domain() )
+            \fw\HTTP::_400();
 
-        $Current = \fw\Struct::KeyMask(array('_id'),$Current);
-
-        $Pages = array();
-        $PageStore = fw(static::$PageStore);
-        foreach( $PageStore->Listing($Domain) as $V )
+        $F = \fw\FileUpload::Init('import_file');
+        foreach( $F as $FU )
         {
-            $P = $PageStore->Read($V['Name'],$Domain);
-            $Pages[] = \fw\Struct::KeyMask(array('_id'),$P);
+            if( !\fw\FileUpload::IsOk($FU) )
+                continue;
+
+            $Z = new \ZipArchive;
+            if( $Z->open($FU['TmpPath']) !== TRUE )
+            {
+                static::$Response = JSONResponse::Fail("Failed to read uploaded zip file");
+                return;
+            }
+
+            $Site = $PageFiles = $TemplateFiles = $ContentFiles = array();
+            for( $i = 0; $i < $Z->numFiles; ++$i )
+            {
+                $Filename = $Z->statIndex($i)['name'];
+
+                if( $Filename === 'Site.inc' )
+                {
+                    try
+                    {
+                        $Site = Site::Init($_POST['Domain'],static::$Account['_id']);
+                        Site::FromPHP($Z->getFromIndex($i),$Site);
+                        $S_d = $Site['Directives'];
+
+                        static::$ss->Create($Site);
+                    }
+                    catch( \Exception $E )
+                    {
+                        if( static::$ss->IsDupeE($E) )
+                            static::$Response = JSONResponse::Fail('Duplicate Domain');
+                        else
+                            static::$Response = JSONResponse::Fail('Database error');
+                        return;
+                    }
+
+                    foreach( $S_d as $D )
+                        static::$ss->SetDirective($D,$Site);
+                }
+                else
+                {
+                    $T = \fw\Path::Init($Filename);
+                    if( \fw\Path::Top($T) === 'Pages' && $Filename !== 'Pages/' )
+                    {
+                        $PageFiles[] = array($Filename,str_replace('.inc','',\fw\Path::Bottom($T)));
+                    }
+                    else if( \fw\Path::Top($T) === 'Templates' && $Filename !== 'Templates/' )
+                    {
+                        $TemplateFiles[] = array($Filename,str_replace('.inc','',\fw\Path::Bottom($T)));
+                    }
+                    else if( \fw\Path::Top($T) === 'Content' && $Filename !== 'Content/' )
+                    {
+                        $ContentFiles[] = array($i,str_replace('Content/','',$Filename));
+                    }
+                }
+            }
+
+            if( empty($Site) )
+            {
+                static::$Response = JSONResponse::Fail('Invalid zip - empty Site.inc');
+                return;
+            }
+
+            foreach( $PageFiles as $PF )
+            {
+                $Page = Page::Init($Site['_id'],$PF[1],'/'.microtime());
+                Page::FromPHP($Z->getFromName($PF[0]),$Page);
+                $P_id = $Page['Directives'];
+
+                static::$ps->Create($Page);
+
+                foreach( $P_id as $D )
+                    static::$ps->SetDirective($D,$Page);
+            }
+
+            foreach( $TemplateFiles as $TF )
+            {
+                $Template = Template::Init($Site['_id'],$TF[1]);
+                Template::FromPHP($Z->getFromName($TF[0]),$Template);
+
+                static::$ts->Create($Template);
+            }
+
+            foreach( $ContentFiles as $CF )
+            {
+                $Content = Content::Init($Site['_id'],$CF[1],$Z->getFromIndex($CF[0]));
+
+                static::$cs->Create($Content);
+            }
+
+            static::$Response = JSONResponse::Ok($Site);
         }
-
-        $Current['Pages'] = $Pages;
-
-        return $Current;
     }
-
-
-
-
 
     protected static function site_create()
     {
@@ -1191,6 +1257,7 @@ class AAPIClient
         $this->CH = curl_init();
 
         curl_setopt($this->CH,CURLOPT_RETURNTRANSFER,TRUE);
+        //curl_setopt($this->CH,CURLOPT_HEADER,TRUE);
         curl_setopt($this->CH,CURLINFO_HEADER_OUT,TRUE);
 
         // why doesn't verbose ever work in any permutation?

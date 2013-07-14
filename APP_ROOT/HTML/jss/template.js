@@ -8,7 +8,7 @@ $('#confirm-del').on('click',function( e ) {
 	.fail(function(){ console.log('connection error');})
 });
 
-$('a.tab_link,a.body_tab_link,a.raw_tab_link','#template_tabs').click(function (e) {
+$('a.routine_tab_link,a.body_tab_link,a.raw_tab_link','#template_tabs').click(function (e) {
 	e.preventDefault();
 	$(this).tab('show');
 	cm_init($(e.currentTarget).data('taid'));
@@ -26,6 +26,6 @@ function checkhash( hash )
 	if( hash === '#body_tab' )
 		$('a.body_tab_link','#template_tabs').click();
 	else if( hash === '#routine_tab' )
-		$('a.tab_link','#template_tabs').click();
+		$('a.routine_tab_link','#template_tabs').click();
 }
 

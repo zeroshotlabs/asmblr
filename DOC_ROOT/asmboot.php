@@ -362,6 +362,7 @@ class fwApp extends \fw\App
         $ps->Create('ContentUpload','/content-upload/','Console::ContentUpload',array('html,Article,ContentUpload'));
 
         $ps->Create('aj_content_upload','/aj_c_u','Console::aj_content_upload');
+        $ps->Create('aj_site_export','/aj_s_e','Console::aj_site_export');
 
         // hardwired in here for now - probably belongs also/instead in asmSrv
         // $ps->Create('cnvyr','/cnvyr/','Console::cnvyr');

@@ -1,6 +1,7 @@
 <?php
 
 // don't we need auth checks for things like Site, Page, Template, ?
+// security is pretty wide open probably
 // we're back and forth between asm() and fw()
 abstract class Console extends \fw\RoutineSet
 {
@@ -81,6 +82,23 @@ abstract class Console extends \fw\RoutineSet
 
         fw('page')->ActiveNav = 'ContentUpload';
         fw('html')->Stack('jss_content_upload','jsready');
+    }
+
+    public static function aj_site_export()
+    {
+        if( !fw('page')->LoggedIn  )
+            \fw\HTTP::_400();
+
+        if( empty($_GET['sid']) )
+            \fw\HTTP::_400();
+
+        fw('html')->ReMap('Base',NULL);
+
+        $aapi = new \asm\AAPIClient(fw('lr'));
+
+        $R = $aapi->GET('site_export',$_GET['sid']);
+        \fw\HTTP::SaveAs($R['Data']['Filename'],'zip');
+        echo utf8_decode($R['Data']['Content']);
     }
 
     public static function aj_content_upload()

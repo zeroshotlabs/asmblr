@@ -49,7 +49,10 @@ abstract class Site extends MongoStruct
     // Routine is assumed a string and set as a struct
     public static function SetRoutine( $Routine,&$S )
     {
-        $S['Routine'] = \fw\Routine::Init($Routine);
+        if( trim($Routine) === '' )
+            $S['Routine'] = array();
+        else
+            $S['Routine'] = \fw\Routine::Init($Routine);
     }
 
     // ditto per Page - domain is not saved
@@ -64,7 +67,7 @@ abstract class Site extends MongoStruct
 
         // review compatibility with Pointer routines
         $Buf .= "\n\n\n/*** START ROUTINE ***/";
-        $Buf .= "\n\$Routine = <<<'_EO_ROUTINE_'\n\n".\fw\Struct::Get(0,$S['Routine'])."\n_EO_ROUTINE_;\n\n";
+        $Buf .= "\n\$Routine = <<<'_EO_ROUTINE_'\n".\fw\Struct::Get(0,$S['Routine'])."\n\n_EO_ROUTINE_;\n\n";
 
         return $Buf;
     }
@@ -225,6 +228,7 @@ class SiteSet extends MongoSet
         return $this->SetKV('Config',$Config,'_id',$S);
     }
 
+    // each result isn't Flatten()'d
     public function Listing( \MongoId $AAID )
     {
         // $Fields = array('Path'=>1,'Domain'=>1,'Name'=>1,'Status'=>1,'CreateTS'=>1,'UpdateTS'=>1);
@@ -232,7 +236,7 @@ class SiteSet extends MongoSet
     }
 
     // pull in directives into Directives element
-    protected function Flatten( &$S )
+    public function Flatten( &$S )
     {
         $ds = new DirectiveSet($this->MDB,$S['_id']);
         $ds->SiteTag($S);

@@ -276,7 +276,14 @@ td.text-center
     padding-bottom: 4px;
     text-align: center;
 }
-
+div.import_dropzone
+{
+    text-align: center;
+    text-color: #e3e3e3;
+    border: 5px dashed #e3e3e3;
+    padding: 15px 15px 0 15px;
+    margin: 0;
+}
 div.upload_dropzone
 {
     text-align: center;

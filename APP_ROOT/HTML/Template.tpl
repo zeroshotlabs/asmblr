@@ -1,6 +1,6 @@
 
 <ul class="nav nav-tabs" id="template_tabs">
-    <li><a class="tab_link" href="#routine_tab" data-toggle="tab" data-taid="template_routine">Routine</a></li>
+    <li><a class="routine_tab_link" href="#routine_tab" data-toggle="tab" data-taid="template_routine">Routine</a></li>
     <li><a class="body_tab_link" href="#body_tab" data-toggle="tab" data-taid="template_body">Body</a></li>
     <li><a class="raw_tab_link" href="#raw_tab" data-toggle="tab" data-taid="template_raw">Raw</a></li>
 </ul>

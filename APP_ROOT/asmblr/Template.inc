@@ -22,7 +22,10 @@ abstract class Template extends MongoStruct
     // Routine is assumed a string and set as a struct
     public static function SetRoutine( $Routine,&$T )
     {
-        $T['Routine'] = \fw\Routine::Init($Routine);
+        if( trim($Routine) === '' )
+            $T['Routine'] = array();
+        else
+            $T['Routine'] = \fw\Routine::Init($Routine);
     }
 
     // ditto per Page - Name is not saved
@@ -32,10 +35,10 @@ abstract class Template extends MongoStruct
 
         // review compatibility with Pointer routines
         $Buf .= "/*** START ROUTINE ***/";
-        $Buf .= "\n\$Routine = <<<'_EO_ROUTINE_'\n\n".\fw\Struct::Get(0,$T['Routine'])."\n_EO_ROUTINE_;\n\n";
+        $Buf .= "\n\$Routine = <<<'_EO_ROUTINE_'\n".\fw\Struct::Get(0,$T['Routine'])."\n\n_EO_ROUTINE_;\n\n";
 
         $Buf .= "\n\n/*** START BODY ***/";
-        $Buf .= "\n\$Body = <<<'_EO_BODY_'\n\n{$T['Body']}\n_EO_BODY_;\n\n";
+        $Buf .= "\n\$Body = <<<'_EO_BODY_'\n{$T['Body']}\n_EO_BODY_;\n\n";
 
         return $Buf;
     }
@@ -46,6 +49,7 @@ abstract class Template extends MongoStruct
         eval('?>'.$PHP);
 
         $ToTemplate = static::Init($ToTemplate['Site_id'],$ToTemplate['Name'],$Body);
+
         static::SetRoutine($Routine,$ToTemplate);
     }
 }
