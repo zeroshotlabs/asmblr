@@ -236,6 +236,7 @@ class SiteSet extends MongoSet
     }
 
     // pull in directives into Directives element
+    // when $S is then sent back via JSON, however, Directives gets munged up
     public function Flatten( &$S )
     {
         $ds = new DirectiveSet($this->MDB,$S['_id']);

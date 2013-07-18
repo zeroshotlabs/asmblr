@@ -262,7 +262,7 @@ class asmSrv extends \fw\App
 class fwApp extends \fw\App
 {
     public $SysOp = 'asmblr@stackware.com';
-    public $LogPublic = TRUE;
+    public $LogPublic = FALSE;
 
     public static $ConsoleDomain = 'asmblr.local';
 
@@ -295,7 +295,7 @@ class fwApp extends \fw\App
         $html = new \fw\enUSHTMLSet;
 
         $lp = new \fw\LinkPage($ps,$this->SiteURL);
-        $ls = new \fw\LinkSet(static::$ConsoleDomain);
+        $ls = new \fw\LinkSet($this->BaseURL);
         $lr = new LinkREST($this->BaseURL.'/restv1');
 
         $msg = new \fw\Messager;
@@ -363,6 +363,8 @@ class fwApp extends \fw\App
 
         $ps->Create('aj_content_upload','/aj_c_u','Console::aj_content_upload');
         $ps->Create('aj_site_export','/aj_s_e','Console::aj_site_export');
+
+        $ps->Create('Juicer','/juicer/','Console::Juicer',array('html,Article,Juicer'));
 
         // hardwired in here for now - probably belongs also/instead in asmSrv
         // $ps->Create('cnvyr','/cnvyr/','Console::cnvyr');

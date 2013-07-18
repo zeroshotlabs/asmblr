@@ -78,10 +78,76 @@ abstract class Console extends \fw\RoutineSet
 
     public static function ContentUpload()
     {
+        if( !fw('page')->LoggedIn )
+            fw('lp')->Go('Home');
+
         static::InitSite(new \MongoId(\fw\Request::Path(-1)));
 
         fw('page')->ActiveNav = 'ContentUpload';
         fw('html')->Stack('jss_content_upload','jsready');
+    }
+
+    public static function Juicer()
+    {
+        if( !fw('page')->LoggedIn )
+            fw('lp')->Go('Home');
+
+        fw('html')->ReMap('Base',NULL);
+
+        $S = static::InitSite(new \MongoId(\fw\Request::Path(-1)));
+
+        fw('page')->ActiveNav = 'Site';
+
+        $aapi = new \asm\AAPIClient(fw('lr'));
+        $aapi->GET('site_delete',$_SESSION['sid']);
+        $Site = $aapi->POST('site_create',array('Domain'=>'www.new-york-divorce-attorney.com'))['Data'];
+        $_SESSION['sid'] = (string) $Site['_id'];
+
+        $jr = new \asm\Juicer(asm()->asmdb,$S['_id']);
+        $jr->Root('http://www.new-york-divorce-attorney.com',$aapi,$Site);
+
+        foreach( $jr->Pages as $P )
+        {
+            var_dump($P);
+        }
+return;
+
+
+        // first juice the root page and use it to store global CSS/JS/images/directives/etc
+
+        // and create the root home page (Path shouldn't probably be hardwired)
+        $Page = $aapi->POST('page_create',array('Path'=>'/','Name'=>'Home','Site_id'=>$Site['_id']));
+
+        // now go through each link, skipping externals, recording internals, and removing dupes
+
+        foreach( $R['Links'] as $Raw )
+        {
+            list($Linker,$Handle,$URL) = $jr->URLr($Raw,'lp');
+
+            // external link
+            if( empty($Linker) )
+                continue;
+
+            $Path = \fw\Path::ToURLString($URL['Path']);
+            $URL = \fw\URL::ToString($URL);
+
+//            if( isset($GlobalPages[$Path]) )
+//                continue;
+
+            $Page = $jr->Juice($URL);
+
+//            $C = file_get_contents($URL);
+            $C = $aapi->POST('page_create',array('Path'=>$Path,'Name'=>$Handle,'Site_id'=>$Site['_id']));
+            $aapi->POST('page_set_status',array('Status'=>'Active','Page_id'=>$C['Data']['_id']));
+
+            $GlobalPages[$Path] = array('Raw'=>$Raw,'Linker'=>$Linker,'Handle'=>$Handle);
+        }
+
+        var_dump($GlobalAssets);
+        var_dump($GlobalPages);
+
+        exit;
+
     }
 
     public static function aj_site_export()
@@ -313,6 +379,8 @@ abstract class Console extends \fw\RoutineSet
         fw('html')->Connect($S,'S');
 
         fw('html')->Stack('jss_leftnav','jsready');
+
+        return $S;
     }
 
     protected static function InitPage( \MongoId $P )

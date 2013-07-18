@@ -3,6 +3,7 @@
    <?php foreach( $CL as $K => $C ): ?>
 <?php
 $Class = 'thumbicon';
+$Name = $C['Path'];
 if( strpos($C['Type'],'image/') === 0 )
 {
     $Src = asm('lp')->Link('ContentSrv').$C['Path'];
@@ -28,7 +29,7 @@ else
 
     <div class="pull-left item">
         <a href="<?=$lp('Content',">{$C['_id']}")?>">
-            <img title="<?=$Src?>" data-src="holder.js/160x120" src="<?=$Src?>" class="media-object <?=$Class?> replace_dropzone" data-contentid="<?=$C['_id']?>" alt="">
+            <img title="<?=$Name?>" data-src="holder.js/160x120" src="<?=$Src?>" class="media-object <?=$Class?> replace_dropzone" data-contentid="<?=$C['_id']?>" alt="">
         </a>
     </div>
        <?php endforeach; ?>

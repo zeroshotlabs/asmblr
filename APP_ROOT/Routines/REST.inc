@@ -349,6 +349,7 @@ class REST extends \fw\RoutineSet
             static::$Response = JSONResponse::Fail('Database error');
     }
 
+    // export/import requires --enable-zip compiled PHP
     protected static function site_export()
     {
         static::AuthSite(new \MongoId(\fw\Path::Bottom(static::$MatchPath)));

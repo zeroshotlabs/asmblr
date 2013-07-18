@@ -80,7 +80,7 @@
         <div class="import_dropzone span6">
             <div class="text-center span9">
                 <input class="input-block-level" type="text" placeholder="destination.domain.com" name="Domain">
-                <small class="help-block">specify destination domain and drag or browse a .zip file</small>
+                <small class="help-block">specify destination domain and drag or browse an exported .zip</small>
             </div>
             <div class="text-center span3">
                 <span title="import site from .zip file" class="btn btn-primary fileinput-button">
