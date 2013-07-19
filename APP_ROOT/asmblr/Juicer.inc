@@ -328,7 +328,11 @@ class Juicer
             // pages have an absolute path always
             $URL['Path']['IsAbs'] = TRUE;
             $PageName = pathinfo(\fw\Path::Bottom($URL['Path']),PATHINFO_FILENAME);
-            $PageName = strtolower($PageName);
+            // hardwired hack
+            if( empty($PageName) )
+                $PageName = 'Home';
+            else
+                $PageName = strtolower($PageName);
 
             return array('<?=$lp(\''.$PageName.'\')?>',$PageName,$URL);
         }
