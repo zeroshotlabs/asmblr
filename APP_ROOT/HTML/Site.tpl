@@ -13,9 +13,15 @@
             <a href="<?=$lp('aj_site_export',array('sid'=>(string)$S['_id']))?>" class="btn btn-block btn-success">Export Site</a>
         </div>
         </div>
+        <div class="row-fluid"><div class="span3"></div></div>
         <div class="row-fluid">
         <div class="span3">
-            <input type="text" name="SitePullURL" data-type="url" placeholder="http://site-to.import.com" />
+            <form action="<?=$lp('Juicer',">{$S['_id']}")?>" method="post">
+            <div class="input-append">
+                <input type="text" name="JuiceURL" data-type="url" placeholder="http://site-to.juice.com" />
+                <button class="btn" type="submit">Juice!</button>
+            </div>
+            </form>
         </div>
         </div>
     </div>

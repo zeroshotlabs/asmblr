@@ -87,29 +87,28 @@ abstract class Console extends \fw\RoutineSet
         fw('html')->Stack('jss_content_upload','jsready');
     }
 
+    // juicers an external site into the current site
     public static function Juicer()
     {
         if( !fw('page')->LoggedIn )
             fw('lp')->Go('Home');
 
-        fw('html')->ReMap('Base',NULL);
-
         $S = static::InitSite(new \MongoId(\fw\Request::Path(-1)));
 
-        fw('page')->ActiveNav = 'Site';
+        fw('page')->ActiveNav = 'ContentUpload';
+
 
         $aapi = new \asm\AAPIClient(fw('lr'));
-        $aapi->GET('site_delete',$_SESSION['sid']);
-        $Site = $aapi->POST('site_create',array('Domain'=>'www.new-york-divorce-attorney.com'))['Data'];
-        $_SESSION['sid'] = (string) $Site['_id'];
 
-        $jr = new \asm\Juicer(asm()->asmdb,$S['_id']);
-        $jr->Root('http://www.new-york-divorce-attorney.com',$aapi,$Site);
+//        $Site = $aapi->POST('site_create',array('Domain'=>'www.new-york-divorce-attorney.com'))['Data'];
+//        $_SESSION['sid'] = (string) $Site['_id'];
 
-        foreach( $jr->Pages as $P )
-        {
-            var_dump($P);
-        }
+        $jr = new \asm\Juicer($aapi);
+        $jr->Root($_POST['JuiceURL'],$S);
+
+        fw('page')->ContentURLs = array_keys($jr->Content);
+        fw('page')->PageURLs = array_keys($jr->Pages);
+
 return;
 
 

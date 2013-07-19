@@ -1,8 +1,11 @@
 <?php
 namespace asm;
 
-class Juicer extends DataSet
+class Juicer
+// extends DataSet
 {
+    protected $aapi;
+
     protected $RootURL = array();
     protected $RootURLStr = '';
 
@@ -17,10 +20,16 @@ class Juicer extends DataSet
     public $RootDomain = '';
     public $RootPath = '';
 
-    public $Assets = array();
+    public $Content = array();
     public $Pages = array();
 
 
+    public function __construct( \asm\AAPIClient $aapi )
+    {
+        $this->aapi = $aapi;
+    }
+
+/*
     public function __construct( \fw\MongoDB $MDB,\MongoId $Site_id )
     {
         parent::__construct($MDB,$Site_id,$this->Tag.$Site_id,'DirectiveSet');
@@ -28,10 +37,117 @@ class Juicer extends DataSet
         // Root() must be called before anything else
         $this->Tag = '';
     }
+*/
+
+    protected function CreateContent( $URL,$Site_id )
+    {
+        $URL['Path']['IsAbs'] = TRUE;
+        $Path = \fw\Path::ToURLString($URL['Path']);
+        $Body = file_get_contents(\fw\URL::ToString($URL));
+
+        // if .css check for embedded images and pull in - no Linker is set for these so they're left as is in the css
+        // this is hacked in here
+        if( strpos($Path,'.css') !== FALSE )
+        {
+            $Matches = array();
+            preg_match_all('/url\s*\(([^\)]+)\)/',$Body,$Matches);
+
+            if( !empty($Matches[1]) )
+            {
+                foreach( $Matches[1] as $V )
+                {
+                    \fw\Log::Sys($V);
+                    // csrv prefix is hardwired and there's no linker (since Content isn't currently rendered)
+                    $URL['Path'] = \fw\Path::Init('/csrv/'.$V);
+                    $CSSPath = \fw\Path::ToURLString($URL['Path']);
+
+                    $Link = preg_quote("({$V})",'/');
+                    $Body = preg_replace("/{$Link}/","({$CSSPath})",$Body);
+
+                    $URL['Path'] = \fw\Path::Init($V);
+                    $URL['Path']['IsAbs'] = TRUE;
+                    $ImgBody = file_get_contents(\fw\URL::ToString($URL));
+
+                    $URL['Path']['IsAbs'] = $URL['Path']['IsDir'] = FALSE;
+                    $ImgPath = \fw\Path::ToURLString($URL['Path']);
+
+                    $C = $this->aapi->POST('content_create',array('Path'=>$ImgPath,'Body'=>$ImgBody,'Site_id'=>$Site_id));
+                }
+            }
+        }
+
+        $C = $this->aapi->POST('content_create',array('Path'=>$Path,
+                                                      'Body'=>$Body,'Site_id'=>$Site_id));
+
+    }
+
+//     // assets are de-duped based on the fully qualified URL they are determined to live at
+//     // Raw and Handle are only kept for preg_replace() purposes
+//     protected function ProcessContent( $Content )
+//     {
+//         foreach( $Content as $Raw )
+//         {
+//             list($Linker,$Handle,$URL) = $this->URLr($Raw,'lc');
+
+//             if( empty($Linker) )
+//                 continue;
+
+//             $URLStr = \fw\URL::ToString($URL);
+
+//             if( isset($this->Content[$URLStr]) )
+//                 continue;
+
+//             $this->Content[$URLStr] = array('Raw'=>$Raw,'Linker'=>$Linker,'Handle'=>$Handle,'URL'=>$URL);
+//         }
+//     }
+
+    protected function CreatePage( $Path,$Name,$Title,$Description,$Keywords,$Template,$Site_id )
+    {
+        $P = $this->aapi->POST('page_create',array('Path'=>$Path,'Name'=>$Name,'Site_id'=>$Site_id));
+
+        if( $P['Status'] !== TRUE )
+        {
+            return $P['Msg'];
+        }
+
+        $P = $P['Data'];
+
+        $this->aapi->POST('template_create',array('Name'=>$Name,'Site_id'=>$Site_id,'Body'=>$Template));
+        $this->aapi->POST('page_set_directive',array('Name'=>'html','Key'=>'Base','Value'=>$Name,'Page_id'=>$P['_id']));
+
+        $this->aapi->POST('page_set_directive',array('Name'=>'page','Key'=>'Title','Value'=>$Title,'Page_id'=>$P['_id']));
+        $this->aapi->POST('page_set_directive',array('Name'=>'page','Key'=>'Description','Value'=>$Description,'Page_id'=>$P['_id']));
+        $this->aapi->POST('page_set_directive',array('Name'=>'page','Key'=>'Keywords','Value'=>$Keywords,'Page_id'=>$P['_id']));
+
+        $this->aapi->POST('page_set_status',array('Status'=>'Active','Page_id'=>$P['_id']));
+
+        return $P['Path'];
+    }
+
+//     protected function ProcessPages( $Pages )
+//     {
+//         foreach( $Pages as $Raw )
+//         {
+//             list($Linker,$Handle,$URL) = $this->URLr($Raw,'lp');
+
+//             if( empty($Linker) )
+//                 continue;
+
+//             $URLStr = \fw\URL::ToString($URL);
+
+//             if( $URLStr === $this->RootURLStr )
+//                 continue;
+
+//             if( isset($this->Pages[$URLStr]) )
+//                 continue;
+
+//             $this->Pages[$URLStr] = array('Raw'=>$Raw,'Linker'=>$Linker,'Handle'=>$Handle,'URL'=>$URL);
+//         }
+//     }
 
     // sets root URL used to determine whether other URLs are internal or external
     // sets Tag for storage of each page
-    public function Root( $URL,$aapi,$Site )
+    public function Root( $URL,$Site )
     {
         $this->RootURL = \fw\URL::Init($URL);
         $this->RootURLStr = \fw\URL::ToString($this->RootURL);
@@ -45,121 +161,44 @@ class Juicer extends DataSet
 
         $this->Tag = $this->RootDomain.$this->RootPath;
 
-        $this->Assets = $this->Pages = array();
+        $this->Content = $this->Pages = array();
 
         $J = $this->Juice($this->RootURLStr);
 
         // do the default directives for the site
-        $aapi->POST('site_set_directive',array('Name'=>'page','Key'=>'Title','Value'=>$J['Title'],'Site_id'=>$Site['_id']));
-        $aapi->POST('site_set_directive',array('Name'=>'page','Key'=>'Description','Value'=>$J['Description'],'Site_id'=>$Site['_id']));
-        $aapi->POST('site_set_directive',array('Name'=>'page','Key'=>'Keywords','Value'=>$J['Keywords'],'Site_id'=>$Site['_id']));
+        $this->aapi->POST('site_set_directive',array('Name'=>'page','Key'=>'Title','Value'=>$J['Title'],'Site_id'=>$Site['_id']));
+        $this->aapi->POST('site_set_directive',array('Name'=>'page','Key'=>'Description','Value'=>$J['Description'],'Site_id'=>$Site['_id']));
+        $this->aapi->POST('site_set_directive',array('Name'=>'page','Key'=>'Keywords','Value'=>$J['Keywords'],'Site_id'=>$Site['_id']));
 
-        // assets are de-duped based on the fully qualified URL they are determined to live at
-        // Raw and Handle are only kept for preg_replace() purposes
-        foreach( $J['Assets'] as $Raw )
-        {
-            list($Linker,$Handle,$URL) = $this->URLr($Raw,'lc');
-            if( empty($Linker) )
-                continue;
+        $this->CreateContentSrv($Site['_id']);
 
-            $URL['Path']['IsAbs'] = TRUE;
-            $URL = \fw\URL::ToString($URL);
+//        $this->ProcessContent($J['Assets']);
+//        $this->ProcessPages($J['Links']);
 
-            if( isset($this->Assets[$URL]) )
-                continue;
-
-            $C = $aapi->POST('content_create',array('Path'=>$Handle,'Body'=>file_get_contents($URL),'Site_id'=>$Site['_id']));
-
-            $this->Assets[$URL] = array('Raw'=>$Raw,'Linker'=>$Linker,'Handle'=>$Handle);
-        }
-
-        // now the magic begins
         $this->Screen($J);
+
+        $this->CreatePage('/','Home',$J['Title'],$J['Description'],$J['Keywords'],$J['HTML'],$Site['_id']);
 
         // obviously this process isn't complete, though it's been difficult to do the diff stuff
         // so we just pull the root and first level links, each as a Base template
-        $P = $aapi->POST('page_create',array('Path'=>'/','Name'=>'Home','Site_id'=>$Site['_id']))['Data'];
-        $aapi->POST('template_create',array('Home','Site_id'=>$Site['_id'],'Body'=>$J['HTML']));
-        $aapi->POST('page_set_directive',array('Name'=>'html','Key'=>'Base','Value'=>'Home','Page_id'=>$P['_id']));
-        $aapi->POST('page_set_status',array('Status'=>'Active','Page_id'=>$P['_id']));
-
-
-$Routine = <<<'_EO_ROUTINE_'
-// for URL direct delivery - this hard exits, sets headers, etc.
-
-ini_set('zlib.output_compression',FALSE);
-
-$MP = asm()->MatchPath;
-// need to be configurable somehow inline with csrv in asmboot
-$MP['Segments'] = array_slice($MP['Segments'],1);
-//$MP['IsDir'] = $MP['IsAbs'] = FALSE;
-//var_dump(\fw\Path::ToURLString($MP));
-
-$C = asm('content')->Match(asm()->SrvSite['_id'],$MP);
-if( empty($C) )
-{
-    \fw\HTTP::_404();
-}
-else
-{
-    if( $C['Status'] !== 'Active' )
-    {
-        \fw\HTTP::_404();
-    }
-    else
-    {
-        header("Content-Type: {$C['Type']}");
-        // var_dump($C['Length']);
-        // var_dump(strlen($C['Body']->bin));
-        // header("Content-Length: {$C['Length']}");
-        // TODO: honor disposition, cache, etc. from Meta
-        // TODO: optimize for x-sendfile, stream from mongo, etc.
-        if( is_object($C['Body']) )
-            echo $C['Body']->bin;
-        else
-            echo $C['Body'];
-    }
-}
-
-exit;
-
-_EO_ROUTINE_;
-
-        $P = $aapi->POST('page_create',array('Path'=>'/csrv/','Name'=>'ContentSrv','Site_id'=>$Site['_id']))['Data'];
-        $aapi->POST('page_set_routine',array('Routine'=>$Routine,'Page_id'=>$P['_id']));
-        $aapi->POST('page_set_status',array('Status'=>'Active','Page_id'=>$P['_id']));
-
         // for each of our "top-level" internal links, juice and screen each page
-        foreach( $J['Links'] as $Raw )
+        foreach( $this->Pages as $P )
         {
-            list($Linker,$Handle,$URL) = $this->URLr($Raw,'lp');
+            $J2 = $this->Juice(\fw\URL::ToString($P['URL']));
 
-            if( empty($Linker) )
-                continue;
-
-            $URLStr = \fw\URL::ToString($URL);
-
-            if( $URLStr === $this->RootURLStr )
-                continue;
-
-            if( isset($this->Pages[$URLStr]) )
-                continue;
-
-            $J2 = $this->Juice($URLStr);
+            // $this->ProcessContent($J2['Assets']);
+            // we don't crawl secondary links at this point
+            // $this->ProcessPages($J2['Links']);
 
             $this->Screen($J2);
 
-            var_dump($URLStr);
+            $this->CreatePage(\fw\Path::ToURLString($P['URL']['Path']),$P['Handle'],$J2['Title'],$J2['Description'],$J2['Keywords'],$J2['HTML'],$Site['_id']);
+        }
 
-            $P = $aapi->POST('page_create',array('Path'=>\fw\Path::ToURLString($URL['Path']),'Name'=>$Handle,'Site_id'=>$Site['_id']))['Data'];
-            $aapi->POST('template_create',array('Name'=>$Handle,'Site_id'=>$Site['_id'],'Body'=>$J2['HTML']));
-            $aapi->POST('page_set_directive',array('Name'=>'html','Key'=>'Base','Value'=>$Handle,'Page_id'=>$P['_id']));
-            $aapi->POST('page_set_status',array('Status'=>'Active','Page_id'=>$P['_id']));
-
-            $this->Pages[$URLStr] = array('Raw'=>$Raw,'Linker'=>$Linker,'Handle'=>$Handle);
-
-//            $d = $this->diff($J['HTML'],$J2['HTML']);
-
+        // and pull in all content that's been aggregated
+        foreach( $this->Content as $C )
+        {
+            $this->CreateContent($C['URL'],$Site['_id']);
         }
     }
 
@@ -216,10 +255,21 @@ _EO_ROUTINE_;
         }
 
         // and replace assets with our linker code
-        foreach( $this->Assets as $K => $V )
+        foreach( $Juiced['Assets'] as $Raw )
         {
-            $Raw = preg_quote("\"{$V['Raw']}\"",'/');
-            $Juiced['HTML'] = preg_replace("/{$Raw}/","\"{$V['Linker']}\"",$Juiced['HTML']);
+            list($Linker,$Handle,$URL) = $this->URLr($Raw,'lc');
+
+            // external link or bogus URL
+            if( empty($Linker) )
+                continue;
+
+            $Link = preg_quote("\"{$Raw}\"",'/');
+            $Juiced['HTML'] = preg_replace("/{$Link}/","\"{$Linker}\"",$Juiced['HTML']);
+
+            $URLStr = \fw\URL::ToString($URL);
+
+            if( !isset($this->Content[$URLStr]) )
+                $this->Content[$URLStr] = array('Raw'=>$Raw,'Linker'=>$Linker,'Handle'=>$Handle,'URL'=>$URL);
         }
 
         // and finally replace the links on the page with our linker code, which will become themselves pages
@@ -231,10 +281,16 @@ _EO_ROUTINE_;
             if( empty($Linker) )
                 continue;
 
-            $URL = \fw\URL::ToString($URL);
-
             $Link = preg_quote("\"{$Raw}\"",'/');
             $Juiced['HTML'] = preg_replace("/{$Link}/","\"{$Linker}\"",$Juiced['HTML']);
+
+            $URLStr = \fw\URL::ToString($URL);
+
+            if( $URLStr === $this->RootURLStr )
+                continue;
+
+            if( !isset($this->Pages[$URLStr]) )
+                $this->Pages[$URLStr] = array('Raw'=>$Raw,'Linker'=>$Linker,'Handle'=>$Handle,'URL'=>$URL);
         }
     }
 
@@ -244,7 +300,7 @@ _EO_ROUTINE_;
     {
         // leave empty or fragments alone
         if( empty($OURL) || $OURL[0] === '#' )
-            return array();
+            return array('','','');
 
         // leave protocol-relative links alone
         if( $OURL[0] === '/' && $OURL[1] === '/' )
@@ -382,6 +438,58 @@ _EO_ROUTINE_;
 
         $Page['HTML'] = $DOM->saveHTML();
         return $Page;
+    }
+
+    protected function CreateContentSrv( $Site_id )
+    {
+        $Routine = <<<'_EO_ROUTINE_'
+// for URL direct delivery - this hard exits, sets headers, etc.
+
+ini_set('zlib.output_compression',FALSE);
+
+$MP = asm()->MatchPath;
+// need to be configurable somehow inline with csrv in asmboot
+$MP['Segments'] = array_slice($MP['Segments'],1);
+//$MP['IsDir'] = $MP['IsAbs'] = FALSE;
+//var_dump(\fw\Path::ToURLString($MP));
+
+$C = asm('content')->Match(asm()->SrvSite['_id'],$MP);
+if( empty($C) )
+{
+    \fw\HTTP::_404();
+}
+else
+{
+    if( $C['Status'] !== 'Active' )
+    {
+        \fw\HTTP::_404();
+    }
+    else
+    {
+        header("Content-Type: {$C['Type']}");
+        // var_dump($C['Length']);
+        // var_dump(strlen($C['Body']->bin));
+        // header("Content-Length: {$C['Length']}");
+        // TODO: honor disposition, cache, etc. from Meta
+        // TODO: optimize for x-sendfile, stream from mongo, etc.
+        if( is_object($C['Body']) )
+            echo $C['Body']->bin;
+        else
+            echo $C['Body'];
+    }
+}
+
+exit;
+
+_EO_ROUTINE_;
+
+
+        $P = $this->aapi->POST('page_create',array('Path'=>'/csrv/','Name'=>'ContentSrv','Site_id'=>$Site_id));
+        if( $P['Status'] === TRUE )
+        {
+            $this->aapi->POST('page_set_routine',array('Routine'=>$Routine,'Page_id'=>$P['Data']['_id']));
+            $this->aapi->POST('page_set_status',array('Status'=>'Active','Page_id'=>$P['Data']['_id']));
+        }
     }
 }
 

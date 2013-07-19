@@ -69,6 +69,7 @@ class asmSrv extends \fw\App
         $GLOBALS['ASMAPP'] = $this;
 
         // hack - framewire complains during srv, but console then conflicts
+        // this apparently also makes fw() the same as asm() - this stuff needs review/docs
         if( empty($GLOBALS['FWAPP']) )
             $GLOBALS['FWAPP'] = $GLOBALS['ASMAPP'];
 
