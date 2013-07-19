@@ -19,7 +19,7 @@
             <form action="<?=$lp('Juicer',">{$S['_id']}")?>" method="post">
             <div class="input-append">
                 <input type="text" name="JuiceURL" data-type="url" placeholder="http://site-to.juice.com" />
-                <button class="btn" type="submit">Juice!</button>
+                <button class="btn btn-primary" type="submit">Juice!</button>
             </div>
             </form>
         </div>

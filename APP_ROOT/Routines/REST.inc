@@ -993,6 +993,8 @@ class REST extends \fw\RoutineSet
             static::$Response = JSONResponse::Fail('Database error');
     }
 
+// encoding issues re json_encode warnings will need to be dealt with here, and template,
+// and in general
     protected static function content_read()
     {
         static::AuthContent(new \MongoId(\fw\Path::Bottom(static::$MatchPath)));

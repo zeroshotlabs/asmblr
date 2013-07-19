@@ -265,7 +265,7 @@ class fwApp extends \fw\App
     public $SysOp = 'asmblr@stackware.com';
     public $LogPublic = FALSE;
 
-    public static $ConsoleDomain = 'asmblr.local';
+    public static $ConsoleDomain = '1.asmsrv.co';
 
 
     // minimize internal startup
@@ -457,6 +457,7 @@ if( fwApp::$ConsoleDomain === $Domain )
 else
 {
     $asm = new asmSrv;
+
     // an unknown domain
     if( $asm->GetSet($Domain,Request::Init()) === FALSE )
         \fw\HTTP::_400();

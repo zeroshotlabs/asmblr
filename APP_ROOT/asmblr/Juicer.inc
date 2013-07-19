@@ -78,8 +78,10 @@ class Juicer
 
         $C = $this->aapi->POST('content_create',array('Path'=>$Path,
                                                       'Body'=>$Body,'Site_id'=>$Site_id));
-
+                                                      
+        return "Content OK: {$Path}";
     }
+    
 
 //     // assets are de-duped based on the fully qualified URL they are determined to live at
 //     // Raw and Handle are only kept for preg_replace() purposes
@@ -106,9 +108,7 @@ class Juicer
         $P = $this->aapi->POST('page_create',array('Path'=>$Path,'Name'=>$Name,'Site_id'=>$Site_id));
 
         if( $P['Status'] !== TRUE )
-        {
-            return $P['Msg'];
-        }
+            return "Page Error: {$P['Msg']} ({$Path})";
 
         $P = $P['Data'];
 
@@ -121,7 +121,7 @@ class Juicer
 
         $this->aapi->POST('page_set_status',array('Status'=>'Active','Page_id'=>$P['_id']));
 
-        return $P['Path'];
+        return "Page OK: {$Path}";
     }
 
 //     protected function ProcessPages( $Pages )
@@ -149,6 +149,9 @@ class Juicer
     // sets Tag for storage of each page
     public function Root( $URL,$Site )
     {
+        // dangerous!
+        set_time_limit(0);
+        
         $this->RootURL = \fw\URL::Init($URL);
         $this->RootURLStr = \fw\URL::ToString($this->RootURL);
 
@@ -192,13 +195,17 @@ class Juicer
 
             $this->Screen($J2);
 
-            $this->CreatePage(\fw\Path::ToURLString($P['URL']['Path']),$P['Handle'],$J2['Title'],$J2['Description'],$J2['Keywords'],$J2['HTML'],$Site['_id']);
+            $R = $this->CreatePage(\fw\Path::ToURLString($P['URL']['Path']),$P['Handle'],$J2['Title'],$J2['Description'],$J2['Keywords'],$J2['HTML'],$Site['_id']);
+            
+            \fw\Log::Sys($R);
         }
 
         // and pull in all content that's been aggregated
         foreach( $this->Content as $C )
         {
-            $this->CreateContent($C['URL'],$Site['_id']);
+            $R = $this->CreateContent($C['URL'],$Site['_id']);
+
+            \fw\Log::Sys($R);
         }
     }
 
@@ -298,8 +305,10 @@ class Juicer
     // and replace with proper $Linker ($lp, $lc) - $Linker is just a string
     public function URLr( $OURL,$Linker )
     {
+        $OURL = trim($OURL);
+        
         // leave empty or fragments alone
-        if( empty($OURL) || $OURL[0] === '#' )
+        if( empty($OURL) || $OURL[0] === '#' || strpos($OURL,'javascript:') !== FALSE )
             return array('','','');
 
         // leave protocol-relative links alone
@@ -440,7 +449,7 @@ class Juicer
                 $Page['Assets'][] = $V->value;
         }
 
-        $Page['HTML'] = $DOM->saveHTML();
+        $Page['HTML'] = utf8_encode($DOM->saveHTML());
         return $Page;
     }
 

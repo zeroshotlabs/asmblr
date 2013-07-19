@@ -90,7 +90,6 @@ class TemplateSet extends MongoSet
     {
         $T['_id'] = new \MongoId;
         $this->MDC->insert($T);
-
         $this->Templates[$T['Name']] = $T;
     }
 
