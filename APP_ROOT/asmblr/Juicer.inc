@@ -9,8 +9,9 @@ class Juicer
     protected $RootURL = array();
     protected $RootURLStr = '';
 
-    // set to the root URL
-    protected $Tag = '';
+    protected $RunID = '';
+
+    protected $LOG;
 
     protected $TidyConfig = array('wrap'=>0,'output-html'=>TRUE,'indent'=>FALSE,'indent-spaces'=>4,'vertical-space'=>TRUE,
                                   'char-encoding'=>'utf8','output-bom'=>FALSE);
@@ -45,21 +46,32 @@ class Juicer
         $this->RootDomain = \fw\URL::Hostname($this->RootURL);
         $this->RootPath = \fw\URL::Path($this->RootURL);
 
+        $this->RunID = $this->RootDomain.'_'.\time();
+
         $this->Tag = $this->RootDomain.$this->RootPath;
 
         $this->Content = $this->Pages = array();
 
-        $CrawlDir = '/tmp/'.$this->RootDomain.'_'.\time();
+        $CrawlDir = "/tmp/{$this->RunID}";
+        $this->LOG = fopen("/tmp/{$this->RunID}.log",'w');
+
+        \fw\Log::Sys("LOGGING TO /tmp/{$this->RunID}.log");
 
         $this->aapi->POST('site_set_status',array('Status'=>'Juicing','Site_id'=>$Site['_id']));
 
         \fw\Log::Sys('Running wget...');
 
+        fwrite($this->LOG,"\n\nCRAWL: wget -S -nv -r -l 1 -p -nH -E -P $CrawlDir {$this->RootURLStr} 2>&1");
+
         $O = array();
         exec("wget -S -nv -r -l 1 -p -nH -E -P $CrawlDir {$this->RootURLStr} 2>&1",$O);
+
+        fwrite($this->LOG,"\n\n".implode("\n",$O));
+
 //$_SESSION['O'] = $O;
 //$O = $_SESSION['O'];
 //var_dump($O);
+
         $LastBuf = array();
         foreach( $O as $K => $V )
         {
@@ -101,6 +113,8 @@ class Juicer
                     // using handle probably overwrites cases like /about/contactus and /contactus
                     // handle possibly should contain all segments separated by underscore
                     $this->Pages[$Handle] = $LastBuf;
+
+                    fwrite($this->LOG,"\n\nPAGE: {$Linker} ".\fw\URL::ToString($URL));
                 }
                 // content
                 else
@@ -111,6 +125,8 @@ class Juicer
                     $LastBuf['URL'] = $URL;
 
                     $this->Content[$Handle] = $LastBuf;
+
+                    fwrite($this->LOG,"\n\nCONTENT: {$Linker} ".\fw\URL::ToString($URL));
                 }
 
                 $LastBuf = array();
@@ -138,7 +154,9 @@ class Juicer
             }
             else if( count($Page['URL']['Path']['Segments']) === 1 )
             {
+                fwrite($this->LOG,"\n\nBASE DIFF PAGE {$Page['LocalPath']}");
                 $Page['Blocks'] = $this->diff($BaseHTML,file_get_contents($Page['LocalPath']));
+                fwrite($this->LOG,"\n\n".\fw\Debug::Dump($Page['Blocks']));
 
                 // determine maxes of blocks and aggregate line changes
                 foreach( $Page['Blocks'] as $K => $B )
@@ -194,7 +212,7 @@ class Juicer
             $PageHTML = file_get_contents($Page['LocalPath']);
             $PageHTMLLines = explode("\n",$PageHTML);
 
-            // need detection of tiny files, like robots.txt
+            // need detection of tiny or crazy different files, like robots.txt
 
             $Blocks = $this->diff($BaseHTML,$PageHTML);
 
@@ -212,6 +230,8 @@ class Juicer
                     $this->aapi->POST('template_create',array('Name'=>$Page['Handle'].$K,'Site_id'=>$Site['_id'],'Body'=>$L));
                     $this->aapi->POST('page_set_directive',array('Name'=>'html','Key'=>"Base{$K}",'Value'=>$Page['Handle'].$K,'Page_id'=>$P['_id']));
                 }
+                else
+                    fwrite($this->LOG,"\n\nSKIPPED BLOCK $K");
             }
 
             \fw\Log::Sys("Page OK: {$Page['LocalPath']}");
@@ -243,7 +263,7 @@ class Juicer
 
             $PathStr = \fw\Path::ToURLString($Content['URL']['Path']);
 
-            $C = $this->CreateContent($PathStr,file_get_contents($Content['LocalPath']),$Site['_id']);
+            $C = $this->CreateContent($PathStr,'',$Site['_id'],$Content['LocalPath']);
             if( empty($C) )
                 continue;
 
@@ -388,7 +408,7 @@ exit;
         $HTML = trim(file_get_contents($Page['LocalPath']));
         \fw\Struct::ToUTF8($HTML);
 
-        // if there are no tags, don't do anything except write back "HTML"
+        // if there are no tags, don't do anything except write back the content
         if( stripos($HTML,'<html') === FALSE && stripos($HTML,'<body') === FALSE )
         {
             file_put_contents($Page['LocalPath'],$HTML);
@@ -468,6 +488,7 @@ exit;
         }
 
         // and finally replace the links on the page with our linker code, which will become themselves pages
+        // handles both single/double quotes as ='' or =""
         foreach( $PageLinks as $Raw )
         {
             list($Linker,$Handle,$URL) = $this->URLr($Raw,'lp');
@@ -475,11 +496,12 @@ exit;
             if( empty($Linker) || empty($this->Pages[$Handle]['Linker']) )
                 continue;
 
-            $Link = preg_quote("\"{$Raw}\"",'/');
-            $HTML = preg_replace("/{$Link}/","\"{$this->Pages[$Handle]['Linker']}\"",$HTML);
+            $Link = preg_quote("{$Raw}",'/');
+            $HTML = preg_replace(array("/=\"{$Link}\"/","/='{$Link}'/"),array("=\"{$this->Pages[$Handle]['Linker']}\"","='{$this->Pages[$Handle]['Linker']}'"),$HTML);
         }
 
         // normalize links to content/pages and put in our linker, based on Handles of our crawled pages/content
+        // ditto matching as above
         foreach( $ContentLinks as $Raw )
         {
             list($Linker,$Handle,$URL) = $this->URLr($Raw,'lc');
@@ -487,8 +509,8 @@ exit;
             if( empty($Linker) || empty($this->Content[$Handle]['Linker']) )
                 continue;
 
-            $Link = preg_quote("\"{$Raw}\"",'/');
-            $HTML = preg_replace("/{$Link}/","\"{$this->Content[$Handle]['Linker']}\"",$HTML);
+            $Link = preg_quote("{$Raw}",'/');
+            $HTML = preg_replace(array("/=\"{$Link}\"/","/='{$Link}'/"),array("=\"{$this->Content[$Handle]['Linker']}\"","='{$this->Content[$Handle]['Linker']}'"),$HTML);
         }
 
         file_put_contents($Page['LocalPath'],$HTML);
@@ -564,7 +586,11 @@ exit;
 
         $P = proc_open('diff -i -w -B --strip-trailing-cr -d -U 0 /dev/fd/3 /dev/fd/4',$FDS,$PIPES);
 
-        $Diff = explode("\n",stream_get_contents($PIPES[1]));
+        $Diff = stream_get_contents($PIPES[1]);
+        fwrite($this->LOG,"\n\n".$Diff);
+
+        $Diff = explode("\n",$Diff);
+
         $Chunks = array();
         foreach( $Diff as $K => $L )
         {
@@ -669,20 +695,15 @@ exit;
         return $h;
     }
 
-    protected function CreateContent( $Path,$Body,$Site_id )
+    // this uses curlfile if LocalPath is specified in which case Body is ignored and multipart encode upload is done
+    protected function CreateContent( $Path,$Body,$Site_id,$LocalPath = '' )
     {
-        // horrid hack for recent curl "The usage of the @filename API " message
-        // not sure why it happens here, but not elsewhere, i.e. console... hmm, maybe because only ajax?
-        // needs global review/fix - probably encoding again
-        $TFile = '/tmp/'.urlencode($Path).time();
-        file_put_contents($TFile,$Body);
-        $CF = curl_file_create($TFile);
+        if( !empty($LocalPath) )
+            $Body = curl_file_create($LocalPath);
+
         $C = $this->aapi->POST('content_create',array('Path'=>$Path,
                                                       'Body'=>$Body,'Site_id'=>$Site_id));
 
-        \fw\Log::Sys($this->aapi->GetInfo());
-
-        unlink($TFile);
 
 //         if( empty($C) )
 //         {
