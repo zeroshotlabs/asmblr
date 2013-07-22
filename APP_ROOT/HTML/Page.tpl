@@ -17,7 +17,7 @@
         </div>
     </div>
     <div class="tab-pane" id="raw_tab">
-        <textarea id="page_raw" name="Raw" data-method="page_set_raw" data-mode="text/x-php"><?=\asm\Page::ToPHP($P)?></textarea>
+        <textarea id="page_raw" name="Raw" data-method="page_set_raw" data-mode="text/x-php"><?=$this(\asm\Page::ToPHP($P))?></textarea>
     </div>
 </div>
 

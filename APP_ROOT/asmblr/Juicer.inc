@@ -12,9 +12,8 @@ class Juicer
     // set to the root URL
     protected $Tag = '';
 
-    protected $TidyConfig = array('wrap'=>0,'drop-empty-paras'=>FALSE,'merge-divs'=>FALSE,'enclose-block-text'=>TRUE,'enclose-text'=>TRUE,
-                             'output-html'=>TRUE,'indent'=>FALSE,'indent-spaces'=>4,'vertical-space'=>TRUE,
-                             'char-encoding'=>'utf8','markup'=>FALSE,'output-bom'=>FALSE);
+    protected $TidyConfig = array('wrap'=>0,'output-html'=>TRUE,'indent'=>FALSE,'indent-spaces'=>4,'vertical-space'=>TRUE,
+                                  'char-encoding'=>'utf8','output-bom'=>FALSE);
 
     public $RootScheme = '';
     public $RootDomain = '';
@@ -23,127 +22,11 @@ class Juicer
     public $Content = array();
     public $Pages = array();
 
-
+    // Root() must be called before anything else
     public function __construct( \asm\AAPIClient $aapi )
     {
         $this->aapi = $aapi;
     }
-
-/*
-    public function __construct( \fw\MongoDB $MDB,\MongoId $Site_id )
-    {
-        parent::__construct($MDB,$Site_id,$this->Tag.$Site_id,'DirectiveSet');
-
-        // Root() must be called before anything else
-        $this->Tag = '';
-    }
-*/
-
-    protected function CreateContent( $URL,$Site_id )
-    {
-        $URL['Path']['IsAbs'] = TRUE;
-        $Path = \fw\Path::ToURLString($URL['Path']);
-        $Body = file_get_contents(\fw\URL::ToString($URL));
-
-        // if .css check for embedded images and pull in - no Linker is set for these so they're left as is in the css
-        // this is hacked in here
-        if( strpos($Path,'.css') !== FALSE )
-        {
-            $Matches = array();
-            preg_match_all('/url\s*\(([^\)]+)\)/',$Body,$Matches);
-
-            if( !empty($Matches[1]) )
-            {
-                foreach( $Matches[1] as $V )
-                {
-                    \fw\Log::Sys($V);
-                    // csrv prefix is hardwired and there's no linker (since Content isn't currently rendered)
-                    $URL['Path'] = \fw\Path::Init('/csrv/'.$V);
-                    $CSSPath = \fw\Path::ToURLString($URL['Path']);
-
-                    $Link = preg_quote("({$V})",'/');
-                    $Body = preg_replace("/{$Link}/","({$CSSPath})",$Body);
-
-                    $URL['Path'] = \fw\Path::Init($V);
-                    $URL['Path']['IsAbs'] = TRUE;
-                    $ImgBody = file_get_contents(\fw\URL::ToString($URL));
-
-                    $URL['Path']['IsAbs'] = $URL['Path']['IsDir'] = FALSE;
-                    $ImgPath = \fw\Path::ToURLString($URL['Path']);
-
-                    $C = $this->aapi->POST('content_create',array('Path'=>$ImgPath,'Body'=>$ImgBody,'Site_id'=>$Site_id));
-                }
-            }
-        }
-
-        $C = $this->aapi->POST('content_create',array('Path'=>$Path,
-                                                      'Body'=>$Body,'Site_id'=>$Site_id));
-                                                      
-        return "Content OK: {$Path}";
-    }
-    
-
-//     // assets are de-duped based on the fully qualified URL they are determined to live at
-//     // Raw and Handle are only kept for preg_replace() purposes
-//     protected function ProcessContent( $Content )
-//     {
-//         foreach( $Content as $Raw )
-//         {
-//             list($Linker,$Handle,$URL) = $this->URLr($Raw,'lc');
-
-//             if( empty($Linker) )
-//                 continue;
-
-//             $URLStr = \fw\URL::ToString($URL);
-
-//             if( isset($this->Content[$URLStr]) )
-//                 continue;
-
-//             $this->Content[$URLStr] = array('Raw'=>$Raw,'Linker'=>$Linker,'Handle'=>$Handle,'URL'=>$URL);
-//         }
-//     }
-
-    protected function CreatePage( $Path,$Name,$Title,$Description,$Keywords,$Template,$Site_id )
-    {
-        $P = $this->aapi->POST('page_create',array('Path'=>$Path,'Name'=>$Name,'Site_id'=>$Site_id));
-
-        if( $P['Status'] !== TRUE )
-            return "Page Error: {$P['Msg']} ({$Path})";
-
-        $P = $P['Data'];
-
-        $this->aapi->POST('template_create',array('Name'=>$Name,'Site_id'=>$Site_id,'Body'=>$Template));
-        $this->aapi->POST('page_set_directive',array('Name'=>'html','Key'=>'Base','Value'=>$Name,'Page_id'=>$P['_id']));
-
-        $this->aapi->POST('page_set_directive',array('Name'=>'page','Key'=>'Title','Value'=>$Title,'Page_id'=>$P['_id']));
-        $this->aapi->POST('page_set_directive',array('Name'=>'page','Key'=>'Description','Value'=>$Description,'Page_id'=>$P['_id']));
-        $this->aapi->POST('page_set_directive',array('Name'=>'page','Key'=>'Keywords','Value'=>$Keywords,'Page_id'=>$P['_id']));
-
-        $this->aapi->POST('page_set_status',array('Status'=>'Active','Page_id'=>$P['_id']));
-
-        return "Page OK: {$Path}";
-    }
-
-//     protected function ProcessPages( $Pages )
-//     {
-//         foreach( $Pages as $Raw )
-//         {
-//             list($Linker,$Handle,$URL) = $this->URLr($Raw,'lp');
-
-//             if( empty($Linker) )
-//                 continue;
-
-//             $URLStr = \fw\URL::ToString($URL);
-
-//             if( $URLStr === $this->RootURLStr )
-//                 continue;
-
-//             if( isset($this->Pages[$URLStr]) )
-//                 continue;
-
-//             $this->Pages[$URLStr] = array('Raw'=>$Raw,'Linker'=>$Linker,'Handle'=>$Handle,'URL'=>$URL);
-//         }
-//     }
 
     // sets root URL used to determine whether other URLs are internal or external
     // sets Tag for storage of each page
@@ -151,7 +34,7 @@ class Juicer
     {
         // dangerous!
         set_time_limit(0);
-        
+
         $this->RootURL = \fw\URL::Init($URL);
         $this->RootURLStr = \fw\URL::ToString($this->RootURL);
 
@@ -166,154 +49,254 @@ class Juicer
 
         $this->Content = $this->Pages = array();
 
-        $J = $this->Juice($this->RootURLStr);
+        $CrawlDir = '/tmp/'.$this->RootDomain.'_'.\time();
 
-        // do the default directives for the site
-        $this->aapi->POST('site_set_directive',array('Name'=>'page','Key'=>'Title','Value'=>$J['Title'],'Site_id'=>$Site['_id']));
-        $this->aapi->POST('site_set_directive',array('Name'=>'page','Key'=>'Description','Value'=>$J['Description'],'Site_id'=>$Site['_id']));
-        $this->aapi->POST('site_set_directive',array('Name'=>'page','Key'=>'Keywords','Value'=>$J['Keywords'],'Site_id'=>$Site['_id']));
+        $this->aapi->POST('site_set_status',array('Status'=>'Juicing','Site_id'=>$Site['_id']));
+
+        \fw\Log::Sys('Running wget...');
+
+        $O = array();
+        exec("wget -S -nv -r -l 1 -p -nH -E -P $CrawlDir {$this->RootURLStr} 2>&1",$O);
+//$_SESSION['O'] = $O;
+//$O = $_SESSION['O'];
+//var_dump($O);
+        $LastBuf = array();
+        foreach( $O as $K => $V )
+        {
+            if( stripos($V,'FINISHED ') === 0 )
+            {
+                break;
+            }
+            else if( stripos($V,'Content-Type:') !== FALSE )
+            {
+                $LastBuf['ContentType'] = trim(substr($V,15));
+            }
+            else if( $V[0] !== ' ' && strpos($V,'URL:') !== FALSE )
+            {
+                $M = array();
+                $R = preg_match('/URL:(.*?) /',$V,$M);
+                if( $R === 1 )
+                    $LastBuf['URL'] = trim($M[1]);
+
+                $M = array();
+                $R = preg_match('/\"(.*?)\"/',$V,$M);
+                if( $R === 1 )
+                    $LastBuf['LocalPath'] = trim($M[1]);
+
+//                 // usually something like a 404
+//                 if( empty($LastBuf['ContentType']) )
+//                 {
+//                     \fw\Log::Sys($V);
+//                     continue;
+//                 }
+
+                // a page
+                if( stripos($LastBuf['ContentType'],'text/html') !== FALSE )
+                {
+                    list($Linker,$Handle,$URL) = $this->URLr($LastBuf['URL'],'lp');
+                    $LastBuf['Linker'] = $Linker;
+                    $LastBuf['Handle'] = $Handle;
+                    $LastBuf['URL'] = $URL;
+
+                    // using handle probably overwrites cases like /about/contactus and /contactus
+                    // handle possibly should contain all segments separated by underscore
+                    $this->Pages[$Handle] = $LastBuf;
+                }
+                // content
+                else
+                {
+                    list($Linker,$Handle,$URL) = $this->URLr($LastBuf['URL'],'lc');
+                    $LastBuf['Linker'] = $Linker;
+                    $LastBuf['Handle'] = $Handle;
+                    $LastBuf['URL'] = $URL;
+
+                    $this->Content[$Handle] = $LastBuf;
+                }
+
+                $LastBuf = array();
+            }
+            // anything else is probably a failed request like 404
+        }
+
+        // normalize all crawled pages
+        // establish the Base page as the first HTML content type encountered (could also check Path I guess)
+        // if a page is first-level (1 path segment and not root) diff it
+        $Base = $BaseHTML = $BaseHTMLLines = NULL;
+        // we want to figure out the max length for each block which will become templates
+        $TemplateBlocks = array();
+        // these are the line changes - always single line on Base but could map to multiple on children
+        $PageLines = array();
+        foreach( $this->Pages as &$Page )
+        {
+            $this->NormalizePage($Page);
+
+            if( empty($Base) && stripos($Page['ContentType'],'text/html') !== FALSE )
+            {
+                $Base = $Page;
+                $BaseHTML = file_get_contents($Page['LocalPath']);
+                $BaseHTMLLines = explode("\n",$BaseHTML);
+            }
+            else if( count($Page['URL']['Path']['Segments']) === 1 )
+            {
+                $Page['Blocks'] = $this->diff($BaseHTML,file_get_contents($Page['LocalPath']));
+
+                // determine maxes of blocks and aggregate line changes
+                foreach( $Page['Blocks'] as $K => $B )
+                {
+                    if( strpos($K,'Block') === 0 )
+                    {
+                        if( empty($TemplateBlocks[$K]) )
+                            $TemplateBlocks[$K] = $B;
+                        else if( $B[1] > $TemplateBlocks[$K][1] )
+                            $TemplateBlocks[$K] = $B;
+                    }
+                    else
+                    {
+                        // can this overwrite?
+                        $PageLines[$K] = $B;
+                    }
+                }
+            }
+        }
+
+        // the gold has been squeezed!  these are used to cut templates out of Base and subsequently
+        // compare (somehow) against all of the pages sites
+        // first inject single lines with $page since they won't change line numbering - we ignore lengths other than 1 for now
+        foreach( $PageLines as $K => $PL )
+        {
+            // implode("\n",array_slice($CS['Lines'],$C[2],$C[3]));
+            if( $PL[1] === 1 )
+            {
+                $Base['PageLines'][$K] = $BaseHTMLLines[$PL[0]+1];
+                $BaseHTMLLines[$PL[0]+1] = "<?=eval('?>'.\$page->Base{$K})?>";
+            }
+        }
+
+        // now do blocks
+        foreach( $TemplateBlocks as $K => $TB )
+        {
+            $T = array_splice($BaseHTMLLines,$TB[0]-1,$TB[1]+1,"<?php \$html->Base{$K}(); ?>");
+            $Base['TemplateBlocks'][$K] = implode("\n",$T);
+        }
+
+        $BaseHTML = implode("\n",$BaseHTMLLines);
+
+        // go through all pages, diffing and storing
+        // probably naming confusion between juicer pages and asmblr pages
+        foreach( $this->Pages as $Page )
+        {
+            $PathStr = \fw\Path::ToURLString($Page['URL']['Path']);
+
+            $P = $this->CreatePage($PathStr,$Page['Handle'],$Page['Title'],$Page['Description'],$Page['Keywords'],$Site['_id']);
+            if( empty($P) )
+                continue;
+
+            $PageHTML = file_get_contents($Page['LocalPath']);
+            $PageHTMLLines = explode("\n",$PageHTML);
+
+            // need detection of tiny files, like robots.txt
+
+            $Blocks = $this->diff($BaseHTML,$PageHTML);
+
+            // if a block/line isn't in Base, we skip it for now
+            foreach( $Blocks as $K => $B )
+            {
+                if( isset($Base['PageLines'][$K]) )
+                {
+                    $L = implode("\n",array_slice($PageHTMLLines,$B[0]+1,$B[3]));
+                    $this->aapi->POST('page_set_directive',array('Name'=>'page','Key'=>"Base{$K}",'Value'=>$L,'Page_id'=>$P['_id']));
+                }
+                else if( isset($Base['TemplateBlocks'][$K]) )
+                {
+                    $L = implode("\n",array_slice($PageHTMLLines,$B[2]-1,$B[3]+1));
+                    $this->aapi->POST('template_create',array('Name'=>$Page['Handle'].$K,'Site_id'=>$Site['_id'],'Body'=>$L));
+                    $this->aapi->POST('page_set_directive',array('Name'=>'html','Key'=>"Base{$K}",'Value'=>$Page['Handle'].$K,'Page_id'=>$P['_id']));
+                }
+            }
+
+            \fw\Log::Sys("Page OK: {$Page['LocalPath']}");
+
+/*
+            // no blocks so just store with Base template
+            if( $P['Blocks'] === FALSE )
+            {
+                $P = $this->CreatePage($PathStr,$Page['Handle'],$Page['Title'],$Page['Description'],$Page['Keywords'],$Site['_id']);
+                if( empty($P) )
+                    continue;
+
+                \fw\Log::Sys("Page OK: {$PathStr}");
+
+                $this->aapi->POST('template_create',array('Name'=>$Page['Handle'],'Site_id'=>$Site['_id'],'Body'=>$PageHTML));
+                $this->aapi->POST('page_set_directive',array('Name'=>'html','Key'=>'Base','Value'=>$Page['Handle'],'Page_id'=>$P['_id']));
+            }
+*/
+
+        }
+
+
+
+        // and pull in all content that's been aggregated - maybe more aggregation ... from CSS?
+        foreach( $this->Content as &$Content )
+        {
+            if( stripos($Content['ContentType'],'text/css') !== FALSE )
+                $this->NormalizeCSS($Content);
+
+            $PathStr = \fw\Path::ToURLString($Content['URL']['Path']);
+
+            $C = $this->CreateContent($PathStr,file_get_contents($Content['LocalPath']),$Site['_id']);
+            if( empty($C) )
+                continue;
+
+            \fw\Log::Sys("Content OK: {$Content['LocalPath']}");
+        }
+
+
+        // do site directives based on Base and create the Base template
+        $this->aapi->POST('site_set_directive',array('Name'=>'page','Key'=>'Title','Value'=>$Base['Title'],'Site_id'=>$Site['_id']));
+        $this->aapi->POST('site_set_directive',array('Name'=>'page','Key'=>'Description','Value'=>$Base['Description'],'Site_id'=>$Site['_id']));
+        $this->aapi->POST('site_set_directive',array('Name'=>'page','Key'=>'Keywords','Value'=>$Base['Keywords'],'Site_id'=>$Site['_id']));
+
+        $this->aapi->POST('template_create',array('Name'=>'Base','Site_id'=>$Site['_id'],'Body'=>$BaseHTML));
 
         $this->CreateContentSrv($Site['_id']);
 
-//        $this->ProcessContent($J['Assets']);
-//        $this->ProcessPages($J['Links']);
 
-        $this->Screen($J);
 
-        $this->CreatePage('/','Home',$J['Title'],$J['Description'],$J['Keywords'],$J['HTML'],$Site['_id']);
 
-        // obviously this process isn't complete, though it's been difficult to do the diff stuff
-        // so we just pull the root and first level links, each as a Base template
-        // for each of our "top-level" internal links, juice and screen each page
-        foreach( $this->Pages as $P )
-        {
-            $J2 = $this->Juice(\fw\URL::ToString($P['URL']));
 
-            // $this->ProcessContent($J2['Assets']);
-            // we don't crawl secondary links at this point
-            // $this->ProcessPages($J2['Links']);
+        var_dump(count($this->Pages));
 
-            $this->Screen($J2);
+        unlink($CrawlDir);
 
-            $R = $this->CreatePage(\fw\Path::ToURLString($P['URL']['Path']),$P['Handle'],$J2['Title'],$J2['Description'],$J2['Keywords'],$J2['HTML'],$Site['_id']);
-            
-            \fw\Log::Sys($R);
-        }
+exit;
 
-        // and pull in all content that's been aggregated
-        foreach( $this->Content as $C )
-        {
-            $R = $this->CreateContent($C['URL'],$Site['_id']);
+        var_dump($Base['PageLines']);
+        var_dump($Base['TemplateBlocks']);
 
-            \fw\Log::Sys($R);
-        }
-    }
+        var_dump($TemplateBlocks);
+        var_dump($PageLines);
 
-    protected function diff( $Parent,$Child )
-    {
-        $PFD = fopen('data://text/plain,'.$Parent,'r');
-        $CFD = fopen('data://text/plain,'.$Child,'r');
 
-        $FDS = array(
-           1 => array("pipe", "w"),
-           3 => $PFD,
-           4 => $CFD
-        );
+exit;
 
-        $P = proc_open('diff -y -W 200 --left-column  /dev/fd/3 /dev/fd/4',$FDS,$PIPES);
 
-        return stream_get_contents($PIPES[1]);
-    }
-
-    protected function normalize_buf( $buf )
-    {
-        $h = '';
-        foreach( explode("\n",str_replace(array("\r","\t"),array('',' '),$buf)) as $V )
-        {
-            $V = trim($V);
-            if( $V === '' )
-                continue;
-            else
-                $h .= trim($V)."\n";
-        }
-
-        return $h;
-    }
-
-    // standardize the HTML by replace title/desc/keywords, assets, and links with our placeholders and linkers
-    protected function Screen( &$Juiced )
-    {
-        if( !empty($Juiced['Title']) )
-        {
-            $Title = preg_quote("<title>{$Juiced['Title']}</title>",'/');
-            $Juiced['HTML'] = preg_replace("/$Title/",'<title><?=$this($page->Title)?></title>',$Juiced['HTML']);
-        }
-
-        if( !empty($Juiced['Description']) )
-        {
-            $Description = preg_quote("content=\"{$Juiced['Description']}\"",'/');
-            $Juiced['HTML'] = preg_replace("/{$Description}/",'content="<?=$this($page->Description)?>"',$Juiced['HTML']);
-        }
-
-        if( !empty($Juiced['Keywords']) )
-        {
-            $Keywords = preg_quote("content=\"{$Juiced['Keywords']}\"",'/');
-            $Juiced['HTML'] = preg_replace("/{$Keywords}/",'content="<?=$this($page->Keywords)?>"',$Juiced['HTML']);
-        }
-
-        // and replace assets with our linker code
-        foreach( $Juiced['Assets'] as $Raw )
-        {
-            list($Linker,$Handle,$URL) = $this->URLr($Raw,'lc');
-
-            // external link or bogus URL
-            if( empty($Linker) )
-                continue;
-
-            $Link = preg_quote("\"{$Raw}\"",'/');
-            $Juiced['HTML'] = preg_replace("/{$Link}/","\"{$Linker}\"",$Juiced['HTML']);
-
-            $URLStr = \fw\URL::ToString($URL);
-
-            if( !isset($this->Content[$URLStr]) )
-                $this->Content[$URLStr] = array('Raw'=>$Raw,'Linker'=>$Linker,'Handle'=>$Handle,'URL'=>$URL);
-        }
-
-        // and finally replace the links on the page with our linker code, which will become themselves pages
-        foreach( $Juiced['Links'] as $Raw )
-        {
-            list($Linker,$Handle,$URL) = $this->URLr($Raw,'lp');
-
-            // external link or bogus URL
-            if( empty($Linker) )
-                continue;
-
-            $Link = preg_quote("\"{$Raw}\"",'/');
-            $Juiced['HTML'] = preg_replace("/{$Link}/","\"{$Linker}\"",$Juiced['HTML']);
-
-            $URLStr = \fw\URL::ToString($URL);
-
-            if( $URLStr === $this->RootURLStr )
-                continue;
-
-            if( !isset($this->Pages[$URLStr]) )
-                $this->Pages[$URLStr] = array('Raw'=>$Raw,'Linker'=>$Linker,'Handle'=>$Handle,'URL'=>$URL);
-        }
     }
 
     // normalize URL (external/internal based on RootURL) and return proper linker code
     // and replace with proper $Linker ($lp, $lc) - $Linker is just a string
-    public function URLr( $OURL,$Linker )
+    protected function URLr( $OURL,$Linker )
     {
         $OURL = trim($OURL);
-        
+
         // leave empty or fragments alone
         if( empty($OURL) || $OURL[0] === '#' || strpos($OURL,'javascript:') !== FALSE )
             return array('','','');
 
         // leave protocol-relative links alone
-        if( $OURL[0] === '/' && $OURL[1] === '/' )
+        if( strpos($OURL,'//') === 0 )
             return array('',$OURL,$OURL);
+
+        // do we need to do anything special with just / ?
 
         $URL = \fw\URL::Init($OURL);
 
@@ -334,29 +317,45 @@ class Juicer
         // treat as page - drop the extension of filename and use as page name
         if( $Linker === 'lp' )
         {
-            // pages have an absolute path always
-            $URL['Path']['IsAbs'] = TRUE;
-            $PageName = pathinfo(\fw\Path::Bottom($URL['Path']),PATHINFO_FILENAME);
-            // hardwired hack
-            if( empty($PageName) )
-                $PageName = 'Home';
-            else
-                $PageName = strtolower($PageName);
-
-            return array('<?=$lp(\''.$PageName.'\')?>',$PageName,$URL);
+            $Handle = $this->Path2Handle($URL['Path'],'lp');
+            return array('<?=$lp(\''.$Handle.'\')?>',$Handle,$URL);
         }
         // treat as content - make path not abs/dir and use as content path/handle
         else if( $Linker === 'lc' )
         {
-            $URL['Path']['IsDir'] = $URL['Path']['IsAbs'] = FALSE;
-            $ContentPath = \fw\Path::ToURLString($URL['Path']);
-
-            return array('<?=$lc(\''.$ContentPath.'\')?>',$ContentPath,$URL);
+            $Handle = $this->Path2Handle($URL['Path'],'lc');
+            return array('<?=$lc(\''.$Handle.'\')?>',$Handle,$URL);
         }
         else
             throw new Exception("Don't know what $Linker is.");
     }
 
+    protected function Path2Handle( $Path,$Type )
+    {
+        if( $Type === 'lp' )
+        {
+            // hardwired hack which confuses external links to other home pages
+            if( $Path['IsRoot'] === TRUE )
+                return 'ROOT';
+
+            // pages have an absolute path always
+            $Path['IsAbs'] = TRUE;
+
+            $Segments = array();
+            foreach( $Path['Segments'] as $S )
+                $Segments[] = pathinfo($S,PATHINFO_FILENAME);
+
+            return strtolower(implode('_',$Segments));
+        }
+        else if( $Type === 'lc' )
+        {
+            // content are always relative and never a dir
+            $Path['IsDir'] = $Path['IsAbs'] = FALSE;
+            return \fw\Path::ToURLString($Path);
+        }
+        else
+            throw new Exception("Unknown Path2Handle() Type '$Type'");
+    }
 
     /**
      * juicing processes a URL, prepping for it to become a Page, Templates, and Content
@@ -368,35 +367,45 @@ class Juicer
      *      - store list of URLs as Structs
      *      - URLs are normalized as internal or external
      *
+     * normalizes a crawled HTML page (not a Page struct nessecarily)
      *
      * @param unknown $URL
      */
-    public function Juice( $URL )
+    protected function NormalizePage( &$Page )
     {
-        if( empty($this->Tag) )
-            throw new Exception('Call Root() first');
-
         // we ignore others, including content type, since asmblr will handle that
-        $Page = array('Title'=>'','Description'=>'','Keywords'=>'',
-                      'Assets'=>array(),'Links'=>array(),'HTML'=>'');
+        // the HTML is written back to disk, not stored in memory
+        $Page['Title'] = '';
+        $Page['Description'] = '';
+        $Page['Keywords'] = '';
+        // will hold our one liner changes
+        $Page['PageLines'] = array();
+        // will hold our template blocks
+        $Page['TemplateBlocks'] = array();
+
+        $PageLinks = $ContentLinks = array();
+
+        $HTML = trim(file_get_contents($Page['LocalPath']));
+        \fw\Struct::ToUTF8($HTML);
+
+        // if there are no tags, don't do anything except write back "HTML"
+        if( stripos($HTML,'<html') === FALSE && stripos($HTML,'<body') === FALSE )
+        {
+            file_put_contents($Page['LocalPath'],$HTML);
+            return;
+        }
+
+        $HTML = $this->normalize_buf($HTML);
 
         libxml_use_internal_errors(TRUE);
         $DOM = new \DOMDocument;
-//         $TR = new \tidy;
-//         $TR->parseString($DOM->saveHTML());
-//         // var_dump($TR->errorBuffer);
-//         $TR->cleanRepair();
-// //var_dump((string)$TR);
-// //var_dump($DOM->saveHTML());
-
         $DOM->strictErrorChecking = FALSE;
-        $DOM->preserveWhiteSpace = FALSE;
+        $DOM->preserveWhiteSpace = TRUE;
         $DOM->formatOutput = TRUE;
         $DOM->xmlStandalone = TRUE;
         $DOM->recover = TRUE;
         $DOM->resolveExternals = FALSE;
-        @$DOM->loadHTML($this->normalize_buf(file_get_contents($URL)));
-
+        @$DOM->loadHTML($HTML);
 
         $XPR = new \DOMXPath($DOM);
 
@@ -404,53 +413,315 @@ class Juicer
         foreach( $R as $V )
         {
             if( !empty($V->textContent) )
-                $Page['Title'] = $V->textContent;
+                $Page['Title'] = htmlentities($V->textContent);
+
+            $Title = preg_quote("<title>{$Page['Title']}</title>",'/');
+            $HTML = preg_replace("/$Title/",'<title><?=$this($page->Title)?></title>',$HTML);
         }
 
         $R = $XPR->query('//meta[@name="description"]/@content');
         foreach( $R as $V )
         {
             if( !empty($V->value) )
-                $Page['Description'] = $V->value;
+                $Page['Description'] = htmlentities($V->value);
+
+            $Description = preg_quote("content=\"{$Page['Description']}\"",'/');
+            $HTML = preg_replace("/{$Description}/",'content="<?=$this($page->Description)?>"',$HTML);
         }
 
         $R = $XPR->query('//meta[@name="keywords"]/@content');
         foreach( $R as $V )
         {
             if( !empty($V->value) )
-                $Page['Keywords'] = $V->value;
+                $Page['Keywords'] = htmlentities($V->value);
+
+            $Keywords = preg_quote("content=\"{$Page['Keywords']}\"",'/');
+            $HTML = preg_replace("/{$Keywords}/",'content="<?=$this($page->Keywords)?>"',$HTML);
         }
 
         $R = $XPR->query('//link[@rel="stylesheet"]/@href');
         foreach( $R as $V )
         {
             if( !empty($V->value) )
-                $Page['Assets'][] = $V->value;
+                $ContentLinks[] = $V->value;
         }
 
         $R = $XPR->query('//script/@src');
         foreach( $R as $V )
         {
             if( !empty($V->value) )
-                $Page['Assets'][] = $V->value;
+                $ContentLinks[] = $V->value;
         }
 
         $R = $XPR->query('//a/@href');
         foreach( $R as $V )
         {
             if( !empty($V->value) )
-                $Page['Links'][] = $V->value;
+                $PageLinks[] = $V->value;
         }
 
         $R = $XPR->query('//img/@src');
         foreach( $R as $V )
         {
             if( !empty($V->value) )
-                $Page['Assets'][] = $V->value;
+                $ContentLinks[] = $V->value;
         }
 
-        $Page['HTML'] = utf8_encode($DOM->saveHTML());
-        return $Page;
+        // and finally replace the links on the page with our linker code, which will become themselves pages
+        foreach( $PageLinks as $Raw )
+        {
+            list($Linker,$Handle,$URL) = $this->URLr($Raw,'lp');
+            // skip external links or unknown (previously uncrawled) pages
+            if( empty($Linker) || empty($this->Pages[$Handle]['Linker']) )
+                continue;
+
+            $Link = preg_quote("\"{$Raw}\"",'/');
+            $HTML = preg_replace("/{$Link}/","\"{$this->Pages[$Handle]['Linker']}\"",$HTML);
+        }
+
+        // normalize links to content/pages and put in our linker, based on Handles of our crawled pages/content
+        foreach( $ContentLinks as $Raw )
+        {
+            list($Linker,$Handle,$URL) = $this->URLr($Raw,'lc');
+            // skip external links or unknown (previously uncrawled) content
+            if( empty($Linker) || empty($this->Content[$Handle]['Linker']) )
+                continue;
+
+            $Link = preg_quote("\"{$Raw}\"",'/');
+            $HTML = preg_replace("/{$Link}/","\"{$this->Content[$Handle]['Linker']}\"",$HTML);
+        }
+
+        file_put_contents($Page['LocalPath'],$HTML);
+    }
+
+    protected function NormalizeCSS( &$Content )
+    {
+        $HTML = trim(file_get_contents($Content['LocalPath']));
+        \fw\Struct::ToUTF8($HTML);
+
+        $Matches = array();
+        preg_match_all('/url\s*\(([^\)]+)\)/',$HTML,$Matches);
+
+        if( empty($Matches[1]) )
+        {
+            file_put_contents($Content['LocalPath'],$HTML);
+            return;
+        }
+
+        foreach( $Matches[1] as $V )
+        {
+            // csrv prefix is hardwired and there's no linker (since Content isn't currently rendered)
+            // this probably needs to change somehow (maybe CSS are pages/templates)
+            $URL['Path'] = \fw\Path::Init('/csrv/'.$V);
+            $CSSPath = \fw\Path::ToURLString($URL['Path']);
+
+            $Link = preg_quote("({$V})",'/');
+            $HTML = preg_replace("/{$Link}/","({$CSSPath})",$HTML);
+        }
+
+        file_put_contents($Content['LocalPath'],$HTML);
+
+/*
+                $URL['Path'] = \fw\Path::Init($V);
+                $URL['Path']['IsAbs'] = TRUE;
+                $ImgBody = file_get_contents(\fw\URL::ToString($URL));
+
+                $URL['Path']['IsAbs'] = $URL['Path']['IsDir'] = FALSE;
+                $ImgPath = \fw\Path::ToURLString($URL['Path']);
+
+                $C = $this->aapi->POST('content_create',array('Path'=>$ImgPath,'Body'=>$ImgBody,'Site_id'=>$Site_id));
+*/
+    }
+
+    // yeah yeah - we're diffing actual files now, though being able to use strings is real handy
+    // returns a Blocks array, determined from Chunks
+    protected function diff( $Parent,$Child )
+    {
+        // actually not good since it urlencodes the data apparently
+//        $PFD = fopen('data://text/plain,'.$Parent,'r');
+//        $CFD = fopen('data://text/plain,'.$Child,'r');
+
+        $Blocks = array();
+
+        $Pct = \fw\Math::Percentage(strlen($Child),strlen($Parent));
+        // big difference between page size - dont bother (will get set as Base itself)
+        if( ((int) trim($Pct,'%')) < 3 )
+            return array();
+
+        $PFD = fopen('php://temp','rw');
+        fwrite($PFD,$Parent);
+
+        $CFD = fopen('php://temp','rw');
+        fwrite($CFD,$Child);
+
+        $FDS = array(
+           1 => array("pipe", "w"),
+           3 => $PFD,
+           4 => $CFD
+        );
+
+//        $P = proc_open('wdiff -3  /dev/fd/3 /dev/fd/4',$FDS,$PIPES);
+
+        $P = proc_open('diff -i -w -B --strip-trailing-cr -d -U 0 /dev/fd/3 /dev/fd/4',$FDS,$PIPES);
+
+        $Diff = explode("\n",stream_get_contents($PIPES[1]));
+        $Chunks = array();
+        foreach( $Diff as $K => $L )
+        {
+            if( in_array(substr($L,0,3),array('---','+++'),TRUE) )
+                continue;
+
+            if( substr($L,0,2) === '@@' )
+            {
+                $Chunk = array();
+                preg_match('/@@ \-(\d+),?(\d+)? \+(\d+),?(\d+){0,1} @@/',$L,$Chunk);
+                if( empty($Chunk[0]) )
+                {
+                    echo "\nInvalid chunk '{$L}'\n";
+                    continue;
+                }
+                else
+                {
+                    $Chunk = array((int)$Chunk[1],(int)($Chunk[2]===''?1:$Chunk[2]),(int)$Chunk[3],isset($Chunk[4])?(int)$Chunk[4]:1);
+                }
+
+                $Chunks[] = $Chunk;
+            }
+        }
+
+        $ChunkCount = count($Chunks);
+
+        // convert chunks to blocks as determine one liner changes and combine contiguous chunks
+        $Blocks = array();
+        for( $i = 0; $i < $ChunkCount; ++$i )
+        {
+            $Chunk = &$Chunks[$i];
+            if( empty($Chunk) )
+                continue;
+
+            // a one line change, or zero lines on the base
+            if( $Chunk[1] === 1 && $Chunk[3] === 1 || ($Chunk[1] === 0) )
+            {
+                // one line blocks are named as the line number they start on - can this overwrite an existing?
+                $Blocks["Line{$Chunk[0]}"] = $Chunk;
+            }
+            // same line but different length of change - start looking to combine contiguous
+            else if( $Chunk[0] === $Chunk[2] && $Chunk[1] !== $Chunk[3] )
+            {
+                for( $j = 1; ($i+$j) < $ChunkCount; )
+                {
+                    $Chunk2 = &$Chunks[$i+$j];
+                    if( $Chunk2[0] === ($Chunk[0]+$Chunk[1]+1) )
+                    {
+                        $Chunk[1] += ($Chunk2[1]+1);
+                        $Chunk[3] += ($Chunk2[3]+1);
+                        $Chunk2 = array();
+                        ++$j;
+                    }
+                    else
+                        break;
+                }
+
+                // can this ever overwrite an existing?
+                $Blocks["Block{$Chunk[0]}"] = $Chunk;
+            }
+            // so if there isn't a block with same starting lines between parent/child, this does nothing...?
+        }
+
+        return $Blocks;
+
+
+        // child, diff (each as arrays)
+//        return array(explode("\n",$Child),explode("\n",stream_get_contents($PIPES[1])));
+    }
+
+    protected function normalize_buf( $buf )
+    {
+/*
+ * // data:// isn't really good
+        $PFD = fopen('data://text/plain,'.$buf,'r');
+
+        $FDS = array(
+           0 => $PFD,
+           1 => array("pipe","w")
+        );
+
+        $P = proc_open('java -jar /usr/local/bin/tika-app-1.4.jar --html',$FDS,$PIPES);
+
+        $buf = stream_get_contents($PIPES[1]);
+*/
+
+        $TR = new \tidy;
+        $TR->parseString($buf,$this->TidyConfig);
+        $TR->cleanRepair();
+        $buf = (string) $TR;
+
+        $h = '';
+        foreach( explode("\n",str_replace(array("\r","\t"),array('',' '),$buf)) as $V )
+        {
+            $V = trim($V);
+            if( $V === '' )
+                continue;
+            else
+                $h .= $V."\n";
+        }
+
+        return $h;
+    }
+
+    protected function CreateContent( $Path,$Body,$Site_id )
+    {
+        // horrid hack for recent curl "The usage of the @filename API " message
+        // not sure why it happens here, but not elsewhere, i.e. console... hmm, maybe because only ajax?
+        // needs global review/fix - probably encoding again
+        $TFile = '/tmp/'.urlencode($Path).time();
+        file_put_contents($TFile,$Body);
+        $CF = curl_file_create($TFile);
+        $C = $this->aapi->POST('content_create',array('Path'=>$Path,
+                                                      'Body'=>$Body,'Site_id'=>$Site_id));
+
+        \fw\Log::Sys($this->aapi->GetInfo());
+
+        unlink($TFile);
+
+//         if( empty($C) )
+//         {
+//             var_dump($this->aapi->ConnectionError);
+
+//             var_dump($this->aapi->GetInfo());
+
+//             var_dump($this->aapi->Response);
+//         }
+
+
+        if( $C['Status'] !== TRUE )
+        {
+            \fw\Log::Sys("Content Error: {$C['Msg']} ({$Path})");
+            return array();
+        }
+
+        return $C;
+    }
+
+    protected function CreatePage( $Path,$Name,$Title,$Description,$Keywords,$Site_id )
+    {
+        $P = $this->aapi->POST('page_create',array('Path'=>$Path,'Name'=>$Name,'Site_id'=>$Site_id));
+
+        if( $P['Status'] !== TRUE )
+        {
+            \fw\Log::Sys("Page Error: {$P['Msg']} ({$Path})");
+            return array();
+        }
+
+        $P = $P['Data'];
+
+        $this->aapi->POST('page_set_directive',array('Name'=>'page','Key'=>'Title','Value'=>$Title,'Page_id'=>$P['_id']));
+        $this->aapi->POST('page_set_directive',array('Name'=>'page','Key'=>'Description','Value'=>$Description,'Page_id'=>$P['_id']));
+        $this->aapi->POST('page_set_directive',array('Name'=>'page','Key'=>'Keywords','Value'=>$Keywords,'Page_id'=>$P['_id']));
+
+        $this->aapi->POST('page_set_status',array('Status'=>'Active','Page_id'=>$P['_id']));
+
+        return $P;
     }
 
     protected function CreateContentSrv( $Site_id )
@@ -496,7 +767,6 @@ exit;
 
 _EO_ROUTINE_;
 
-
         $P = $this->aapi->POST('page_create',array('Path'=>'/csrv/','Name'=>'ContentSrv','Site_id'=>$Site_id));
         if( $P['Status'] === TRUE )
         {
@@ -504,6 +774,8 @@ _EO_ROUTINE_;
             $this->aapi->POST('page_set_status',array('Status'=>'Active','Page_id'=>$P['Data']['_id']));
         }
     }
+
+
 }
 
 /*
@@ -609,96 +881,63 @@ var_dump($Header['HTML']);exit;
 
 
 
-// uses DataSet to store directives in the DirectiveSet collection
-// this defines the tags for storing the different types of directives (site, page, etc)
-// this probably won't let two simultaneous listings of different pages/sites/etc
-// consistency checks? prevent DataSet methods from being called?
-// this is sort of messy and probably does way too many Refresh() calls
-class Directive22Set extends DataSet
-{
-    protected $SiteTag = 'DirectiveS_';
-    protected $PageTag = 'DirectiveP_';
-
-
-    public function SiteTag( $S )
-    {
-        $this->ReTag($this->SiteTag.$S['_id']);
-        $this->ReSite($S['_id']);
-        return $this;
-    }
-    public function SiteList( $S )
-    {
-        $this->SiteTag($S);
-        return $this;
-    }
-    public function SiteSet( $S,$D )
-    {
-        $this->SiteTag($S);
-        $this[] = $D;
-    }
-    public function SiteDelete( $S )
-    {
-        $this->SiteTag($S);
-
-        // this hack is required because DataSet is doing too many Refresh() etc as part of Delete
-        // and also iterating over a DataSet doesn't include _id (just Data) - perhaps this should change
-        // same in PageDelete
-        foreach( $this->Refresh() as $D )
-            $this->Delete($D);
-    }
-
-    public function PageTag( $P )
-    {
-        $this->ReTag($this->PageTag.$P['_id']);
-        $this->ReSite($P['Site_id']);
-        return $this;
-    }
-    public function PageList( $P )
-    {
-        $this->PageTag($P);
-        return $this;
-    }
-    public function PageSet( $P,$D )
-    {
-        $this->PageTag($P);
-        $this[] = $D;
-    }
-    public function PageDelete( $P )
-    {
-        $this->PageTag($P);
-
-        foreach( $this->Refresh() as $D )
-            $this->Delete($D);
 /*
-        // this hack is required because DataSet is doing too many Refresh() etc as part of Delete
-        $Ds = array();
-        foreach( $this as $D )
-            $Ds[] = $D;
-        foreach( $Ds as $D )
+    // standardize the HTML by replace title/desc/keywords, assets, and links with our placeholders and linkers
+    protected function Screen( &$Juiced )
+    {
+//        if( !empty($Juiced['Title']) )
+//        {
+//        }
+
+//        if( !empty($Juiced['Description']) )
+//        {
+//        }
+
+//        if( !empty($Juiced['Keywords']) )
+//        {
+//        }
+
+        // and replace assets with our linker code
+        // assets are de-duped based on the fully qualified URL they are determined to live at
+        foreach( $Juiced['Assets'] as &$Raw )
         {
-            llog($D);
-//            $this->Delete($D);
+            list($Linker,$Handle,$URL) = $this->URLr($Raw,'lc');
+
+            // external link or bogus URL
+            if( empty($Linker) )
+                continue;
+
+            $Link = preg_quote("\"{$Raw}\"",'/');
+            $Juiced['HTML'] = preg_replace("/{$Link}/","\"{$Linker}\"",$Juiced['HTML']);
+
+            $URLStr = \fw\URL::ToString($URL);
+
+//            if( !isset($this->Content[$URLStr]) )
+//                $this->Content[$URLStr] = array('Raw'=>$Raw,'Linker'=>$Linker,'Handle'=>$Handle,'URL'=>$URL);
+
+            $Raw = array('Raw'=>$Raw,'Linker'=>$Linker,'Handle'=>$Handle,'URL'=>$URL);
         }
-*/
+
+        // and finally replace the links on the page with our linker code, which will become themselves pages
+        foreach( $Juiced['Links'] as &$Raw )
+        {
+            list($Linker,$Handle,$URL) = $this->URLr($Raw,'lp');
+
+            // external link or bogus URL
+            if( empty($Linker) )
+                continue;
+
+            $Link = preg_quote("\"{$Raw}\"",'/');
+            $Juiced['HTML'] = preg_replace("/{$Link}/","\"{$Linker}\"",$Juiced['HTML']);
+
+            $URLStr = \fw\URL::ToString($URL);
+
+            if( $URLStr === $this->RootURLStr )
+                continue;
+
+//            if( !isset($this->Pages[$URLStr]) )
+//                $this->Pages[$URLStr] = array('Raw'=>$Raw,'Linker'=>$Linker,'Handle'=>$Handle,'URL'=>$URL);
+            $Raw = array('Raw'=>$Raw,'Linker'=>$Linker,'Handle'=>$Handle,'URL'=>$URL);
+        }
     }
-}
-
-
-
-
-/*
-    public static function SitePull()
-    {
-        if( !fw('page')->LoggedIn )
-            fw('lp')->Go('Home');
-
-        static::InitSite(new \MongoId(\fw\Request::Path(-1)));
-
-        fw('page')->ActiveNav = 'Site';
-//        fw('html')->Stack('jss_site','jsready');
-
-        fw('html')->ReMap('Base',NULL);
-    }
 */
-
-

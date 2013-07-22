@@ -36,7 +36,7 @@
         </div>
     </div>
     <div class="tab-pane" id="raw_tab">
-        <textarea id="site_raw" name="Raw" data-method="site_set_raw" data-mode="text/x-php"><?=\asm\Site::ToPHP($S)?></textarea>
+        <textarea id="site_raw" name="Raw" data-method="site_set_raw" data-mode="text/x-php"><?=$this(\asm\Site::ToPHP($S))?></textarea>
     </div>
 </div>
 

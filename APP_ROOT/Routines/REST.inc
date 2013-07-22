@@ -1293,7 +1293,14 @@ class AAPIClient
         curl_setopt($this->CH,CURLOPT_URL,$this->lr->Link($Routine));
         curl_setopt($this->CH,CURLOPT_POSTFIELDS,$Payload);
 
-        return $this->Exec();
+        $R = $this->Exec();
+        if( empty($R) )
+        {
+            \fw\Log::Sys($Payload);
+            \fw\Log::Sys($this->GetInfo());
+        }
+        else
+            return $R;
     }
 
     public function GetInfo()

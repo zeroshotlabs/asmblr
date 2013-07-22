@@ -6,7 +6,7 @@ abstract class v extends \fw\enUS
 {
     public static function Name( $N,&$H )
     {
-        if( static::Text($N,$H) && strlen($H[$N]) < 50 )
+        if( static::Text($N,$H) && strlen($H[$N]) < 150 )
             return TRUE;
         else
             return FALSE;
@@ -121,9 +121,10 @@ abstract class v extends \fw\enUS
     // for Name should be checking that value is known per REST::util_dir_names
     // since this works on the full $_POST and we then save to mongo, it should probably
     // screen-out any other variables that might be set
+    // Value is actually optional
     public static function Directive( &$H )
     {
-        if( !static::Text('Name',$H) || !static::Text('Key',$H) || !static::Textarea('Value',$H) )
+        if( !static::Text('Name',$H) || !static::Text('Key',$H) || !static::Textarea('Value',$H,FALSE) )
             return FALSE;
 
         if( !empty($H['D_id']) && !static::_id('D_id',$H) )

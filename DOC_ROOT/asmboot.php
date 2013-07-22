@@ -265,7 +265,7 @@ class fwApp extends \fw\App
     public $SysOp = 'asmblr@stackware.com';
     public $LogPublic = FALSE;
 
-    public static $ConsoleDomain = '1.asmsrv.co';
+    public static $ConsoleDomain = 'asmblr.local';
 
 
     // minimize internal startup

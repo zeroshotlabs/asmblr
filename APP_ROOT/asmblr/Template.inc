@@ -77,6 +77,91 @@ class TemplateSet extends MongoSet
         }
     }
 
+    public function __call( $Name,$Args )
+    {
+        if( isset($_SERVER[$this->DebugToken]) )
+        {
+            $E = \fw\Is::Arr(0,$Args)?$this->Connected+$Args[0]:$this->Connected;
+            $this->Extracts = array();
+            foreach( $E as $K => $V )
+            {
+                $this->Extracts[$K] = Is::What($V);
+                if( $this->Extracts[$K] === 'object' )
+                    $this->Extracts[$K] = get_class($V);
+            }
+
+            $BT = \fw\Debug::Backtrace();
+            // would be nice to determine calling template from eval()
+            $BT = current(\fw\Debug::BT2Str($BT,'__call'));
+
+            if( isset($this->Templates[$Name]) )
+            {
+                $T = $this->Templates[$Name];
+                $Buf = "\${$this->WiredAs}::{$Name} as {$T['Name']} called from {$BT}";
+                // make this noticeable if we're called from outside a template or stack
+                if( strpos($BT,'eval') === FALSE && strpos($BT,'Template.inc') === FALSE )
+                    $L = 'WARN';
+                else
+                    $L = 'LOG';
+            }
+            else
+            {
+                $Buf = "\${$this->WiredAs}::{$Name} as NULL RENDER called from {$BT}";
+                $L = 'LOG';
+            }
+
+            \fw\Log::Log($Buf,$L,NULL,$this->Extracts);
+        }
+
+        if( isset($this->Templates[$Name]) )
+        {
+            $RenderingTemplate = $this->Templates[$Name];
+
+            if( empty($RenderingTemplate['Routine']) )
+            {
+                extract(\fw\Is::Arr(0,$Args)?$this->Connected+$Args[0]:$this->Connected);
+
+                if( $Name === 'Base' )
+                {
+                    eval("?>{$RenderingTemplate['Body']}");
+                }
+                else
+                {
+                    echo "<div contenteditable=\"true\" class=\"asm-live-edit\" id=\"{$Name}\">";
+                    eval("?>{$RenderingTemplate['Body']}");
+                    echo "</div>";
+                }
+            }
+            else
+            {
+                if( $RenderingTemplate['Routine']['Type'] === 'Pointer' )
+                    $AllowRender = $RenderingTemplate['Routine'][0]::$RenderingTemplate['Routine'][1]();
+                else
+                    $AllowRender = eval($RenderingTemplate['Routine'][0]);
+
+                if( $AllowRender !== FALSE )
+                {
+                    extract(\fw\Is::Arr(0,$Args)===TRUE?$this->Connected+$Args[0]:$this->Connected);
+                    if( $Name === 'Base' )
+                    {
+                        eval("?>{$RenderingTemplate['Body']}");
+                    }
+                    else
+                    {
+                        echo "<div class=\"asm-live-edit\" id=\"{$Name}\">";
+                        eval("?>{$RenderingTemplate['Body']}");
+                        echo "</div>";
+                    }
+                }
+            }
+
+            if( $Name === 'Base' )
+            {
+                echo '<script src="/jslib/ckeditor/ckeditor.js"></script>';
+            }
+        }
+    }
+
     // see also PageSet::Load
     public function Load( \MongoId $S )
     {

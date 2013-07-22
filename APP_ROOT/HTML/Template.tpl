@@ -21,7 +21,7 @@
         </div>
     </div>
     <div class="tab-pane" id="raw_tab">
-        <textarea id="template_raw" name="Raw" data-method="template_set_raw" data-mode="text/x-php"><?=\asm\Template::ToPHP($T)?></textarea>
+        <textarea id="template_raw" name="Raw" data-method="template_set_raw" data-mode="text/x-php"><?=$this(\asm\Template::ToPHP($T))?></textarea>
     </div>
 </div>
 
