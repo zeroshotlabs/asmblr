@@ -195,6 +195,7 @@ return;
             if( !\fw\FileUpload::IsOk($FU) )
                 continue;
 
+            // may want to use CurlFile if curl throws warnings for some files
             $P['Body'] = file_get_contents($FU['TmpPath']);
 
             if( empty($_POST['Content_id']) )
@@ -215,9 +216,6 @@ return;
             {
                 $R = \asm\JSONResponse::Fail(empty($aapi->ConnectionError)?'Bad request':$aapi->ConnectionError);
                 fw('html')->Connect($R,'Response');
-                llog($P);
-//                llog($aapi->GetInfo());
-
                 return;
             }
             else

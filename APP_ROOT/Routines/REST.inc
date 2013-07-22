@@ -1011,54 +1011,27 @@ class REST extends \fw\RoutineSet
         else
             static::$Response = JSONResponse::Fail('Database error');
     }
-/*
-    protected static function content_create_blob()
-    {
-        if( !rv::Site_id() || !rv::Name() || !rv::Body() || !rv::ContentType() )
-            \fw\HTTP::_400();
 
-        if( !empty($_POST['Path']) )
-        {
-            if( !rv::Path() )
-                \fw\HTTP::_400();
-            else
-                $Path = $_POST['Path'];
-        }
-        else
-            $Path = '';
-
-        static::AuthSite(new \MongoId($_POST['Site_id']));
-
-        $C = Content::InitBlob(static::$Site['_id'],$_POST['Name'],$_POST['Body'],$Path,$_POST['Type']);
-
-        try
-        {
-            static::$cs->Create($C);
-            static::$Response = JSONResponse::Ok($C);
-        }
-        catch( \Exception $E )
-        {
-            if( static::$cs->IsDupeE($E) )
-                static::$Response = JSONResponse::Fail('Duplicate Name');
-            else
-                static::$Response = JSONResponse::Fail('Database error');
-        }
-    }
-*/
-
-    // this will not work for browser file uploads
+    // this will detect and handle a direct POST or a file upload (multipart/form-data via $_FILES)
+    // perhaps we should switch this to PUT?  also look at content_set_body
     protected static function content_create()
     {
-        if( !rv::Site_id() || !rv::Path() || !rv::Body() )
+        if( !rv::Site_id() || !rv::Path() || (!rv::Body() && !empty($_FILES['Body'])) )
             \fw\HTTP::_400();
 
         static::AuthSite(new \MongoId($_POST['Site_id']));
 
-        $C = Content::Init(static::$Site['_id'],$_POST['Path'],$_POST['Body']);
+        if( !empty($_FILES['Body']) )
+            $C = Content::Init(static::$Site['_id'],$_POST['Path'],file_get_contents($_FILES['Body']['tmp_name']));
+        else
+            $C = Content::Init(static::$Site['_id'],$_POST['Path'],$_POST['Body']);
 
         try
         {
             static::$cs->Create($C);
+            // recurring issue - json_encode() will die with binary body so we kill it for now
+            // needs attention for content_ready, set body, etc
+            $C['Body'] = 'NOT INCLUDED';
             static::$Response = JSONResponse::Ok($C);
         }
         catch( \Exception $E )
@@ -1069,29 +1042,6 @@ class REST extends \fw\RoutineSet
                 static::$Response = JSONResponse::Fail('Database error');
         }
     }
-
-/*
-    protected static function content_set_name()
-    {
-        if( !rv::Content_id() || !rv::Name() )
-            \fw\HTTP::_400();
-
-        static::AuthContent(new \MongoId($_POST['Content_id']));
-
-        try
-        {
-            static::$cs->SetName($_POST['Name'],static::$Content);
-            static::$Response = JSONResponse::Ok(static::$Content);
-        }
-        catch( \Exception $E )
-        {
-            if( static::$cs->IsDupeE($E) )
-                static::$Response = JSONResponse::Fail('Duplicate Name');
-            else
-                static::$Response = JSONResponse::Fail('Database error');
-        }
-    }
-*/
 
     protected static function content_set_path()
     {
