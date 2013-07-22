@@ -53,6 +53,7 @@ class Juicer
         $this->Content = $this->Pages = array();
 
         $CrawlDir = "/tmp/{$this->RunID}";
+        $WgetLog = "/tmp/{$this->RunID}_wget.log";
         $this->LOG = fopen("/tmp/{$this->RunID}.log",'w');
 
         \fw\Log::Sys("LOGGING TO /tmp/{$this->RunID}.log");
@@ -63,14 +64,10 @@ class Juicer
 
         fwrite($this->LOG,"\n\nCRAWL: wget -S -nv -r -l 1 -p -nH -E -P $CrawlDir {$this->RootURLStr} 2>&1");
 
-        $O = array();
-        exec("wget -S -nv -r -l 1 -p -nH -E -P $CrawlDir {$this->RootURLStr} 2>&1",$O);
+        exec("wget -S -nv -r -l 5 -p -nH -E -o $WgetLog -P $CrawlDir {$this->RootURLStr} 2>&1");
 
-        fwrite($this->LOG,"\n\n".implode("\n",$O));
-
-//$_SESSION['O'] = $O;
-//$O = $_SESSION['O'];
-//var_dump($O);
+        $O = file($WgetLog);
+//        fwrite($this->LOG,"\n\n".implode("\n",$O));
 
         $LastBuf = array();
         foreach( $O as $K => $V )
@@ -177,33 +174,59 @@ class Juicer
             }
         }
 
-        // the gold has been squeezed!  these are used to cut templates out of Base and subsequently
-        // compare (somehow) against all of the pages sites
-        // first inject single lines with $page since they won't change line numbering - we ignore lengths other than 1 for now
-        foreach( $PageLines as $K => $PL )
+        fwrite($this->LOG,"\n\nPAGE LINES:\n".\fw\Debug::Dump($PageLines));
+        fwrite($this->LOG,"\n\nTEMPLATE BLOCKS:\n".\fw\Debug::Dump($TemplateBlocks));
+
+        // if the source site is a mess, good blocks won't be generated and we'll want to just store everything as Base
+        if( empty($TemplateBlocks) )
         {
-            // implode("\n",array_slice($CS['Lines'],$C[2],$C[3]));
-            if( $PL[1] === 1 )
+            $BaseOnly = TRUE;
+        }
+        else
+        {
+            $TotalInsert = 0;
+            foreach( $TemplateBlocks as $TB )
+                $TotalInsert += $TB[1];
+
+            if( $TotalInsert < 20 && count($PageLines) > 5 )
+                $BaseOnly = TRUE;
+            else
+                $BaseOnly = FALSE;
+        }
+
+        if( $BaseOnly === FALSE )
+        {
+            // the gold has been squeezed!  these are used to cut templates out of Base and subsequently
+            // compare (somehow) against all of the pages sites
+            // first inject single lines with $page since they won't change line numbering - we ignore lengths other than 1 for now
+            foreach( $PageLines as $K => $PL )
             {
-                $Base['PageLines'][$K] = $BaseHTMLLines[$PL[0]+1];
-                $BaseHTMLLines[$PL[0]+1] = "<?=eval('?>'.\$page->Base{$K})?>";
+                // implode("\n",array_slice($CS['Lines'],$C[2],$C[3]));
+                if( $PL[1] === 1 )
+                {
+                    $Base['PageLines'][$K] = $BaseHTMLLines[$PL[0]+1];
+                    $BaseHTMLLines[$PL[0]+1] = "<?=eval('?>'.\$page->Base{$K})?>";
+                }
             }
+
+            // now do blocks
+            foreach( $TemplateBlocks as $K => $TB )
+            {
+                $T = array_splice($BaseHTMLLines,$TB[0]-1,$TB[1]+1,"<?php \$html->Base{$K}(); ?>");
+                $Base['TemplateBlocks'][$K] = implode("\n",$T);
+            }
+
+            $BaseHTML = implode("\n",$BaseHTMLLines);
         }
 
-        // now do blocks
-        foreach( $TemplateBlocks as $K => $TB )
-        {
-            $T = array_splice($BaseHTMLLines,$TB[0]-1,$TB[1]+1,"<?php \$html->Base{$K}(); ?>");
-            $Base['TemplateBlocks'][$K] = implode("\n",$T);
-        }
-
-        $BaseHTML = implode("\n",$BaseHTMLLines);
-
-        // go through all pages, diffing and storing
-        // probably naming confusion between juicer pages and asmblr pages
-        foreach( $this->Pages as $Page )
+        // go through all pages, diffing if BaseOnly = FALSE and storing
+        // note the difference between a page array from juicer and that of asmblr itself
+        // WOW PHP BUG: if this isn't &$Page it gets confused with above use of $Page in foreach
+        foreach( $this->Pages as &$Page )
         {
             $PathStr = \fw\Path::ToURLString($Page['URL']['Path']);
+
+            \fw\Log::Sys($Page['URL']);
 
             $P = $this->CreatePage($PathStr,$Page['Handle'],$Page['Title'],$Page['Description'],$Page['Keywords'],$Site['_id']);
             if( empty($P) )
@@ -214,24 +237,34 @@ class Juicer
 
             // need detection of tiny or crazy different files, like robots.txt
 
-            $Blocks = $this->diff($BaseHTML,$PageHTML);
-
-            // if a block/line isn't in Base, we skip it for now
-            foreach( $Blocks as $K => $B )
+            if( $BaseOnly === TRUE )
             {
-                if( isset($Base['PageLines'][$K]) )
+                $this->aapi->POST('template_create',array('Name'=>$Page['Handle'],'Site_id'=>$Site['_id'],'Body'=>$PageHTML));
+                $this->aapi->POST('page_set_directive',array('Name'=>'html','Key'=>'Base','Value'=>$Page['Handle'],'Page_id'=>$P['_id']));
+
+                fwrite($this->LOG,"\n\nBASE ONLY SAVE FOR {$Page['LocalPath']}");
+            }
+            else
+            {
+                $Blocks = $this->diff($BaseHTML,$PageHTML);
+
+                // if a block/line isn't in Base, we skip it for now
+                foreach( $Blocks as $K => $B )
                 {
-                    $L = implode("\n",array_slice($PageHTMLLines,$B[0]+1,$B[3]));
-                    $this->aapi->POST('page_set_directive',array('Name'=>'page','Key'=>"Base{$K}",'Value'=>$L,'Page_id'=>$P['_id']));
+                    if( isset($Base['PageLines'][$K]) )
+                    {
+                        $L = implode("\n",array_slice($PageHTMLLines,$B[0]+1,$B[3]));
+                        $this->aapi->POST('page_set_directive',array('Name'=>'page','Key'=>"Base{$K}",'Value'=>$L,'Page_id'=>$P['_id']));
+                    }
+                    else if( isset($Base['TemplateBlocks'][$K]) )
+                    {
+                        $L = implode("\n",array_slice($PageHTMLLines,$B[2]-1,$B[3]+1));
+                        $this->aapi->POST('template_create',array('Name'=>$Page['Handle'].$K,'Site_id'=>$Site['_id'],'Body'=>$L));
+                        $this->aapi->POST('page_set_directive',array('Name'=>'html','Key'=>"Base{$K}",'Value'=>$Page['Handle'].$K,'Page_id'=>$P['_id']));
+                    }
+                    else
+                        fwrite($this->LOG,"\n\nSKIPPED BLOCK $K");
                 }
-                else if( isset($Base['TemplateBlocks'][$K]) )
-                {
-                    $L = implode("\n",array_slice($PageHTMLLines,$B[2]-1,$B[3]+1));
-                    $this->aapi->POST('template_create',array('Name'=>$Page['Handle'].$K,'Site_id'=>$Site['_id'],'Body'=>$L));
-                    $this->aapi->POST('page_set_directive',array('Name'=>'html','Key'=>"Base{$K}",'Value'=>$Page['Handle'].$K,'Page_id'=>$P['_id']));
-                }
-                else
-                    fwrite($this->LOG,"\n\nSKIPPED BLOCK $K");
             }
 
             \fw\Log::Sys("Page OK: {$Page['LocalPath']}");
@@ -252,8 +285,6 @@ class Juicer
 */
 
         }
-
-
 
         // and pull in all content that's been aggregated - maybe more aggregation ... from CSS?
         foreach( $this->Content as &$Content )

@@ -9,18 +9,16 @@
 <div class="tab-content">
     <div class="tab-pane" id="manage_tab">
         <div class="row-fluid">
-        <div class="span3">
+        <div class="span4">
             <a href="<?=$lp('aj_site_export',array('sid'=>(string)$S['_id']))?>" class="btn btn-block btn-success">Export Site</a>
         </div>
         </div>
         <div class="row-fluid"><div class="span3"></div></div>
         <div class="row-fluid">
-        <div class="span3">
+        <div class="span4 input-append">
             <form action="<?=$lp('Juicer',">{$S['_id']}")?>" method="post">
-            <div class="input-append">
-                <input type="text" name="JuiceURL" data-type="url" placeholder="http://site-to.juice.com" />
+                <input class="input-block-level" type="text" name="JuiceURL" data-type="url" placeholder="http://site-to.juice.com" />
                 <button class="btn btn-primary" type="submit">Juice!</button>
-            </div>
             </form>
         </div>
         </div>

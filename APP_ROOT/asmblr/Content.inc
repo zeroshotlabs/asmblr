@@ -175,9 +175,10 @@ class ContentSet extends MongoSet
     }
 
     // will need to be handled differently somehow for Content
+    // right now we're not pulling back the Body
     public function Listing( \MongoId $S,$ASC = FALSE )
     {
-        return iterator_to_array($this->MDC->find((array('Site_id'=>$S)))->sort(array('_id'=>$ASC?1:-1)));
+        return iterator_to_array($this->MDC->find(array('Site_id'=>$S),array('Body'=>FALSE))->sort(array('_id'=>$ASC?1:-1)));
     }
 }
 
