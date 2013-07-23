@@ -105,9 +105,9 @@ class ContentSet extends MongoSet
             $this->Site_id = $Site_id;
     }
 
-    public function Create( &$C )
+    public function Create( &$C,\MongoId $_id = NULL )
     {
-        $C['_id'] = new \MongoId;
+        $C['_id'] = empty($_id)?new \MongoId:$_id;
         $this->MDC->insert($C);
     }
 
