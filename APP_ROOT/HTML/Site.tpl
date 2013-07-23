@@ -1,4 +1,8 @@
 
+<?php if( $S['Status'] === 'Juicing' ): ?>
+<div class="alert alert-info"><strong>Hey!</strong>  The site is currently being juiced... please check back later.</div>
+<?php endif; ?>
+
 <ul class="nav nav-tabs" id="site_tabs">
     <li><a class="tab_link" href="#manage_tab" data-toggle="tab">Manage</a></li>
     <li><a class="tab_link" href="#directives_tab" data-toggle="tab">Directives</a></li>

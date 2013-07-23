@@ -1014,6 +1014,7 @@ class REST extends \fw\RoutineSet
 
     // this will detect and handle a direct POST or a file upload (multipart/form-data via $_FILES)
     // perhaps we should switch this to PUT?  also look at content_set_body
+    // this and set_body will also need a large upload/post size limit in php
     protected static function content_create()
     {
         if( !rv::Site_id() || !rv::Path() || (!rv::Body() && !empty($_FILES['Body'])) )

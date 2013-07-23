@@ -127,9 +127,9 @@ class TemplateSet extends MongoSet
                 }
                 else
                 {
-                    echo "<div contenteditable=\"true\" class=\"asm-live-edit\" id=\"{$Name}\">";
+//                    echo "<div contenteditable=\"true\" class=\"asm-live-edit\" id=\"{$Name}\">";
                     eval("?>{$RenderingTemplate['Body']}");
-                    echo "</div>";
+//                    echo "</div>";
                 }
             }
             else
@@ -148,16 +148,16 @@ class TemplateSet extends MongoSet
                     }
                     else
                     {
-                        echo "<div class=\"asm-live-edit\" id=\"{$Name}\">";
+//                        echo "<div class=\"asm-live-edit\" id=\"{$Name}\">";
                         eval("?>{$RenderingTemplate['Body']}");
-                        echo "</div>";
+//                        echo "</div>";
                     }
                 }
             }
 
             if( $Name === 'Base' )
             {
-                echo '<script src="/jslib/ckeditor/ckeditor.js"></script>';
+//                echo '<script src="/jslib/ckeditor/ckeditor.js"></script>';
             }
         }
     }

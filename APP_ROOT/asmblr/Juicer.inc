@@ -31,7 +31,7 @@ class Juicer
 
     // sets root URL used to determine whether other URLs are internal or external
     // sets Tag for storage of each page
-    public function Root( $URL,$Site )
+    public function Root( $URL,$Site,$RunID = '',$Depth = 3,$BaseTemplateOnly = FALSE )
     {
         // dangerous!
         set_time_limit(0);
@@ -46,28 +46,45 @@ class Juicer
         $this->RootDomain = \fw\URL::Hostname($this->RootURL);
         $this->RootPath = \fw\URL::Path($this->RootURL);
 
-        $this->RunID = $this->RootDomain.'_'.\time();
-
-        $this->Tag = $this->RootDomain.$this->RootPath;
-
         $this->Content = $this->Pages = array();
 
-        $CrawlDir = "/tmp/{$this->RunID}";
-        $WgetLog = "/tmp/{$this->RunID}_wget.log";
-        $this->LOG = fopen("/tmp/{$this->RunID}.log",'w');
-
-        \fw\Log::Sys("LOGGING TO /tmp/{$this->RunID}.log");
+//        $RunID = 'www.new-york-divorce-attorney.com_1374542839';
 
         $this->aapi->POST('site_set_status',array('Status'=>'Juicing','Site_id'=>$Site['_id']));
 
-        \fw\Log::Sys('Running wget...');
+        if( empty($RunID) )
+        {
+            $this->RunID = $this->RootDomain.'_'.\time();
 
-        fwrite($this->LOG,"\n\nCRAWL: wget -S -nv -r -l 1 -p -nH -E -P $CrawlDir {$this->RootURLStr} 2>&1");
+            $this->LOG = fopen("/tmp/{$this->RunID}.log",'w');
+            \fw\Log::Sys("LOGGING TO /tmp/{$this->RunID}.log");
 
-        exec("wget -S -nv -r -l 5 -p -nH -E -o $WgetLog -P $CrawlDir {$this->RootURLStr} 2>&1");
+            $CrawlDir = "/tmp/{$this->RunID}";
+            $WgetLog = "/tmp/{$this->RunID}_wget.log";
 
-        $O = file($WgetLog);
-//        fwrite($this->LOG,"\n\n".implode("\n",$O));
+            \fw\Log::Sys("Running wget into {$CrawlDir}...");
+
+            $WgetCMD = "wget -S -nv -r -l {$Depth} -p -nH -E -o $WgetLog -P $CrawlDir {$this->RootURLStr} 2>&1";
+            fwrite($this->LOG,"\n\nCRAWLing: {$WgetCMD}");
+            exec($WgetCMD);
+
+            $O = file($WgetLog);
+        }
+        else
+        {
+            $this->RunID = $RunID;
+            $WgetLog = "/tmp/{$this->RunID}_wget.log";
+
+            $this->LOG = fopen("/tmp/{$this->RunID}.log",'w');
+            \fw\Log::Sys("LOGGING TO /tmp/{$this->RunID}.log");
+
+            if( !is_readable($WgetLog) )
+                throw new Exception("Cannot find prior run log $WgetLog");
+
+            \fw\Log::Sys("Picking up from run log $WgetLog");
+
+            $O = file($WgetLog);
+        }
 
         $LastBuf = array();
         foreach( $O as $K => $V )
@@ -92,26 +109,24 @@ class Juicer
                 if( $R === 1 )
                     $LastBuf['LocalPath'] = trim($M[1]);
 
-//                 // usually something like a 404
-//                 if( empty($LastBuf['ContentType']) )
-//                 {
-//                     \fw\Log::Sys($V);
-//                     continue;
-//                 }
-
                 // a page
                 if( stripos($LastBuf['ContentType'],'text/html') !== FALSE )
                 {
+                    // may want to handle special cases index.html/index.php etc - / is already set as ROOT in Path2Handler
                     list($Linker,$Handle,$URL) = $this->URLr($LastBuf['URL'],'lp');
                     $LastBuf['Linker'] = $Linker;
                     $LastBuf['Handle'] = $Handle;
                     $LastBuf['URL'] = $URL;
 
-                    // using handle probably overwrites cases like /about/contactus and /contactus
-                    // handle possibly should contain all segments separated by underscore
-                    $this->Pages[$Handle] = $LastBuf;
-
-                    fwrite($this->LOG,"\n\nPAGE: {$Linker} ".\fw\URL::ToString($URL));
+                    if( !empty($this->Pages[$Handle]) )
+                    {
+                        \fw\Log::Sys("Page Handle '$Handle' already exists in crawl - skipping {$LastBuf['LocalPath']}");
+                    }
+                    else
+                    {
+                        $this->Pages[$Handle] = $LastBuf;
+                        fwrite($this->LOG,"\n\nCRAWLED PAGE: {$Handle} ".\fw\URL::ToString($URL));
+                    }
                 }
                 // content
                 else
@@ -121,24 +136,28 @@ class Juicer
                     $LastBuf['Handle'] = $Handle;
                     $LastBuf['URL'] = $URL;
 
-                    $this->Content[$Handle] = $LastBuf;
-
-                    fwrite($this->LOG,"\n\nCONTENT: {$Linker} ".\fw\URL::ToString($URL));
+                    if( !empty($this->Content[$Handle]) )
+                    {
+                        \fw\Log::Sys("Content Handle '$Handle' already exists in crawl - skipping {$LastBuf['LocalPath']}");
+                    }
+                    else
+                    {
+                        $this->Content[$Handle] = $LastBuf;
+                        fwrite($this->LOG,"\n\nCRAWLED CONTENT: {$Handle} ".\fw\URL::ToString($URL));
+                    }
                 }
 
                 $LastBuf = array();
             }
-            // anything else is probably a failed request like 404
         }
 
-        // normalize all crawled pages
-        // establish the Base page as the first HTML content type encountered (could also check Path I guess)
-        // if a page is first-level (1 path segment and not root) diff it
+        // normalize crawled pages and establish the Base template as the first entry crawled (right?)
+// should be moved to a method just for establishing the base and diffing, if we want to do that
+/*
         $Base = $BaseHTML = $BaseHTMLLines = NULL;
-        // we want to figure out the max length for each block which will become templates
         $TemplateBlocks = array();
-        // these are the line changes - always single line on Base but could map to multiple on children
         $PageLines = array();
+
         foreach( $this->Pages as &$Page )
         {
             $this->NormalizePage($Page);
@@ -152,7 +171,9 @@ class Juicer
             else if( count($Page['URL']['Path']['Segments']) === 1 )
             {
                 fwrite($this->LOG,"\n\nBASE DIFF PAGE {$Page['LocalPath']}");
-                $Page['Blocks'] = $this->diff($BaseHTML,file_get_contents($Page['LocalPath']));
+
+                $ChildHTML = file_get_contents($Page['LocalPath']);
+                $Page['Blocks'] = $this->diff($BaseHTML,$ChildHTML);
                 fwrite($this->LOG,"\n\n".\fw\Debug::Dump($Page['Blocks']));
 
                 // determine maxes of blocks and aggregate line changes
@@ -173,6 +194,43 @@ class Juicer
                 }
             }
         }
+*/
+
+        // just save as full Base template for now
+        foreach( $this->Pages as &$Page )
+        {
+            $this->NormalizePage($Page);
+
+            $PathStr = \fw\Path::ToURLString($Page['URL']['Path']);
+
+            $PageHTML = file_get_contents($Page['LocalPath']);
+
+            $P = $this->CreatePage($PathStr,$Page['Handle'],$Page['Title'],$Page['Description'],$Page['Keywords'],$Site['_id']);
+            if( empty($P) )
+                continue;
+
+            $PageHTML = file_get_contents($Page['LocalPath']);
+            $this->aapi->POST('template_create',array('Name'=>$Page['Handle'],'Site_id'=>$Site['_id'],'Body'=>$PageHTML));
+            $this->aapi->POST('page_set_directive',array('Name'=>'html','Key'=>'Base','Value'=>$Page['Handle'],'Page_id'=>$P['_id']));
+
+            fwrite($this->LOG,"\n\nBASE ONLY SAVE FOR {$Page['LocalPath']}");
+
+            \fw\Log::Sys("Page OK: {$Page['LocalPath']}");
+        }
+
+        goto docontent;
+
+
+
+
+/** remaining stuff shoudl be also in a method for diff processing **/
+
+
+
+
+
+
+
 
         fwrite($this->LOG,"\n\nPAGE LINES:\n".\fw\Debug::Dump($PageLines));
         fwrite($this->LOG,"\n\nTEMPLATE BLOCKS:\n".\fw\Debug::Dump($TemplateBlocks));
@@ -193,6 +251,8 @@ class Juicer
             else
                 $BaseOnly = FALSE;
         }
+
+        $BaseOnly = TRUE;
 
         if( $BaseOnly === FALSE )
         {
@@ -226,7 +286,10 @@ class Juicer
         {
             $PathStr = \fw\Path::ToURLString($Page['URL']['Path']);
 
-            \fw\Log::Sys($Page['URL']);
+            $PageHTML = file_get_contents($Page['LocalPath']);
+            var_dump($PageHTML);
+            exit;
+
 
             $P = $this->CreatePage($PathStr,$Page['Handle'],$Page['Title'],$Page['Description'],$Page['Keywords'],$Site['_id']);
             if( empty($P) )
@@ -286,6 +349,8 @@ class Juicer
 
         }
 
+docontent:
+
         // and pull in all content that's been aggregated - maybe more aggregation ... from CSS?
         foreach( $this->Content as &$Content )
         {
@@ -311,24 +376,8 @@ class Juicer
 
         $this->CreateContentSrv($Site['_id']);
 
+        $this->aapi->POST('site_set_status',array('Status'=>'Inactive','Site_id'=>$Site['_id']));
 
-
-
-
-        var_dump(count($this->Pages));
-
-        unlink($CrawlDir);
-
-exit;
-
-        var_dump($Base['PageLines']);
-        var_dump($Base['TemplateBlocks']);
-
-        var_dump($TemplateBlocks);
-        var_dump($PageLines);
-
-
-exit;
 
 
     }
@@ -385,7 +434,7 @@ exit;
     {
         if( $Type === 'lp' )
         {
-            // hardwired hack which confuses external links to other home pages
+            // might cause issues but needed it seems
             if( $Path['IsRoot'] === TRUE )
                 return 'ROOT';
 
@@ -424,29 +473,50 @@ exit;
      */
     protected function NormalizePage( &$Page )
     {
-        // we ignore others, including content type, since asmblr will handle that
-        // the HTML is written back to disk, not stored in memory
+        // the HTML will be written back to disk, not stored in memory
+        $HTML = file_get_contents($Page['LocalPath']);
+
         $Page['Title'] = '';
         $Page['Description'] = '';
         $Page['Keywords'] = '';
-        // will hold our one liner changes
-        $Page['PageLines'] = array();
-        // will hold our template blocks
-        $Page['TemplateBlocks'] = array();
 
-        $PageLinks = $ContentLinks = array();
+        // if the HTML from disk contains a <?= it's been processed so skip
+        // though need a better check
+        if( strpos($HTML,'<?=') !== FALSE )
+        {
+            \fw\Log::Sys("PHP code detected - won't double process local path '{$Page['LocalPath']}'  skipping...");
+            return;
+        }
 
-        $HTML = trim(file_get_contents($Page['LocalPath']));
-        \fw\Struct::ToUTF8($HTML);
-
-        // if there are no tags, don't do anything except write back the content
+        // if there are no tags, don't do anything except UTF8 convert and write back to disk
         if( stripos($HTML,'<html') === FALSE && stripos($HTML,'<body') === FALSE )
         {
+            \fw\Struct::ToUTF8($HTML);
             file_put_contents($Page['LocalPath'],$HTML);
             return;
         }
 
-        $HTML = $this->normalize_buf($HTML);
+//        exec("java -jar /usr/local/bin/tagsoup-1.2.1.jar --html {$Page['LocalPath']} 2> /dev/null",$CleanedHTML);
+//        $TR = new \tidy;
+//        $TR->parseString(implode("\n",$CleanedHTML),$this->TidyConfig);
+//        $TR->cleanRepair();
+//        $CleanedHTML = (string) $TR;
+//        file_put_contents($Page['LocalPath'],implode("\n",$CleanedHTML));
+//        $CleanedHTML = array();
+//        exec("java -jar /usr/local/bin/jtidy-r938.jar -i -wrap 2000 {$Page['LocalPath']} 2> /dev/null",$CleanedHTML);
+
+/*
+        $h = '';
+        foreach( explode("\n",str_replace(array("\r","\t"),array('',' '),$buf)) as $V )
+        {
+            $V = trim($V);
+            if( $V === '' )
+                continue;
+            else
+                $h .= $V."\n";
+        }
+*/
+
 
         libxml_use_internal_errors(TRUE);
         $DOM = new \DOMDocument;
@@ -489,6 +559,10 @@ exit;
             $Keywords = preg_quote("content=\"{$Page['Keywords']}\"",'/');
             $HTML = preg_replace("/{$Keywords}/",'content="<?=$this($page->Keywords)?>"',$HTML);
         }
+
+        // Note that these links aren't actually used for anything except preg_replace
+        // The actual URL structure of the site is based off of wget's crawl
+        $PageLinks = $ContentLinks = array();
 
         $R = $XPR->query('//link[@rel="stylesheet"]/@href');
         foreach( $R as $V )
@@ -543,6 +617,17 @@ exit;
             $Link = preg_quote("{$Raw}",'/');
             $HTML = preg_replace(array("/=\"{$Link}\"/","/='{$Link}'/"),array("=\"{$this->Content[$Handle]['Linker']}\"","='{$this->Content[$Handle]['Linker']}'"),$HTML);
         }
+
+        $HTML2 = str_replace(array("\r","\t"),array('',' '),$HTML);
+        $HTML2 = str_replace(array('></','> </','><','> <'),array(">\n</",">\n</",">\n<",">\n<"),$HTML2);
+        $HTML = '';
+        foreach( explode("\n",$HTML2) as $C )
+        {
+            $C = trim($C);
+            if( empty($C) ) continue;
+            $HTML .= trim($C)."\n";
+        }
+        \fw\Struct::ToUTF8($HTML);
 
         file_put_contents($Page['LocalPath'],$HTML);
     }
@@ -613,11 +698,15 @@ exit;
            4 => $CFD
         );
 
-//        $P = proc_open('wdiff -3  /dev/fd/3 /dev/fd/4',$FDS,$PIPES);
+//        $P = proc_open('wdiff   /dev/fd/3 /dev/fd/4',$FDS,$PIPES);
+//        $P = proc_open('diff -i -w -B --strip-trailing-cr -d -U 0 /dev/fd/3 /dev/fd/4',$FDS,$PIPES);
 
-        $P = proc_open('diff -i -w -B --strip-trailing-cr -d -U 0 /dev/fd/3 /dev/fd/4',$FDS,$PIPES);
+        $P = proc_open('diff -i  -U 0 /dev/fd/3 /dev/fd/4',$FDS,$PIPES);
 
         $Diff = stream_get_contents($PIPES[1]);
+
+        var_dump($Diff);
+        exit;
         fwrite($this->LOG,"\n\n".$Diff);
 
         $Diff = explode("\n",$Diff);
@@ -690,40 +779,6 @@ exit;
 
         // child, diff (each as arrays)
 //        return array(explode("\n",$Child),explode("\n",stream_get_contents($PIPES[1])));
-    }
-
-    protected function normalize_buf( $buf )
-    {
-/*
- * // data:// isn't really good
-        $PFD = fopen('data://text/plain,'.$buf,'r');
-
-        $FDS = array(
-           0 => $PFD,
-           1 => array("pipe","w")
-        );
-
-        $P = proc_open('java -jar /usr/local/bin/tika-app-1.4.jar --html',$FDS,$PIPES);
-
-        $buf = stream_get_contents($PIPES[1]);
-*/
-
-        $TR = new \tidy;
-        $TR->parseString($buf,$this->TidyConfig);
-        $TR->cleanRepair();
-        $buf = (string) $TR;
-
-        $h = '';
-        foreach( explode("\n",str_replace(array("\r","\t"),array('',' '),$buf)) as $V )
-        {
-            $V = trim($V);
-            if( $V === '' )
-                continue;
-            else
-                $h .= $V."\n";
-        }
-
-        return $h;
     }
 
     // this uses curlfile if LocalPath is specified in which case Body is ignored and multipart encode upload is done
