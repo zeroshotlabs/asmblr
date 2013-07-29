@@ -8,7 +8,7 @@ require('../../framewire/Load.inc');
  *   - Console: standard Framewire app front-end for managing sites (REST + direct)
  *       $ConsoleURL:  https://asm1.stackop.com/
  *
- *   - REST API: specialized Framewire app for manipulating hosted sites
+ *   - REST API (AAPI): specialized Framewire app for manipulating hosted sites
  *       $RESTURL:  https://asm1.stackop.com/restv1/
  *
  *   - Asmblr Server: specialized asmblr app CMS and cloud site hosting
@@ -297,7 +297,7 @@ class fwApp extends \fw\App
 
         $lp = new \fw\LinkPage($ps,$this->SiteURL);
         $ls = new \fw\LinkSet($this->BaseURL);
-        $lr = new LinkREST($this->BaseURL.'/restv1');
+        $lr = new LinkAAPI($this->BaseURL.'/aapiv1');
 
         $msg = new \fw\Messager;
         $vr = new \fw\ValidationReport('error');
@@ -327,10 +327,10 @@ class fwApp extends \fw\App
         // no session created in account_auth which ties us back to this code base
         // this could probably go higher up, before $page, etc. though we use the
         // standalone sets created above
-        if( \fw\Path::Top($this->MatchPath) === 'restv1' )
+        if( \fw\Path::Top($this->MatchPath) === 'aapiv1' )
         {
             \fw\HTTP::ContentType('json');
-            REST::v1($this->MatchPath);
+            AAPI::v1($this->MatchPath);
             $html->JSONResponse();
             return;
         }
