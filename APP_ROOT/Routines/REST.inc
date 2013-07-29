@@ -384,7 +384,7 @@ class REST extends \fw\RoutineSet
 
         // for very large sites, we'd want a separate content export most likely
         // this also doesn't save any meta/etc - only content as files with full path
-        foreach( static::$cs->Listing($Site['_id']) as $C )
+        foreach( static::$cs->Listing($Site['_id'],FALSE,TRUE) as $C )
         {
             // this, and what we use in ContentSrv, could be refactored into GetBody/SendBody for
             // unified delivery or saving of the content - this is basically duped from ContentSRv
@@ -1178,6 +1178,7 @@ class LinkREST extends \fw\LinkSet
 // we should probably also have a nice tidy class like this in Javascript
 // we'll also need to add SU support here
 // curl resource is reused
+// DONT FORGET TO HAVE DNS FOR THE ENDPOINT OTHERWISE CURL JUST FAILS
 class AAPIClient
 {
     protected $lr;
@@ -1235,7 +1236,14 @@ class AAPIClient
         curl_setopt($this->CH,CURLOPT_HTTPGET,TRUE);
         curl_setopt($this->CH,CURLOPT_URL,$this->lr->Link($Routine,">{$Resource}"));
 
-        return $this->Exec();
+        $R = $this->Exec();
+        if( empty($R) )
+        {
+            \fw\Log::Sys($Resource);
+            \fw\Log::Sys($this->GetInfo());
+        }
+        else
+            return $R;
     }
 
     public function POST( $Routine,$Payload = NULL )

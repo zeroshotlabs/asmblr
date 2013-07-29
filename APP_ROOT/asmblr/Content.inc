@@ -19,19 +19,36 @@ abstract class Content extends MongoStruct
         $Content = static::$Skel;
         $Content['Site_id'] = $S;
 
-        $T = \fw\Path::Init(strtolower($Path));
-        $T['IsDir'] = $T['IsAbs'] = FALSE;
+        static::SetPath($Path,$Content);
 
-        $Content['Path'] = \fw\Path::ToURLString($T);
-        $Content['PathStruct'] = $T;
+//         $T = \fw\Path::Init(strtolower($Path));
+//         $T['IsDir'] = $T['IsAbs'] = FALSE;
+
+//         $Content['Path'] = \fw\Path::ToURLString($T);
+//         $Content['PathStruct'] = $T;
 
         static::SetBody($Body,$Content,$Type);
         return $Content;
     }
 
+    // normalize a path for how content likes it - return as a string
+    public static function Path2Path( $Path )
+    {
+        // content can't live at root
+        if( $Path['IsRoot'] === TRUE )
+            return NULL;
+
+        $Path['IsDir'] = $Path['IsAbs'] = FALSE;
+
+        \fw\Path::Lower($Path);
+
+        return \fw\Path::ToURLString($Path);
+    }
+
+
     public static function SetPath( $Path,&$C )
     {
-        $Path = \fw\Path::Init($Path);
+        $Path = \fw\Path::Init(strtolower($Path));
         $Path['IsDir'] = $Path['IsAbs'] = FALSE;
 
         $C['PathStruct'] = $Path;
@@ -105,6 +122,7 @@ class ContentSet extends MongoSet
             $this->Site_id = $Site_id;
     }
 
+    // allowing _id is different from the others but may be handy
     public function Create( &$C,\MongoId $_id = NULL )
     {
         $C['_id'] = empty($_id)?new \MongoId:$_id;
@@ -176,9 +194,13 @@ class ContentSet extends MongoSet
 
     // will need to be handled differently somehow for Content
     // right now we're not pulling back the Body
-    public function Listing( \MongoId $S,$ASC = FALSE )
+    // iterator_to_array() is slow too
+    public function Listing( \MongoId $S,$ASC = FALSE,$IncBody = FALSE )
     {
-        return iterator_to_array($this->MDC->find(array('Site_id'=>$S),array('Body'=>FALSE))->sort(array('_id'=>$ASC?1:-1)));
+        if( $IncBody )
+            return $this->MDC->find(array('Site_id'=>$S))->sort(array('_id'=>$ASC?1:-1));
+        else
+            return $this->MDC->find(array('Site_id'=>$S),array('Body'=>FALSE))->sort(array('_id'=>$ASC?1:-1));
     }
 }
 
