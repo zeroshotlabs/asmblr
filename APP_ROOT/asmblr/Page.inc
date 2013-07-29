@@ -21,6 +21,22 @@ abstract class Page extends MongoStruct
         return $Page;
     }
 
+    // create a standardized name based on the path
+    // note that this should be used only for automatically generated/imported pages
+    // expects a Path struct
+    public static function Path2Name( $Path )
+    {
+        // might cause issues but needed in most cases it seems
+        if( $Path['IsRoot'] === TRUE )
+            return 'ROOT';
+
+        $Segments = array();
+        foreach( $Path['Segments'] as $S )
+            $Segments[] = pathinfo($S,PATHINFO_FILENAME);
+
+        return strtolower(implode('_',$Segments));
+    }
+
     public static function SetPath( $Path,&$P )
     {
         $P['PathStruct'] = \fw\Path::Init(strtolower('/'.$Path));

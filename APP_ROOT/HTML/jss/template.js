@@ -3,7 +3,7 @@ $('a.set-name').editable({mode:'popup',placement:'right'});
 
 $('#confirm-del').on('click',function( e ) {
 	pk = $(e.currentTarget).data('pk');
-	$.ajax({ url:'<?=$lr('template_delete',">{$T['_id']}")?>',data:{},
+	$.ajax({ url:'<?=$la('template_delete',">{$T['_id']}")?>',data:{},
 		success: function(data){ window.location = '<?=$lp('Site',">{$T['Site_id']}")?>'; }})
 	.fail(function(){ console.log('connection error');})
 });

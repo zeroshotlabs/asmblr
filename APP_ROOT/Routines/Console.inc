@@ -83,6 +83,9 @@ abstract class Console extends \fw\RoutineSet
 
         static::InitSite(new \MongoId(\fw\Request::Path(-1)));
 
+//        $CL = fw('asmcs')->Listing(fw('page')->Site['_id']);
+//        fw('html')->Connect(iterator_to_array($CL),'CL');
+
         fw('page')->ActiveNav = 'ContentUpload';
         fw('html')->Stack('jss_content_upload','jsready');
     }
@@ -98,7 +101,7 @@ abstract class Console extends \fw\RoutineSet
         fw('page')->ActiveNav = 'ContentUpload';
 
 
-        $aapi = new \asm\AAPIClient(fw('lr'));
+        $aapi = new \asm\AAPIClient(fw('la'));
 
 //        $Site = $aapi->POST('site_create',array('Domain'=>'www.new-york-divorce-attorney.com'))['Data'];
 //        $_SESSION['sid'] = (string) $Site['_id'];
@@ -159,7 +162,7 @@ return;
 
         fw('html')->ReMap('Base',NULL);
 
-        $aapi = new \asm\AAPIClient(fw('lr'));
+        $aapi = new \asm\AAPIClient(fw('la'));
 
         $R = $aapi->GET('site_export',$_GET['sid']);
         \fw\HTTP::SaveAs($R['Data']['Filename'],'zip');
@@ -178,7 +181,7 @@ return;
 
         $F = \fw\FileUpload::Init('files');
 
-        $aapi = new \asm\AAPIClient(fw('lr'));
+        $aapi = new \asm\AAPIClient(fw('la'));
 
         if( empty($_POST['Content_id']) )
             $Routine = 'content_create';
@@ -351,6 +354,7 @@ return;
             fw()->NoPageHandler();
 
         fw('page')->Domain = $S['Domain'];
+        fw('page')->Site = $S;
 
         // the beginnings of live edit?  may better be aggregated up somewhere else
         // bring our asmblr stuff online - no site execution happens though (Go())

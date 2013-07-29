@@ -4,7 +4,7 @@ $('a.set-baseurl').editable({mode:'popup',placement:'right',inputclass:'input-xl
 
 $('#confirm-del').on('click',function( e ) {
 	pk = $(e.currentTarget).data('pk');
-	$.ajax({ url:'<?=$lr('site_delete',">{$S['_id']}")?>',data:{},
+	$.ajax({ url:'<?=$la('site_delete',">{$S['_id']}")?>',data:{},
 		success: function(data){ window.location = '<?=$lp('Home')?>'; }})
 	.fail(function(){ console.log('connection error');})
 });

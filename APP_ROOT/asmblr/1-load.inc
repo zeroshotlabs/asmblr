@@ -21,10 +21,12 @@ namespace asm
     }
 
 // tmp - might need more
+// TODO: this is much slower than FW's regular linkpage for some reason
 class LinkPage extends \fw\LinkPage
 {
 	public function __construct( \asm\PageSet $PageSet,$BaseURL = NULL,$Set = array() )
 	{
+	    // via __invoke when creating a link, Read() can be called a lot - not some type of caching
 		$this->PageSet = $PageSet;
 		$this->SetBaseURL($BaseURL,$Set);
 	}
@@ -118,7 +120,8 @@ class MongoSet extends \fw\WireableBase
     // CurrentTS isn't doing much of anything right now
     // it'd have to be provided by the request - maybe we don't even need it,
     // except for big settings like directives?
-    protected function SetKV( $Key,$Value,$PK,&$H )
+    // this has been made public to support Meta calls from CB though that should be done in ContentSet itself
+    public function SetKV( $Key,$Value,$PK,&$H )
     {
         $R = $this->MDC->update(array($PK=>$H[$PK],'CurrentTS'=>$H['CurrentTS']),
                                 array('$set'=>array($Key=>$Value)),

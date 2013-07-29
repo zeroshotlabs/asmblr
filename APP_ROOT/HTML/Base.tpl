@@ -10,10 +10,14 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
         <link rel="stylesheet" href="//code.jquery.com/ui/1.10.2/themes/smoothness/jquery-ui.css">
+        <?php /*
+        <link href="//netdna.bootstrapcdn.com/bootstrap/3.0.0-rc1/css/bootstrap.min.css">
+        */ ?>
         <link rel="stylesheet" href="//static.cnvyr.io/bootstrap.min.css">
+
         <link rel="stylesheet" href="//static.cnvyr.io/bootstrap-responsive.min.css">
         <link rel="stylesheet" href="//static.cnvyr.io/bootstrap-select.min.css">
-        <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/x-editable/1.4.4/bootstrap-editable/css/bootstrap-editable.css">
+        <link rel="stylesheet" href="//static.cnvyr.io/bootstrap-editable.css">
         <link rel="stylesheet" href="<?=$ls('/jslib/codemirror-3.13/lib/codemirror.css')?>" />
         <link rel="stylesheet" href="<?=$ls('/jslib/jQuery-File-Upload-8.3.2/css/jquery.fileupload-ui.css')?>" />
         <link rel="stylesheet" href="<?=$lp('asmconcss')?>">
@@ -53,9 +57,13 @@
 
     <script src="//code.jquery.com/jquery-latest.js"></script>
     <script src="//code.jquery.com/ui/1.10.2/jquery-ui.js"></script>
+    <?php /*
+    <script src="//netdna.bootstrapcdn.com/bootstrap/3.0.0-rc1/js/bootstrap.min.js"></script>
+    */ ?>
     <script src="//static.cnvyr.io/bootstrap.min.js"></script>
+
     <script src="//static.cnvyr.io/bootstrap-select.min.js"></script>
-    <script src="//cdnjs.cloudflare.com/ajax/libs/x-editable/1.4.4/bootstrap-editable/js/bootstrap-editable.min.js"></script>
+    <script src="//static.cnvyr.io/bootstrap-editable.min.js"></script>
 
     <script src="<?=$ls('/jslib/codemirror-3.13/lib/codemirror.js')?>"></script>
     <script src="<?=$ls('/jslib/codemirror-3.13/addon/edit/matchbrackets.js')?>"></script>

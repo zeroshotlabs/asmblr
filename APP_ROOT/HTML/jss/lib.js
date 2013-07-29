@@ -25,93 +25,93 @@ function aapi_method2url( Method )
 	switch( Method )
 	{
 		case 'site_set_baseurl':
-			url = '<?=$lr('site_set_baseurl')?>';
+			url = '<?=$la('site_set_baseurl')?>';
 			break;
 		case 'site_set_domain':
-			url = '<?=$lr('site_set_domain')?>';
+			url = '<?=$la('site_set_domain')?>';
 			break;
 		case 'site_set_routine':
-			url = '<?=$lr('site_set_routine')?>';
+			url = '<?=$la('site_set_routine')?>';
 			break;
 		case 'site_set_status':
-			url = '<?=$lr('site_set_status')?>';
+			url = '<?=$la('site_set_status')?>';
 			break;
 		case 'site_set_routine':
-			url = '<?=$lr('site_set_routine')?>';
+			url = '<?=$la('site_set_routine')?>';
 			break;
 
 		case 'site_set_directive':
-			url = '<?=$lr('site_set_directive')?>';
+			url = '<?=$la('site_set_directive')?>';
 			break;
 		case 'site_mv_directive':
-			url = '<?=$lr('site_mv_directive')?>';
+			url = '<?=$la('site_mv_directive')?>';
 			break;
 		case 'site_cp_directive':
-			url = '<?=$lr('site_cp_directive')?>';
+			url = '<?=$la('site_cp_directive')?>';
 			break;
 		case 'site_del_directive':
-			url = '<?=$lr('site_del_directive')?>';
+			url = '<?=$la('site_del_directive')?>';
 			break;
 			
 		case 'page_create':
-			url = '<?=$lr('page_create')?>';
+			url = '<?=$la('page_create')?>';
 			break;
 		case 'page_set_name':
-			url = '<?=$lr('page_set_name')?>';
+			url = '<?=$la('page_set_name')?>';
 			break;
 		case 'page_set_path':
-			url = '<?=$lr('page_set_path')?>';
+			url = '<?=$la('page_set_path')?>';
 			break;
 		case 'page_set_status':
-			url = '<?=$lr('page_set_status')?>';
+			url = '<?=$la('page_set_status')?>';
 			break;
 		case 'page_set_routine':
-			url = '<?=$lr('page_set_routine')?>';
+			url = '<?=$la('page_set_routine')?>';
 			break;
 
 		case 'page_set_directive':
-			url = '<?=$lr('page_set_directive')?>';
+			url = '<?=$la('page_set_directive')?>';
 			break;
 		case 'page_mv_directive':
-			url = '<?=$lr('page_mv_directive')?>';
+			url = '<?=$la('page_mv_directive')?>';
 			break;
 		case 'page_cp_directive':
-			url = '<?=$lr('page_cp_directive')?>';
+			url = '<?=$la('page_cp_directive')?>';
 			break;
 		case 'page_del_directive':
-			url = '<?=$lr('page_del_directive')?>';
+			url = '<?=$la('page_del_directive')?>';
 			break;
 
 		case 'template_create':
-			url = '<?=$lr('template_create')?>';
+			url = '<?=$la('template_create')?>';
 			break;
 		case 'template_set_name':
-			url = '<?=$lr('template_set_name')?>';
+			url = '<?=$la('template_set_name')?>';
 			break;
 		case 'template_set_routine':
-			url = '<?=$lr('template_set_routine')?>';
+			url = '<?=$la('template_set_routine')?>';
 			break;
 		case 'template_set_body':
-			url = '<?=$lr('template_set_body')?>';
+			url = '<?=$la('template_set_body')?>';
 			break;
 
 		case 'content_create':
-			url = '<?=$lr('content_create')?>';
+			url = '<?=$la('content_create')?>';
 			break;
 		case 'content_set_path':
-			url = '<?=$lr('content_set_path')?>';
+			url = '<?=$la('content_set_path')?>';
 			break;
 		case 'content_set_status':
-			url = '<?=$lr('content_set_status')?>';
+			url = '<?=$la('content_set_status')?>';
 			break;
 		case 'content_set_body':
-			url = '<?=$lr('content_set_body')?>';
+			url = '<?=$la('content_set_body')?>';
 			break;
 		case 'content_set_type':
-			url = '<?=$lr('content_set_type')?>';
+			url = '<?=$la('content_set_type')?>';
 			break;
 		case 'content_set_meta':
-			url = '<?=$lr('content_set_meta')?>';
+			url = '<?=$la('content_set_meta')?>';
 			break;
 
 		default:

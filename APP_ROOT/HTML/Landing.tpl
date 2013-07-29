@@ -17,7 +17,7 @@
     </div>
     <div class="span5" id="login">
         <div class="label-container"><div class="label label-important"></div></div>
-        <form id="login-form" method="post" action="<?=$lr('account_auth')?>">
+        <form id="login-form" method="post" action="<?=$la('account_auth')?>">
             <div class="controls row-fluid">
                 <div class="span12 row control-group">
                     <input type="text" placeholder="Email" name="Email" class="span12">
@@ -63,7 +63,7 @@
 
     <div class="span5" id="register">
         <div class="label-container"><div class="label label-important form-alert"></div></div>
-        <form id="register-form" method="post" action="<?=$lr('account_create')?>">
+        <form id="register-form" method="post" action="<?=$la('account_create')?>">
             <div class="controls row-fluid">
                 <div class="span12 row control-group">
                     <input type="text" placeholder="Email" name="Email" class="span12">

@@ -50,8 +50,15 @@ class DataSet extends \fw\WireableBase implements \Iterator,\Countable,\ArrayAcc
         if( empty($Collection) )
             $Collection = str_replace('asm\\','',get_class($this));
 
+        if( empty($Site_id) )
+            throw new Exception('Cannot use empty Site_id in '.get_class($this));
+
         $this->MDB = $MDB;
         $this->MDC = $MDB->$Collection;
+
+        // this should probably go somewhere else somehow
+        $this->MDC->ensureIndex(array('Site_id'=>TRUE,'Tags.T'=>TRUE,'Tags.O'=>TRUE),array('unique'=>FALSE));
+
         $this->Site_id = $Site_id;
         $this->Tag = $Tag;
         $this->ASC = $ASC;
@@ -65,12 +72,17 @@ class DataSet extends \fw\WireableBase implements \Iterator,\Countable,\ArrayAcc
     {
         $this->Tag = $Tag;
         $this->Refresh();
+        return $this;
     }
 
     public function ReSite( \MongoId $Site_id )
     {
+        if( empty($Site_id) )
+            throw new Exception('Cannot use empty Site_id for ReSite in '.get_class($this));
+
         $this->Site_id = $Site_id;
         $this->Refresh();
+        return $this;
     }
 
     // this is always an append - returns Data struct, rather than changing parameters like the others

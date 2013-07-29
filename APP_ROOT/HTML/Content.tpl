@@ -22,7 +22,7 @@
             <a href="#" id="content_body_save" class="btn">save</a>
             <a href="#" id="content_body_reset" class="btn">cancel</a>
 
-            <form id="content_replace" style="display: inline;" action="<?=$lr('content_set_body')?>" method="POST" enctype="multipart/form-data">
+            <form id="content_replace" style="display: inline;" action="<?=$la('content_set_body')?>" method="POST" enctype="multipart/form-data">
                 <span title="replaces body and update type" class="btn btn-warning fileinput-button replace_dropzone" >
                     <i class="icon-upload icon-white"></i>
                     <span>replace</span>
@@ -42,7 +42,7 @@
         </div>
     </div>
     <div class="tab-pane" id="upload_tab">
-        <form id="content_upload" action="<?=$lr('content_create')?>" method="POST" enctype="multipart/form-data">
+        <form id="content_upload" action="<?=$la('content_create')?>" method="POST" enctype="multipart/form-data">
             <div class="row fileupload-buttonbar">
                 <div class="span7">
                     <span class="btn btn-success fileinput-button">

@@ -297,15 +297,15 @@ class fwApp extends \fw\App
 
         $lp = new \fw\LinkPage($ps,$this->SiteURL);
         $ls = new \fw\LinkSet($this->BaseURL);
-        $lr = new LinkAAPI($this->BaseURL.'/aapiv1');
+        $la = new LinkAAPI($this->BaseURL.'/aapiv1');
 
         $msg = new \fw\Messager;
         $vr = new \fw\ValidationReport('error');
 
-        $this->Wire(array('page'=>$page,'ps'=>$ps,'html'=>$html,'lp'=>$lp,'ls'=>$ls,'lr'=>$lr,
+        $this->Wire(array('page'=>$page,'ps'=>$ps,'html'=>$html,'lp'=>$lp,'ls'=>$ls,'la'=>$la,
                           'msg'=>$msg,'vr'=>$vr));
 
-        $html->ConnectWireables($page,$lp,$ls,$lr,$msg,$vr);
+        $html->ConnectWireables($page,$lp,$ls,$la,$msg,$vr);
 
         $page->Title = 'asmblr - The PHP Cloud CMS Framework';
         $page->Description = 'Multi-site custom CMS platform-as-a-service (PaaS), with full-text search, thumbnail generation, SEO delivery, and more.';

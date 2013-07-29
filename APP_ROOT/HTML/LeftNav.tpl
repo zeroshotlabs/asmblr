@@ -48,9 +48,9 @@ if( !empty($sts) )
        <?php endif; ?>
     </div>
     <div class="btn-group">
-        <button class="btn btn-small nav-btn new-page" data-type="page" data-url="<?=$lr('page_create')?>"><i title="new page" class="icon-list-alt"></i></button>
-        <button class="btn btn-small nav-btn new-template" data-type="text" data-url="<?=$lr('template_create')?>" data-placeholder="TemplateName" data-name="Name"><i title="new template" class="icon-edit"></i></button>
-        <button class="btn btn-small nav-btn new-content" data-type="text" data-url="<?=$lr('content_create')?>" data-placeholder="relative/path" data-name="Path"><i title="new content" class="icon-file"></i></button>
+        <button class="btn btn-small nav-btn new-page" data-type="page" data-url="<?=$la('page_create')?>"><i title="new page" class="icon-list-alt"></i></button>
+        <button class="btn btn-small nav-btn new-template" data-type="text" data-url="<?=$la('template_create')?>" data-placeholder="TemplateName" data-name="Name"><i title="new template" class="icon-edit"></i></button>
+        <button class="btn btn-small nav-btn new-content" data-type="text" data-url="<?=$la('content_create')?>" data-placeholder="relative/path" data-name="Path"><i title="new content" class="icon-file"></i></button>
         <a class="btn btn-small nav-btn new-content" href="<?=$lp('ContentUpload',">{$S['_id']}")?>"><i title="upload content" class="icon-upload"></i></a>
     </div>
 </div>
@@ -66,27 +66,27 @@ if( !empty($sts) )
 <div style="min-height: 65px; margin-top: 15px;">
    <?php if( $page->ActiveNav === 'Site' ): ?>
     <p class="nav-header">site</p>
-    <h3><a href="#" class="set-domain" data-type="text" data-url="<?=$lr('site_set_domain')?>" data-name="Domain"><?=$S['Domain']?></a>
+    <h3><a href="#" class="set-domain" data-type="text" data-url="<?=$la('site_set_domain')?>" data-name="Domain"><?=$S['Domain']?></a>
         <a target="_blank" href="<?=asm('lp')->Link('Home')?>"><img src="<?=$ls('/img/ext-link.png')?>" /></a></h3>
     <small class="mini-header2">
-        <a href="#" class="set-baseurl" data-type="url" data-url="<?=$lr('site_set_baseurl')?>" data-emptytext="default base URL" data-name="BaseURL"><?=$S['BaseURL']?></a>
+        <a href="#" class="set-baseurl" data-type="url" data-url="<?=$la('site_set_baseurl')?>" data-emptytext="default base URL" data-name="BaseURL"><?=$S['BaseURL']?></a>
     </small>
    <?php elseif( $page->ActiveNav === 'Page' ): ?>
     <p class="nav-header">page</p>
-    <h3><a href="#" class="set-name" data-type="text" data-url="<?=$lr('page_set_name')?>" data-name="Name"><?=$P['Name']?></a>
+    <h3><a href="#" class="set-name" data-type="text" data-url="<?=$la('page_set_name')?>" data-name="Name"><?=$P['Name']?></a>
         <a target="_blank" href="<?=asm('lp')->Link($P['Name'])?>"><img src="<?=$ls('/img/ext-link.png')?>" /></a></h3>
     <small class="mini-header2">
-        <a href="#" class="set-path" data-type="text" data-url="<?=$lr('page_set_path')?>" data-name="Path"><?=$P['Path']?></a>
+        <a href="#" class="set-path" data-type="text" data-url="<?=$la('page_set_path')?>" data-name="Path"><?=$P['Path']?></a>
     </small>
    <?php elseif( $page->ActiveNav === 'Template' ): ?>
     <p class="nav-header">template</p>
-    <h3><a href="#" class="set-name" data-type="text" data-url="<?=$lr('template_set_name')?>" data-name="Name"><?=$T['Name']?></a></h3>
+    <h3><a href="#" class="set-name" data-type="text" data-url="<?=$la('template_set_name')?>" data-name="Name"><?=$T['Name']?></a></h3>
    <?php elseif( $page->ActiveNav === 'Content' ): ?>
     <p class="nav-header">content</p>
-    <a href="#" class="set-path" data-type="text" data-url="<?=$lr('content_set_path')?>" data-name="Path"><?=$C['Path']?></a>
+    <a href="#" class="set-path" data-type="text" data-url="<?=$la('content_set_path')?>" data-name="Path"><?=$C['Path']?></a>
         <a target="_blank" href="<?=asm('lc')->Link($C['Path'])?>"><img src="<?=$ls('/img/ext-link.png')?>" /></a>
     <small class="mini-header2">
-        <a href="#" class="set-type" data-type="typeahead" data-url="<?=$lr('content_set_type')?>" data-name="Type"><?=$C['Type']?></a>
+        <a href="#" class="set-type" data-type="typeahead" data-url="<?=$la('content_set_type')?>" data-name="Type"><?=$C['Type']?></a>
     </small>
    <?php elseif( $page->ActiveNav === 'ContentUpload' ): ?>
     <p class="nav-header">content upload</p>

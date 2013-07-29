@@ -55,7 +55,7 @@
 <div class="row-fluid">
     <div class="text-center span6">
     <div id="createsite">
-        <form id="createsite-form" method="post" action="<?=$lr('site_create')?>">
+        <form id="createsite-form" method="post" action="<?=$la('site_create')?>">
         <div class="text-center">
             <input class="input-block-level" type="text" placeholder="some.domain.com" name="Domain">
         </div>
@@ -75,12 +75,12 @@
 </div>
 </div>
 
-<form id="site_import" action="<?=$lr('site_import')?>" method="POST" enctype="multipart/form-data">
+<form id="site_import" action="<?=$la('site_import')?>" method="POST" enctype="multipart/form-data">
     <div class="row-fluid">
         <div class="import_dropzone span6">
             <div class="text-center span9">
                 <input class="input-block-level" type="text" placeholder="destination.domain.com" name="Domain">
-                <small class="help-block">specify destination domain and drag or browse an exported .zip</small>
+                <small class="help-block">specify destination domain and drag or browse an export .zip</small>
             </div>
             <div class="text-center span3">
                 <span title="import site from .zip file" class="btn btn-primary fileinput-button">

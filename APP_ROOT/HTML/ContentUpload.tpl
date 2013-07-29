@@ -1,5 +1,5 @@
 
-<form id="content_upload" action="<?=$lr('content_create')?>" method="POST" enctype="multipart/form-data">
+<form id="content_upload" action="<?=$la('content_create')?>" method="POST" enctype="multipart/form-data">
 <div class="row-fluid text-center">
     <h1>upload content</h1>
     <h3 class="prefix_editable"><a href="#" class="set-prefix" data-type="text" data-name="UploadPrefix"></a></h3>

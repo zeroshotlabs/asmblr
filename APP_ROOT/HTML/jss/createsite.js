@@ -15,7 +15,7 @@ $('#createsite').on('submit','#createsite-form',function( e ) {
 
 
 $('#site_import').fileupload({
-	 url: '<?=$lr('site_import')?>',autoUpload: true,dropZone:$('.import_dropzone')
+	 url: '<?=$la('site_import')?>',autoUpload: true,dropZone:$('.import_dropzone')
 }).bind('fileuploaddone',function(e,data){
 	if( data.result.Status === false )
 		$('.label-important',e.delegateTarget).html(data.result.Msg);

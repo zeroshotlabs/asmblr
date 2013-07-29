@@ -85,7 +85,7 @@ class TemplateSet extends MongoSet
             $this->Extracts = array();
             foreach( $E as $K => $V )
             {
-                $this->Extracts[$K] = Is::What($V);
+                $this->Extracts[$K] = \fw\Is::What($V);
                 if( $this->Extracts[$K] === 'object' )
                     $this->Extracts[$K] = get_class($V);
             }

@@ -33,13 +33,13 @@
 &nbsp;<a target="_blank" href="<?=asm('lp')->Link('Home')?>"><img src="<?=$ls('/img/ext-link.png')?>" /></a>
 </li>
 <li>
-    <a class="new-page" data-type="page" data-showbuttons="bottom" data-url="<?=$lr('page_create')?>">new page</a>
+    <a class="new-page" data-type="page" data-showbuttons="bottom" data-url="<?=$la('page_create')?>">new page</a>
 </li>
 <li>
-    <a class="new-template" data-type="text" data-showbuttons="bottom" data-url="<?=$lr('template_create')?>" data-placeholder="TemplateName" data-name="Name" href="#">new template</a>
+    <a class="new-template" data-type="text" data-showbuttons="bottom" data-url="<?=$la('template_create')?>" data-placeholder="TemplateName" data-name="Name" href="#">new template</a>
 </li>
 <li>
-&nbsp;&nbsp;<small><a href="#" class="set-status" data-type="select" data-url="<?=$lr('site_set_status')?>" data-value="<?=$S['Status']?>" data-name="Status"><?=strtolower($S['Status'])?></a></small>
+&nbsp;&nbsp;<small><a href="#" class="set-status" data-type="select" data-url="<?=$la('site_set_status')?>" data-value="<?=$S['Status']?>" data-name="Status"><?=strtolower($S['Status'])?></a></small>
 </li>
 <?php elseif( $page->ActiveNav === 'Page' ): ?>
 <li><a href="<?=$lp('Site','>'.$S['_id'])?>"><?=$S['Domain']?></a><?=$P['Path']?>
@@ -47,7 +47,7 @@
 </li>
 <li> <span class="divider">|</span> <?=$P['Name']?></li>
 <li>
-&nbsp;&nbsp;<span style="font-size: .79em;"><a href="#" class="set-status" data-type="select" data-url="<?=$lr('page_set_status')?>" data-value="<?=$P['Status']?>" data-name="Status"><?=strtolower($P['Status'])?></a></span>
+&nbsp;&nbsp;<span style="font-size: .79em;"><a href="#" class="set-status" data-type="select" data-url="<?=$la('page_set_status')?>" data-value="<?=$P['Status']?>" data-name="Status"><?=strtolower($P['Status'])?></a></span>
 </li>
 <li class="pull-right">
     <a title="delete" data-toggle="modal" data-target="#page_delete" href="#">

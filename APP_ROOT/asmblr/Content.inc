@@ -170,7 +170,7 @@ class ContentSet extends MongoSet
     }
 
     // "atomic" :)  overwrites existing Meta data
-    // not really used yet
+    // not really used yet - probably should be converted to set particular field of meta (implemented in CB ADMIN API)
     public function SetMeta( $Meta,&$C )
     {
         return $this->SetKV('Meta',$Meta,'_id',$C);
