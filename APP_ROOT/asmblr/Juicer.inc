@@ -450,18 +450,25 @@ docontent:
      * Pulls out meta (title, description, keywords) and links (a href, link CSS, script JS and img src)
      * from a chunk of HTML.
      *
-     * For meta, each is replaced with a $page call.
-     * For links, each is replaced with linker (lp/lc and handle).
+     * An array containing all raw stuff screened out is returned.
      *
-     * If AllowedPages/AllowedContent is not empty, it's taken as an associative array keyed by handle
-     * which replaced links must exist in - otherwise they're skipped.
-     *
-     * If $KillSegments isn't empty, each segment will be removed from all paths before they are processing - no slashes.
-     *
-     * An array containing all raw stuff that was replaced is returned.
+     * A cleaned up HTML is also returned
      */
-    public static function ScreenHTML( $HTML,$RootURL,$AllowedPages = array(),$AllowedContent = array(),$KillSegments = array() )
+    public static function ScreenHTML( $HTML )
     {
+        $HTML2 = str_replace(array("\r","\t"),array('',' '),$HTML);
+        $HTML2 = str_replace(array('></','> </','><','> <'),array(">\n</",">\n</",">\n<",">\n<"),$HTML2);
+
+        $HTML = '';
+        foreach( explode("\n",$HTML2) as $C )
+        {
+            $C = trim($C);
+            if( empty($C) ) continue;
+            $HTML .= trim($C)."\n";
+        }
+
+        \fw\Struct::ToUTF8($HTML);
+
         libxml_use_internal_errors(TRUE);
         $DOM = new \DOMDocument;
         $DOM->strictErrorChecking = FALSE;
@@ -525,71 +532,17 @@ docontent:
             if( !empty($V->value) )
                 $Screened['Pages'][] = $V->value;
         }
-
-        if( !empty($Screened['Title']) )
-        {
-            $T = preg_quote("<title>{$Screened['Title']}</title>",'/');
-            $HTML = preg_replace("/{$T}/",'<title><?=$this($page->Title)?></title>',$HTML);
-        }
-
-        if( !empty($Screened['Description']) )
-        {
-            $T = preg_quote("content=\"{$Screened['Description']}\"",'/');
-            $HTML = preg_replace("/{$T}/",'content="<?=$this($page->Description)?>"',$HTML);
-        }
-
-        if( !empty($Screened['Keywords']) )
-        {
-            $T = preg_quote("content=\"{$Screened['Keywords']}\"",'/');
-            $HTML = preg_replace("/{$T}/",'content="<?=$this($page->Keywords)?>"',$HTML);
-        }
-
+/*
         // replace page links with $lp() linkers
         // handles both single/double quotes as ='' or =""
         // skips those not already known if AllowedPages isn't empty
         foreach( $Screened['Pages'] as &$Raw )
         {
-            $T = static::ProcessRaw($Raw,'P',$RootURL,$KillSegments,$AllowedContent,$HTML);
+            $T = static::ProcessRaw($Raw,'P',$RootURL,$KillSegments,$AllowedPages,$HTML);
             if( !empty($T) )
                 $Raw = $T;
         }
-/*
 
-            try
-            {
-                $L = Juicer::FoldURL($Raw,$RootURL);
-            }
-            catch( \Exception $E )
-            {
-                echo "\nSkipped invalid raw page URL: {$Raw}";
-                continue;
-            }
-
-            // bogus or external URL
-            if( empty($L) )
-                continue;
-
-            if( !empty($KillSegments) )
-            {
-                foreach( $L['Path']['Segments'] as $K => $V )
-                {
-                    if( in_array($V,$KillSegments,TRUE) )
-                        \fw\Path::Del($K,$L['Path']);
-                }
-            }
-
-            $Name = Page::Path2Name($L['Path']);
-
-            // the name is not in our list of allowed pages so skip
-            if( !empty($AllowedPages) && empty($AllowedPages[$Name]) )
-                continue;
-
-            $Link = preg_quote("{$Raw}",'/');
-            $Linker = "<?=\$lp('{$Name}')?>";
-            $HTML = preg_replace(array("/=\"{$Link}\"/","/='{$Link}'/"),array("=\"{$Linker}\"","='{$Linker}'"),$HTML);
-
-            $Screened['Pages'][$K] = array('Raw'=>$Raw,'Cleaned'=>$L);
- */
         // normalize links to content/pages and put in our linker, based on names of our crawled pages/content
         // ditto matching as above
         foreach( $Screened['CSS'] as &$Raw )
@@ -612,66 +565,119 @@ docontent:
             if( !empty($T) )
                 $Raw = $T;
         }
-
-        $HTML2 = str_replace(array("\r","\t"),array('',' '),$HTML);
-        $HTML2 = str_replace(array('></','> </','><','> <'),array(">\n</",">\n</",">\n<",">\n<"),$HTML2);
-
-        $HTML = '';
-        foreach( explode("\n",$HTML2) as $C )
-        {
-            $C = trim($C);
-            if( empty($C) ) continue;
-            $HTML .= trim($C)."\n";
-        }
-
-        \fw\Struct::ToUTF8($HTML);
-
+*/
         return array('Screened'=>$Screened,'HTML'=>$HTML);
     }
 
-    protected static function ProcessRaw( $Raw,$Type,$RootURL,$KillSegments,$Allowed,&$HTML )
+//     protected static function ProcessRaw( $Raw,$Type,$RootURL,$KillSegments,$Allowed,&$HTML )
+//     {
+//         try
+//         {
+//             $L = Juicer::FoldURL($Raw,$RootURL);
+//         }
+//         catch( \Exception $E )
+//         {
+//             echo "\nSkipped invalid raw URL: ".substr($Raw,0,100);
+//             return FALSE;
+//         }
+
+//         // bogus or external URL
+//         if( empty($L) )
+//             return FALSE;
+
+//         if( !empty($KillSegments) )
+//         {
+//             foreach( $L['Path']['Segments'] as $K => $V )
+//             {
+//                 if( in_array($V,$KillSegments,TRUE) )
+//                     \fw\Path::Del($K,$L['Path']);
+//             }
+//         }
+
+
+//         // the name is not in our list of allowed pages so skip
+//         if( !empty($Allowed) && empty($Allowed[$Name]) )
+//             continue;
+
+
+//         return array('Raw'=>$Raw,'Cleaned'=>$L);
+//     }
+
+/*
+    $T = preg_quote("<title>{$Screened['Title']}</title>",'/');
+    $HTML = preg_replace("/{$T}/",'<title><?=$this($page->Title)?></title>',$HTML);
+
+    $T = preg_quote("content=\"{$Screened['Description']}\"",'/');
+    $HTML = preg_replace("/{$T}/",'content="<?=$this($page->Description)?>"',$HTML);
+
+    $T = preg_quote("content=\"{$Screened['Keywords']}\"",'/');
+    $HTML = preg_replace("/{$T}/",'content="<?=$this($page->Keywords)?>"',$HTML);
+*/
+    public static function ReplaceMeta( $From,$To,&$HTML )
     {
+        $T = preg_quote($From,'/');
+        $HTML = preg_replace("/{$T}/",$To,$HTML);
+    }
+
+    // will replace in href and src
+//             $Name = Page::Path2Name($L['Path']);
+//             $Name = Content::Path2Path($L['Path']);
+    public static function ReplaceURL( $From,$To,&$HTML )
+    {
+        $From = preg_quote("{$From}",'/');
+        $HTML = preg_replace(array("/=\"{$From}\"/","/='{$From}'/"),array("=\"{$To}\"","='{$To}'"),$HTML);
+    }
+
+    /**
+     * Normalize raw URLs from web pages by "folding" them into a Root URL.
+     * Skips fragments/javascript/protocol-relative and external URLs.
+     *
+     * If internal, fill in scheme/hostname.
+     *
+     * @param string $RawURL Original URL
+     * @param array $RootURL Default URL to fill in parts that the raw URL may be missing.
+     *
+     * @retval array Normalized/folded URL struct.
+     * @retval NULL URL not folded (JS/external/fragment/etc)
+     */
+    public static function FoldURL( $RawURL,$RootURL )
+    {
+        $URL = trim($RawURL);
+
+        // leave empty or fragments or JS alone
+        if( empty($URL) || $URL[0] === '#' || strpos($URL,'javascript:') !== FALSE )
+            return NULL;
+
+        // leave protocol-relative and data links alone
+        if( strpos($URL,'//') === 0 || strpos($URL,'://data:') !== FALSE )
+            return NULL;
+
+        // do we need to do anything special with just / ?
+
         try
         {
-            $L = Juicer::FoldURL($Raw,$RootURL);
+            $URL = \fw\URL::Init($URL);
         }
         catch( \Exception $E )
         {
-            echo "\nSkipped invalid raw URL: ".substr($Raw,0,100);
-            return FALSE;
+            return NULL;
         }
 
-        // bogus or external URL
-        if( empty($L) )
-            return FALSE;
-
-        if( !empty($KillSegments) )
+        // hostname is empty or matches root, so must be on-site link
+        // could probably do smarter hostname matching including possibly using tags from the HTML itself
+        if( empty($URL['Hostname']) || (\fw\URL::Hostname($URL) === \fw\URL::Hostname($RootURL)) )
         {
-            foreach( $L['Path']['Segments'] as $K => $V )
-            {
-                if( in_array($V,$KillSegments,TRUE) )
-                    \fw\Path::Del($K,$L['Path']);
-            }
+            $URL['Scheme'] = $RootURL['Scheme'];
+            $URL['Hostname'] = $RootURL['Hostname'];
+            return $URL;
         }
-
-        if( $Type === 'P' )
-            $Name = Page::Path2Name($L['Path']);
+        // off site link so don't touch and there's no linker
         else
-            $Name = Content::Path2Path($L['Path']);
-
-        // the name is not in our list of allowed pages so skip
-        if( !empty($Allowed) && empty($Allowed[$Name]) )
-            continue;
-
-        $Link = preg_quote("{$Raw}",'/');
-        if( $Type === 'P' )
-            $Linker = "<?=\$lp('{$Name}')?>";
-        else
-            $Linker = "<?=\$lc('{$Name}')?>";
-        $HTML = preg_replace(array("/=\"{$Link}\"/","/='{$Link}'/"),array("=\"{$Linker}\"","='{$Linker}'"),$HTML);
-
-        return array('Raw'=>$Raw,'Cleaned'=>$L);
+        {
+            return NULL;
+        }
     }
+
 
     protected function NormalizeCSS( &$Content )
     {
@@ -710,50 +716,6 @@ docontent:
 
                 $C = $this->aapi->POST('content_create',array('Path'=>$ImgPath,'Body'=>$ImgBody,'Site_id'=>$Site_id));
 */
-    }
-
-
-    /**
-     * Normalize raw URLs from web pages by "folding" them into a Root URL.
-     * Skips fragments/javascript/protocol-relative and external URLs.
-     *
-     * If internal, fill in scheme/hostname.
-     *
-     * @param string $RawURL Original URL
-     * @param array $RootURL Default URL to fill in parts that the raw URL may be missing.
-     *
-     * @retval array Normalized/folded URL struct.
-     * @retval NULL URL not folded (JS/external/fragment/etc)
-     */
-    public static function FoldURL( $RawURL,$RootURL )
-    {
-        $URL = trim($RawURL);
-
-        // leave empty or fragments or JS alone
-        if( empty($URL) || $URL[0] === '#' || strpos($URL,'javascript:') !== FALSE )
-            return NULL;
-
-        // leave protocol-relative and data links alone
-        if( strpos($URL,'//') === 0 || strpos($URL,'://data:') !== FALSE )
-            return NULL;
-
-        // do we need to do anything special with just / ?
-
-        $URL = \fw\URL::Init($URL);
-
-        // hostname is empty or matches root, so must be on-site link
-        // could probably do smarter hostname matching including possibly using tags from the HTML itself
-        if( empty($URL['Hostname']) || (\fw\URL::Hostname($URL) === \fw\URL::Hostname($RootURL)) )
-        {
-            $URL['Scheme'] = $RootURL['Scheme'];
-            $URL['Hostname'] = $RootURL['Hostname'];
-            return $URL;
-        }
-        // off site link so don't touch and there's no linker
-        else
-        {
-            return NULL;
-        }
     }
 
 
