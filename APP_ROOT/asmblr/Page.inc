@@ -303,6 +303,12 @@ class PageSet extends MongoSet
 
         $P['Directives'] = $ds->PageList($P);
     }
+
+    // handy for management stuff dealing with multiple sites - doesn't Load
+    public function UseSite_id( \MongoId $S_id )
+    {
+        $this->Site_id = $S_id;
+    }
 }
 
 

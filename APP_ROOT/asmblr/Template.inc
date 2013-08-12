@@ -215,6 +215,12 @@ class TemplateSet extends MongoSet
         // $Fields = array('Path'=>1,'Domain'=>1,'Name'=>1,'Status'=>1,'CreateTS'=>1,'UpdateTS'=>1);
         return iterator_to_array($this->MDC->find((array('Site_id'=>$S))));
     }
+
+    // handy for management stuff dealing with multiple sites - doesn't Load
+    public function UseSite_id( \MongoId $S_id )
+    {
+        $this->Site_id = $S_id;
+    }
 }
 
 class enUSHTMLSet extends TemplateSet

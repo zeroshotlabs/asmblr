@@ -384,15 +384,18 @@ class AAPI extends \fw\RoutineSet
 
         // for very large sites, we'd want a separate content export most likely
         // this also doesn't save any meta/etc - only content as files with full path
-        foreach( static::$cs->Listing($Site['_id'],FALSE,TRUE) as $C )
+        if( empty($_GET['nocontent']) )
         {
-            // this, and what we use in ContentSrv, could be refactored into GetBody/SendBody for
-            // unified delivery or saving of the content - this is basically duped from ContentSRv
-            // it would also need to deal with S3/GAE in addition to Mongo
-            if( is_object($C['Body']) )
-                $Z->addFromString("Content/{$C['Path']}",$C['Body']->bin);
-            else
-                $Z->addFromString("Content/{$C['Path']}",$C['Body']);
+            foreach( static::$cs->Listing($Site['_id'],FALSE,TRUE) as $C )
+            {
+                // this, and what we use in ContentSrv, could be refactored into GetBody/SendBody for
+                // unified delivery or saving of the content - this is basically duped from ContentSRv
+                // it would also need to deal with S3/GAE in addition to Mongo
+                if( is_object($C['Body']) )
+                    $Z->addFromString("Content/{$C['Path']}",$C['Body']->bin);
+                else
+                    $Z->addFromString("Content/{$C['Path']}",$C['Body']);
+            }
         }
 
         $Z->close();
@@ -415,92 +418,17 @@ class AAPI extends \fw\RoutineSet
             if( !\fw\FileUpload::IsOk($FU) )
                 continue;
 
-            $Z = new \ZipArchive;
-            if( $Z->open($FU['TmpPath']) !== TRUE )
-            {
-                static::$Response = JSONResponse::Fail("Failed to read uploaded zip file");
-                return;
-            }
+            $S = SiteSet::SiteZip2Arr($FU['TmpPath'],$_POST['Domain'],static::$Account['_id']);
 
-            $Site = $PageFiles = $TemplateFiles = $ContentFiles = array();
-            for( $i = 0; $i < $Z->numFiles; ++$i )
-            {
-                $Filename = $Z->statIndex($i)['name'];
-
-                if( $Filename === 'Site.inc' )
-                {
-                    try
-                    {
-                        $Site = Site::Init($_POST['Domain'],static::$Account['_id']);
-                        Site::FromPHP($Z->getFromIndex($i),$Site);
-                        $S_d = $Site['Directives'];
-
-                        static::$ss->Create($Site);
-                    }
-                    catch( \Exception $E )
-                    {
-                        if( static::$ss->IsDupeE($E) )
-                            static::$Response = JSONResponse::Fail('Duplicate Domain');
-                        else
-                            static::$Response = JSONResponse::Fail('Database error');
-                        return;
-                    }
-
-                    foreach( $S_d as $D )
-                        static::$ss->SetDirective($D,$Site);
-                }
-                else
-                {
-                    $T = \fw\Path::Init($Filename);
-                    if( \fw\Path::Top($T) === 'Pages' && $Filename !== 'Pages/' )
-                    {
-                        $PageFiles[] = array($Filename,str_replace('.inc','',\fw\Path::Bottom($T)));
-                    }
-                    else if( \fw\Path::Top($T) === 'Templates' && $Filename !== 'Templates/' )
-                    {
-                        $TemplateFiles[] = array($Filename,str_replace('.inc','',\fw\Path::Bottom($T)));
-                    }
-                    else if( \fw\Path::Top($T) === 'Content' && $Filename !== 'Content/' )
-                    {
-                        $ContentFiles[] = array($i,str_replace('Content/','',$Filename));
-                    }
-                }
-            }
-
-            if( empty($Site) )
+            if( empty($S['Site']) )
             {
                 static::$Response = JSONResponse::Fail('Invalid zip - empty Site.inc');
                 return;
             }
 
-            foreach( $PageFiles as $PF )
-            {
-                $Page = Page::Init($Site['_id'],$PF[1],'/'.microtime());
-                Page::FromPHP($Z->getFromName($PF[0]),$Page);
-                $P_id = $Page['Directives'];
+            SiteSet::SiteArr2Mongo($S,static::$ss,static::$ps,static::$ts,static::$cs);
 
-                static::$ps->Create($Page);
-
-                foreach( $P_id as $D )
-                    static::$ps->SetDirective($D,$Page);
-            }
-
-            foreach( $TemplateFiles as $TF )
-            {
-                $Template = Template::Init($Site['_id'],$TF[1]);
-                Template::FromPHP($Z->getFromName($TF[0]),$Template);
-
-                static::$ts->Create($Template);
-            }
-
-            foreach( $ContentFiles as $CF )
-            {
-                $Content = Content::Init($Site['_id'],$CF[1],$Z->getFromIndex($CF[0]));
-
-                static::$cs->Create($Content);
-            }
-
-            static::$Response = JSONResponse::Ok($Site);
+            static::$Response = JSONResponse::Ok($S['Site']);
         }
     }
 
@@ -1231,10 +1159,10 @@ class AAPIClient
                                                               'Expect:'));
     }
 
-    public function GET( $Routine,$Resource = NULL )
+    public function GET( $Routine,$Resource = NULL,$QueryString = array() )
     {
         curl_setopt($this->CH,CURLOPT_HTTPGET,TRUE);
-        curl_setopt($this->CH,CURLOPT_URL,$this->la->Link($Routine,">{$Resource}"));
+        curl_setopt($this->CH,CURLOPT_URL,$this->la->Link($Routine,array(">{$Resource}")+$QueryString));
 
         $R = $this->Exec();
         if( empty($R) )
