@@ -73,6 +73,7 @@ abstract class Site extends MongoStruct
     }
 
     // see also Page::FromPHP
+    // Directives aren't DirectiveSet here??
     public static function FromPHP( $PHP,&$ToSite )
     {
         $Directives = array();

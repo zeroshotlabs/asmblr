@@ -64,27 +64,39 @@ class Pack
     }
 
     // if $Site['Site']['_id'] is empty, a new site is created, otherwise that _id is used and checked to exist
-    // ALL EXISTING page/template/content are deleted from an existing site
+    // ALL EXISTING page/template are deleted from an existing site - content is only added - overwritten if dupe
     public function ToMongo( &$Site )
     {
         try
         {
-            $S_id = $Site['Site']['Directives'];
-
             if( empty($Site['Site']['_id']) )
             {
+                $S_id = $Site['Site']['Directives'];
+
                 $this->ss->Create($Site['Site']);
+
+                foreach( $S_id as $D )
+                    $this->ss->SetDirective($D,$Site['Site']);
             }
             else
             {
+                $S = $this->ss->Read($Site['Site']['_id']);
+                if( empty($S) )
+                    throw new Exception("Implied site doesn't exist: {$Site['Site']['_id']}");
+
+                // is the format of directives the same across the board?  I don't think so
+                foreach( $S['Directives'] as $_id =>$D )
+                    $this->ss->DeleteDirective(new \MongoId($_id),$S);
+
+                foreach( $Site['Site']['Directives'] as $D )
+                    $this->ss->SetDirective($D,$S);
+
                 // hackish
                 if( !empty($Site['Site']['Routine'][0]) )
-                    $this->ss->SetRoutine($Site['Site']['Routine'][0],$Site['Site']);
-                $Site['Site'] = $this->ss->Read($Site['Site']['_id']);
-            }
+                    $this->ss->SetRoutine($Site['Site']['Routine'][0],$S);
 
-            foreach( $S_id as $D )
-                $this->ss->SetDirective($D,$Site['Site']);
+                $Site['Site'] = $S;
+            }
         }
         catch( \Exception $E )
         {
@@ -104,8 +116,8 @@ class Pack
         foreach( $this->ts->Listing($Site['Site']['_id']) as $T )
             $this->ts->Delete($T);
 
-        foreach( $this->cs->Listing($Site['Site']['_id']) as $C )
-            $this->cs->Delete($C);
+//         foreach( $this->cs->Listing($Site['Site']['_id']) as $C )
+//             $this->cs->Delete($C);
 
         foreach( $Site['Pages'] as &$Page )
         {
@@ -126,7 +138,23 @@ class Pack
         foreach( $Site['Content'] as &$Content )
         {
             $Content['Site_id'] = $Site['Site']['_id'];
-            $this->cs->Create($Content);
+
+            try
+            {
+                $this->cs->Create($Content);
+            }
+            catch( \Exception $E )
+            {
+                if( $this->cs->IsDupeE($E) )
+                {
+                    $C = $this->cs->Match($Content['Site_id'],$Content['Path']);
+                    if( !empty($C) )
+                        $this->cs->SetBody($Content['Body'],$C);
+                }
+                else
+                    throw $E;
+            }
+
         }
     }
 
