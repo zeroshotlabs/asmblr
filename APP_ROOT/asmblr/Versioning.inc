@@ -55,9 +55,7 @@ class Versioning
         if( empty($Site) )
             return FALSE;
 
-        $T = time();
-//        $asmDir = sys_get_temp_dir()."/{$Site['Domain']}_asm_{$T}";
-        $coDir = sys_get_temp_dir()."/{$Site['Domain']}_co_{$T}";
+        $coDir = sys_get_temp_dir()."/{$Site['Domain']}_co_".time();
 
         $this->svnExec("co {$this->BranchURL} {$coDir}");
         $this->svnExec("merge {$this->TrunkURL} {$coDir}");
@@ -137,7 +135,7 @@ class Versioning
         $OP = array();
         exec("echo 't' | /usr/bin/svn -q --config-dir /tmp/svn.silly --config-option servers:global:store-auth-creds=no --username praxis --password st4ckw4r3 $Cmd 2>&1",$OP,$R);
         if( $R !== 0 )
-            throw new Exception("svn '{$Cmd}' failed: ".implode("\n",$OP));
+            throw new Exception("svn {$Cmd} failed: ".implode("\n",$OP));
     }
 
 }

@@ -72,9 +72,16 @@ class Pack
             $S_id = $Site['Site']['Directives'];
 
             if( empty($Site['Site']['_id']) )
+            {
                 $this->ss->Create($Site['Site']);
+            }
             else
+            {
+                // hackish
+                if( !empty($Site['Site']['Routine'][0]) )
+                    $this->ss->SetRoutine($Site['Site']['Routine'][0],$Site['Site']);
                 $Site['Site'] = $this->ss->Read($Site['Site']['_id']);
+            }
 
             foreach( $S_id as $D )
                 $this->ss->SetDirective($D,$Site['Site']);
