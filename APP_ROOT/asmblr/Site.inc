@@ -245,178 +245,29 @@ class SiteSet extends MongoSet
         $S['Directives'] = $ds->SiteList($S);
     }
 
-// loads an entire site (event content) from a zip file into memory (array)
-// a dummy site id is used for templates/paegs/content (it's actually the account_id
-    public static function SiteZip2Arr( $ZipFilePath,$Domain,\MongoId $Account_id )
+    public static function MergeSiteArr2WC( $Site,$WCPath )
     {
-        $Z = new \ZipArchive;
-        if( $Z->open($ZipFilePath) !== TRUE )
-            throw new Exception("Failed to read zip file: $ZipFilePath");
 
-        $Site = $Pages = $Templates = $Content = array();
-        for( $i = 0; $i < $Z->numFiles; ++$i )
-        {
-            $Filename = $Z->statIndex($i)['name'];
+        $PFD = fopen('php://temp','rw');
+        fwrite($PFD,$Parent);
 
-            if( $Filename === 'Site.inc' )
-            {
-                $Site = Site::Init($Domain,$Account_id);
-                Site::FromPHP($Z->getFromIndex($i),$Site);
-            }
-            else
-            {
-                $T = \fw\Path::Init($Filename);
-                if( \fw\Path::Top($T) === 'Pages' && $Filename !== 'Pages/' )
-                {
-                    $Page = Page::Init($Account_id,str_replace('.inc','',\fw\Path::Bottom($T)),'/'.microtime());
-                    Page::FromPHP($Z->getFromName($Filename),$Page);
-                    $Pages[] = $Page;
-                }
-                else if( \fw\Path::Top($T) === 'Templates' && $Filename !== 'Templates/' )
-                {
-                    $Template = Template::Init($Account_id,str_replace('.inc','',\fw\Path::Bottom($T)));
-                    Template::FromPHP($Z->getFromName($Filename),$Template);
-                    $Templates[] = $Template;
-                }
-                else if( \fw\Path::Top($T) === 'Content' && $Filename !== 'Content/' )
-                {
-                    $Con = Content::Init($Account_id,str_replace('Content/','',$Filename),$Z->getFromIndex($i));
-                    $Content[] = $Con;
-                }
-            }
-        }
+        $CFD = fopen('php://temp','rw');
+        fwrite($CFD,$Child);
 
-        return array('Site'=>$Site,'Pages'=>$Pages,'Templates'=>$Templates,'Content'=>$Content);
+        $FDS = array(
+           1 => array("pipe", "w"),
+           3 => $PFD,
+           4 => $CFD
+        );
+
+//        $P = proc_open('wdiff   /dev/fd/3 /dev/fd/4',$FDS,$PIPES);
+//        $P = proc_open('diff -i -w -B --strip-trailing-cr -d -U 0 /dev/fd/3 /dev/fd/4',$FDS,$PIPES);
+
+        $P = proc_open('diff -i  -U 0 /dev/fd/3 /dev/fd/4',$FDS,$PIPES);
+
+        $Diff = stream_get_contents($PIPES[1]);
+
     }
 
-    // ignores all files/directories except known ones and ending in .inc (everything in Content/)
-    // dir can be anything and is not checked for security
-    public static function SiteDir2Arr( $Dir,$Domain,\MongoId $Account_id )
-    {
-        $DirPath = realpath($Dir);
-        if( empty($DirPath) )
-            throw new Exception("Dir '$Dir' is not readable.");
-
-        if( !is_readable("{$DirPath}/Site.inc") )
-            throw new Exception("Dir '$DirPath' doesn't contain Site.inc.");
-
-        $Site = Site::Init($Domain,$Account_id);
-        Site::FromPHP(file_get_contents("{$DirPath}/Site.inc"),$Site);
-
-        $Pages = array();
-        if( ($LS = @scandir("{$DirPath}/Pages")) !== FALSE )
-        {
-            foreach( $LS as $File )
-            {
-                if( $File{0} === '.' || strpos($File,'.inc') === FALSE )
-                    continue;
-
-                $FilePath = "{$DirPath}/Pages".DIRECTORY_SEPARATOR.$File;
-
-                $Page = Page::Init($Account_id,str_replace('.inc','',$File),'/'.microtime());
-                Page::FromPHP(file_get_contents($FilePath),$Page);
-                $Pages[] = $Page;
-            }
-        }
-
-        $Templates = array();
-        if( ($LS = @scandir("{$DirPath}/Templates")) !== FALSE )
-        {
-            foreach( $LS as $File )
-            {
-                if( $File{0} === '.' || strpos($File,'.inc') === FALSE )
-                    continue;
-
-                $FilePath = "{$DirPath}/Templates".DIRECTORY_SEPARATOR.$File;
-
-                $Template = Template::Init($Account_id,str_replace('.inc','',$File));
-                Template::FromPHP(file_get_contents($FilePath),$Template);
-                $Templates[] = $Template;
-            }
-        }
-
-        $Content = array();
-        // need to recursive for sub-dirs?
-        if( ($LS = @scandir("{$DirPath}/Content")) !== FALSE )
-        {
-            foreach( $LS as $File )
-            {
-                if( $File{0} === '.' )
-                    continue;
-
-                $FilePath = "{$DirPath}/Content".DIRECTORY_SEPARATOR.$File;
-
-                $Con = Content::Init($Account_id,$File,file_get_contents($FilePath));
-                $Content[] = $Con;
-            }
-        }
-
-        return array('Site'=>$Site,'Pages'=>$Pages,'Templates'=>$Templates,'Content'=>$Content);
-    }
-
-    // try to save the site, and then ass pages, templates, content
-    // assumes site array from SiteZip2Arr/etc - $Site is modified
-    // if $Site['Site']['_id'] is empty, a new site is created, otherwise that _id is used and checked to exist
-    // an existing page/template/content is deleted
-    public static function SiteArr2Mongo( &$Site,$ss,$ps,$ts,$cs )
-    {
-        try
-        {
-            $S_id = $Site['Site']['Directives'];
-            if( empty($Site['Site']['_id']) )
-            {
-                $ss->Create($Site['Site']);
-            }
-            else
-            {
-                $Site['Site'] = $ss->Read($Site['Site']['_id']);
-            }
-
-            foreach( $S_id as $D )
-                $ss->SetDirective($D,$Site['Site']);
-        }
-        catch( \Exception $E )
-        {
-            if( $ss->IsDupeE($E) )
-                throw new Exception('Duplicate Domain');
-            else
-                throw new Exception('Database error');
-
-            return;
-        }
-
-        $ps->UseSite_id($Site['Site']['_id']);
-        foreach( $Site['Pages'] as &$Page )
-        {
-            $Page['Site_id'] = $Site['Site']['_id'];
-            $P_id = $Page['Directives'];
-            $P = $ps->Read($Page['Name']);
-            if( !empty($P) )
-                $ps->Delete($P);
-            $ps->Create($Page);
-
-            foreach( $P_id as $D )
-                $ps->SetDirective($D,$Page);
-        }
-
-        $ts->UseSite_id($Site['Site']['_id']);
-        foreach( $Site['Templates'] as &$Template )
-        {
-            $Template['Site_id'] = $Site['Site']['_id'];
-            $T = $ts->Read($Template['Name']);
-            if( !empty($T) )
-                $ts->Delete($T);
-            $ts->Create($Template);
-        }
-
-        foreach( $Site['Content'] as &$Content )
-        {
-            $Content['Site_id'] = $Site['Site']['_id'];
-            $C = $cs->Match($Site['Site']['_id'],$Content['Path']);
-            if( !empty($C) )
-                $cs->Delete($Content);
-            $cs->Create($Content);
-        }
-    }
 }
 

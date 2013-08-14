@@ -42,6 +42,7 @@ class AAPI extends \fw\RoutineSet
         $asmdb->ContentSet->ensureIndex(array('Site_id'=>TRUE,'Path'=>TRUE),array('unique'=>TRUE));
 //        $asmdb->ContentSet->ensureIndex(array('Site_id'=>TRUE,'Name'=>TRUE),array('unique'=>TRUE));
 
+        // the naming/etc of these needs to be normalized and organized - probably should go only in asm()
         static::$as = $as = asm('as');
         static::$ss = asm('ss');
         // use standalone sets from our console regular framewire app
@@ -356,52 +357,16 @@ class AAPI extends \fw\RoutineSet
 
         fw('html')->ReMap('Base',NULL);
 
-        $Site = static::$Site;
+        $pack = new Pack(static::$ss,static::$ps,static::$ts,static::$cs);
+        $S = $pack->FromMongo(static::$Site['_id'],empty($_GET['nocontent'])?FALSE:TRUE);
 
-        $Filename = $Site['Domain'].'-'.date('Y-m-d-H-i').'.zip';
+        $Filename = "{$S['Site']['Domain']}-".date('Y-m-d-H-i').'.zip';
+        $TmpPath = sys_get_temp_dir()."/{$Filename}";
 
-        $Z = new \ZipArchive;
-        if( $Z->open("/tmp/$Filename",\ZIPARCHIVE::CREATE) !== TRUE )
-        {
-            static::$Response = JSONResponse::Fail("Failed to create tmp zip file at /tmp/{$Filename}.");
-            return;
-        }
+        Pack::ToZip($S,$TmpPath);
 
-        $Z->addEmptyDir('Pages');
-        $Z->addEmptyDir('Templates');
-        $Z->addEmptyDir('Content');
-
-        $Z->addFromString('Site.inc',Site::ToPHP($Site));
-
-        foreach( static::$ps->Listing($Site['_id']) as $P )
-        {
-            static::$ps->Flatten($P);
-            $Z->addFromString("Pages/{$P['Name']}.inc",Page::ToPHP($P));
-        }
-
-        foreach( static::$ts->Listing($Site['_id']) as $T )
-            $Z->addFromString("Templates/{$T['Name']}.inc",Template::ToPHP($T));
-
-        // for very large sites, we'd want a separate content export most likely
-        // this also doesn't save any meta/etc - only content as files with full path
-        if( empty($_GET['nocontent']) )
-        {
-            foreach( static::$cs->Listing($Site['_id'],FALSE,TRUE) as $C )
-            {
-                // this, and what we use in ContentSrv, could be refactored into GetBody/SendBody for
-                // unified delivery or saving of the content - this is basically duped from ContentSRv
-                // it would also need to deal with S3/GAE in addition to Mongo
-                if( is_object($C['Body']) )
-                    $Z->addFromString("Content/{$C['Path']}",$C['Body']->bin);
-                else
-                    $Z->addFromString("Content/{$C['Path']}",$C['Body']);
-            }
-        }
-
-        $Z->close();
-
-        $R = array('Filename'=>$Filename,'Content'=>utf8_encode(file_get_contents("/tmp/$Filename")));
-        unlink("/tmp/$Filename");
+        $R = array('Filename'=>$Filename,'Content'=>utf8_encode(file_get_contents($TmpPath)));
+        unlink($TmpPath);
 
         static::$Response = JSONResponse::Ok($R);
     }
@@ -418,15 +383,18 @@ class AAPI extends \fw\RoutineSet
             if( !\fw\FileUpload::IsOk($FU) )
                 continue;
 
-            $S = SiteSet::SiteZip2Arr($FU['TmpPath'],$_POST['Domain'],static::$Account['_id']);
+            $S = Pack::FromZip($FU['TmpPath'],$_POST['Domain'],static::$Account['_id']);
 
             if( empty($S['Site']) )
             {
-                static::$Response = JSONResponse::Fail('Invalid zip - empty Site.inc');
+                static::$Response = JSONResponse::Fail('Invalid zip');
                 return;
             }
 
-            SiteSet::SiteArr2Mongo($S,static::$ss,static::$ps,static::$ts,static::$cs);
+            $pack = new Pack(static::$ss,static::$ps,static::$ts,static::$cs);
+            $pack->ToMongo($S);
+
+            unlink($FU['TmpPath']);
 
             static::$Response = JSONResponse::Ok($S['Site']);
         }

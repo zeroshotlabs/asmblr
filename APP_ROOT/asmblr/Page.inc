@@ -47,7 +47,7 @@ abstract class Page extends MongoStruct
     // potentially a pointer routine could be mis-interpreted (security issue)
     public static function SetRoutine( $Routine,&$P )
     {
-        if( trim($Routine) === '' )
+        if( empty($Routine) || trim($Routine) === '' )
             $P['Routine'] = array();
         else
             $P['Routine'] = \fw\Routine::Init($Routine);
@@ -296,6 +296,7 @@ class PageSet extends MongoSet
     }
 
     // pull in directives into Directives element
+    // should this (and Site::Flatten()) flatten to an array (it's currently an DataSet object)
     public function Flatten( &$P )
     {
         $ds = new DirectiveSet($this->MDB,$P['Site_id']);
