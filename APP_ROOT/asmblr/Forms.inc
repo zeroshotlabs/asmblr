@@ -83,6 +83,23 @@ abstract class v extends \fw\enUS
             return FALSE;
     }
 
+
+    // ditto routine - JSON string expected here
+    public static function Config( $N,&$H )
+    {
+        // allow to clear Configs
+        if( empty($H[$N]) )
+        {
+            $H[$N] = array();
+            return TRUE;
+        }
+
+        if( static::Textarea($N,$H) )
+            return TRUE;
+        else
+            return FALSE;
+    }
+
     // ditto
     public static function Body( $N,&$H )
     {
@@ -130,28 +147,6 @@ abstract class v extends \fw\enUS
         if( !empty($H['D_id']) && !static::_id('D_id',$H) )
             return FALSE;
 
-        return TRUE;
-    }
-
-    // basically the same as Directives but simply K=>V each scalars
-    public static function Config( $N,&$H )
-    {
-        // allow to clear Configs
-        if( empty($H[$N]) )
-            return TRUE;
-
-        $T = json_decode($H[$N]);
-
-        if( empty($T) )
-            return FALSE;
-
-        foreach( $T as $K => $C )
-        {
-            if( is_scalar($C) === FALSE )
-                return FALSE;
-        }
-
-        $H[$N] = $T;
         return TRUE;
     }
 

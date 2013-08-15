@@ -503,6 +503,21 @@ class AAPI extends \fw\RoutineSet
             static::$Response = JSONResponse::Fail('Database error');
     }
 
+    protected static function site_set_config()
+    {
+        if(!rv::Site_id() || !rv::Config() )
+            \fw\HTTP::_400();
+
+        static::AuthSite(new \MongoId($_POST['Site_id']));
+
+        $R = static::$ss->SetConfig($_POST['Config'],static::$Site);
+
+        if( $R === TRUE )
+            static::$Response = JSONResponse::Ok(static::$Site);
+        else
+            static::$Response = JSONResponse::Fail('Database error');
+    }
+
     // will need directive set specific security
     protected static function site_set_directive()
     {
@@ -580,22 +595,6 @@ class AAPI extends \fw\RoutineSet
         else
             static::$Response = JSONResponse::Ok($D);
     }
-/*
-    protected static function site_set_config()
-    {
-        if(!rv::Site_id() || !rv::Config() )
-            \fw\HTTP::_400();
-
-        static::AuthSite(new \MongoId($_POST['Site_id']));
-
-        $R = static::$ss->SetConfig($_POST['Config'],static::$Site);
-
-        if( $R === TRUE )
-            static::$Response = JSONResponse::Ok(static::$Site);
-        else
-            static::$Response = JSONResponse::Fail('Database error');
-    }
-*/
 
     protected static function page_read()
     {

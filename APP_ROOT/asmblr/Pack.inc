@@ -25,12 +25,14 @@ class Pack
         $this->cs = $cs;
     }
 
-    // when Site has it's Config populated, we should not include Config on "export"
+    // this always kills Config - cut/paste it separate
     public function FromMongo( \MongoId $Site_id,$NoContent = FALSE )
     {
         $Site = $this->ss->Read($Site_id);
         if( empty($Site) )
             throw new Exception('No site found for '.(string)$Site_id);
+
+        $Site['Config'] = array();
 
         $Pages = array();
         foreach( $this->ps->Listing($Site['_id']) as $P )
@@ -73,6 +75,9 @@ class Pack
             {
                 $S_id = $Site['Site']['Directives'];
 
+                // never import Config
+                $Site['Config'] = array();
+
                 $this->ss->Create($Site['Site']);
 
                 foreach( $S_id as $D )
@@ -80,6 +85,8 @@ class Pack
             }
             else
             {
+                // existing site so config isn't touched
+
                 $S = $this->ss->Read($Site['Site']['_id']);
                 if( empty($S) )
                     throw new Exception("Implied site doesn't exist: {$Site['Site']['_id']}");

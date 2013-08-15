@@ -315,6 +315,10 @@ class fwApp extends \fw\App
         // bring our asmblr stuff online - no site execution happens though (Go())
         // GetSet() will be called in our various console routines, like Page, Template
         // to setup site specific sets for Page/Template - these sets will be in Site_id mode
+        // NOTE: this should change somehow - doing GetSet should be done here, though we need a way to
+        // know which domain/site we're dealing with - we have to overcome some chicken-egg problems
+        // and organize all of our ss/ps/ts/etc so that they're available consistently for the site asm is serving,
+        // and the site that the console is working on
         $asm = new asmSrv;
 
         // create generic sets as console/api helpers - these are in standalone mode

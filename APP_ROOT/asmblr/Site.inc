@@ -55,7 +55,20 @@ abstract class Site extends MongoStruct
             $S['Routine'] = \fw\Routine::Init($Routine);
     }
 
-    // ditto per Page - domain is not saved
+    // Config is assumed a PHP array string and set as an array - all values will become strings except bool/null
+    public static function SetConfig( $Config,&$S )
+    {
+        // yay
+        $Config = eval("return {$Config};");
+
+        foreach( $Config as &$C )
+            if( is_scalar($C) === TRUE && is_bool($C) === FALSE && $C !== NULL )
+                $C = trim($C);
+
+        $S['Config'] = $Config;
+    }
+
+    // ditto per Page - domain is not saved nor is Config
     public static function ToPHP( $S )
     {
         $Buf = "<?php\n\n";
@@ -147,6 +160,12 @@ class SiteSet extends MongoSet
         return $this->SetKV('Routine',$S['Routine'],'_id',$S);
     }
 
+    public function SetConfig( $Config,&$S )
+    {
+        Site::SetConfig($Config,$S);
+        return $this->SetKV('Config',$S['Config'],'_id',$S);
+    }
+
     public function SetDirective( $Directive,&$S,\MongoId $D_id = NULL )
     {
         $ds = new DirectiveSet($this->MDB,$S['_id']);
@@ -222,11 +241,6 @@ class SiteSet extends MongoSet
             $O = $ds->OOf($NextD_id);
             return $ds->Move($D,$O);
         }
-    }
-
-    public function SetConfig( $Config,&$S )
-    {
-        return $this->SetKV('Config',$Config,'_id',$S);
     }
 
     // each result isn't Flatten()'d
