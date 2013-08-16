@@ -515,7 +515,7 @@ class AAPI extends \fw\RoutineSet
         if( $R === TRUE )
             static::$Response = JSONResponse::Ok(static::$Site);
         else
-            static::$Response = JSONResponse::Fail('Database error');
+            static::$Response = JSONResponse::Fail('Invalid config - please check the syntax');
     }
 
     // will need directive set specific security

@@ -59,7 +59,15 @@ abstract class Site extends MongoStruct
     public static function SetConfig( $Config,&$S )
     {
         // yay
-        $Config = eval("return {$Config};");
+        $Config = @eval("return {$Config};");
+
+        // parse error or something - leave as is
+        if( $Config === FALSE )
+        {
+            // PHP bug
+            \fw\HTTP::_200();
+            return FALSE;
+        }
 
         foreach( $Config as &$C )
             if( is_scalar($C) === TRUE && is_bool($C) === FALSE && $C !== NULL )
@@ -162,8 +170,10 @@ class SiteSet extends MongoSet
 
     public function SetConfig( $Config,&$S )
     {
-        Site::SetConfig($Config,$S);
-        return $this->SetKV('Config',$S['Config'],'_id',$S);
+        if( Site::SetConfig($Config,$S) === FALSE )
+            return FALSE;
+        else
+            return $this->SetKV('Config',$S['Config'],'_id',$S);
     }
 
     public function SetDirective( $Directive,&$S,\MongoId $D_id = NULL )
