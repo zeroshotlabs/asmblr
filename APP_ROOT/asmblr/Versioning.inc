@@ -47,6 +47,31 @@ class Versioning
         system("rm -rf {$exportDir}");
     }
 
+    public function svnDiff( \MongoId $Site_id )
+    {
+        $Site = $this->ss->Read($Site_id);
+        if( empty($Site) )
+            return FALSE;
+
+        $coDir = sys_get_temp_dir()."/{$Site['Domain']}_co_".time().'/';
+
+        $this->svnExec("co {$this->BranchURL} {$coDir}");
+
+        $pack = new Pack($this->ss,$this->ps,$this->ts,$this->cs);
+        $asmS = $pack->FromMongo($Site['_id'],TRUE);
+
+        // merge from mongo into the wc
+        $this->ToSVNWC($asmS,$coDir);
+
+        $diff = $this->svnExec("diff {$coDir}");
+        $status = $this->svnExec("status {$coDir}");
+
+        // yup
+        system("rm -rf {$coDir}");
+
+        return array($status,$diff);
+    }
+
     // commit changes to svn
     // this uses a lot of RAM
     public function svnCommit( \MongoId $Site_id,$NoContent = FALSE )
@@ -61,9 +86,6 @@ class Versioning
         $this->svnExec("merge {$this->TrunkURL} {$coDir}");
         $this->svnExec("ci {$coDir} -m 'merge of trunk to {$Site['Domain']} branch'");
 
-        // to determine what's we may have deleted locally - not very efficient
-        $BranchS = Pack::FromDir($coDir,$Site['Domain'],$Site['AAID']);
-
         // now merge pages/templates/content from our local site in mongo - svn add new files
         $pack = new Pack($this->ss,$this->ps,$this->ts,$this->cs);
         $asmS = $pack->FromMongo($Site['_id'],$NoContent);
@@ -71,11 +93,28 @@ class Versioning
         // save a snapshot backup just in case
         Pack::ToDir($asmS,$coDir."_snapshot");
 
-        file_put_contents("{$coDir}/Site.inc",Site::ToPHP($asmS['Site']));
+        // merge from mongo into the wc
+        $this->ToSVNWC($asmS,$coDir);
 
-        foreach( $asmS['Pages'] as $P )
+        $this->svnExec("ci {$coDir} -m 'asm local commit of {$Site['Domain']}'");
+
+        // yup
+        system("rm -rf {$coDir}");
+    }
+
+    protected function ToSVNWC( $Site,$WCPath )
+    {
+        if( !is_writeable($WCPath) )
+            throw new Exception("Cannot write to '$WCPath'");
+
+        // snapshot into memory to determine what's we may have deleted locally - not very efficient
+        $BranchS = Pack::FromDir($WCPath,$Site['Site']['Domain'],$Site['Site']['AAID']);
+
+        file_put_contents("{$WCPath}/Site.inc",Site::ToPHP($Site['Site']));
+
+        foreach( $Site['Pages'] as $P )
         {
-            $FN = "{$coDir}/Pages/{$P['Name']}.inc";
+            $FN = "{$WCPath}/Pages/{$P['Name']}.inc";
 
             $Exists = is_file($FN);
             file_put_contents($FN,Page::ToPHP($P));
@@ -84,9 +123,9 @@ class Versioning
                 $this->svnExec("add $FN");
         }
 
-        foreach( $asmS['Templates'] as $T )
+        foreach( $Site['Templates'] as $T )
         {
-            $FN = "{$coDir}/Templates/{$T['Name']}.inc";
+            $FN = "{$WCPath}/Templates/{$T['Name']}.inc";
 
             $Exists = is_file($FN);
             file_put_contents($FN,Template::ToPHP($T));
@@ -96,9 +135,9 @@ class Versioning
         }
 
         // common problem of dir structures here too
-        foreach( $asmS['Content'] as $Name => $Body )
+        foreach( $Site['Content'] as $Name => $Body )
         {
-            $FN = "{$coDir}/Content/{$Name}.inc";
+            $FN = "{$WCPath}/Content/{$Name}.inc";
 
             $Exists = is_file($FN);
             file_put_content($FN,$Body);
@@ -109,22 +148,16 @@ class Versioning
 
         // delete items that were deleted locally
         foreach( $BranchS['Pages'] as $P )
-            if( !isset($asmS['Pages'][$P['Name']]) )
-                $this->svnExec("rm {$coDir}/Pages/{$P['Name']}.inc");
+            if( !isset($Site['Pages'][$P['Name']]) )
+                $this->svnExec("rm {$WCPath}/Pages/{$P['Name']}.inc");
 
         foreach( $BranchS['Templates'] as $T )
-            if( !isset($asmS['Templates'][$T['Name']]) )
-                $this->svnExec("rm {$coDir}/Templates/{$T['Name']}.inc");
+            if( !isset($Site['Templates'][$T['Name']]) )
+                $this->svnExec("rm {$WCPath}/Templates/{$T['Name']}.inc");
 
         foreach( $BranchS['Content'] as $Name => $Body )
-            if( !isset($asmS['Content'][$Name]) )
-                $this->svnExec("rm {$coDir}/Content/{$Name}.inc");
-
-
-        $this->svnExec("ci {$coDir} -m 'asm local commit of {$Site['Domain']}'");
-
-        // yup
-        system("rm -rf {$coDir}");
+            if( !isset($Site['Content'][$Name]) )
+                $this->svnExec("rm {$WCPath}/Content/{$Name}.inc");
     }
 
 
@@ -133,10 +166,12 @@ class Versioning
     {
         $R = 0;
         $OP = array();
-        exec("echo 't' | /usr/bin/svn -q --config-dir /tmp/svn.silly --config-option servers:global:store-auth-creds=no --username praxis --password st4ckw4r3 $Cmd 2>&1",$OP,$R);
+        exec("echo 't' | /usr/bin/svn --config-dir /tmp/svn.silly --config-option servers:global:store-auth-creds=no --username praxis --password st4ckw4r3 $Cmd 2>&1",$OP,$R);
+
         if( $R !== 0 )
             throw new Exception("svn {$Cmd} failed: ".implode("\n",$OP));
+        else
+            return $OP;
     }
-
 }
 
