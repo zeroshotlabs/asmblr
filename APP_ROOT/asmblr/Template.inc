@@ -4,6 +4,7 @@ namespace asm;
 
 // Collection: TemplateSet
 // Unique: DomainName
+// should we have a SetBody and some basic content type awareness similar to Content?
 abstract class Template extends MongoStruct
 {
     protected static $Skel = array('Site_id'=>'','Name'=>'','CurrentTS'=>0,
@@ -110,6 +111,9 @@ class TemplateSet extends MongoSet
                 $L = 'LOG';
             }
 
+            // hack
+            $TURL = 'http://'.fwApp::$ConsoleDomain.'/template/';
+            echo '<code style="margin: 0; padding: 0; font-size: 10px; line-height: 11px;"><a target="_blank" href="'.$TURL.$T['_id']."#body_tab\">{$Buf}</a></code>";
             \fw\Log::Log($Buf,$L,NULL,$this->Extracts);
         }
 
