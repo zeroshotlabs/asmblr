@@ -153,6 +153,25 @@ class ListSet extends \fw\WireableBase
         return $I;
     }
 
+    // read an Item by _id
+    public function Read_id( \MongoId $Item_id )
+    {
+        return $this->MDC->findOne(array('_id'=>$Item_id));
+    }
+
+    public function Delete( $I )
+    {
+        $R = $this->MDC->remove(array('_id'=>$I['_id'],'CurrentTS'=>$I['CurrentTS']))['n'];
+//         if( $R === 1 )
+//         {
+//             foreach( $I['Tags'] as $T )
+//             {
+//                 if( is_int($T['O']) )
+//                     $this->Contract($T['O'],$T['T']);
+//             }
+//         }
+    }
+
     // set entire Data for an Item - Item must exist
     public function SetData( $Data,&$I )
     {
@@ -183,18 +202,29 @@ class ListSet extends \fw\WireableBase
             throw new Exception($R['err']);
     }
 
-    // returns mongocursor to iterate over a list - full items are returned so data is under the Data element
-    // this could also be __call()/ls(), maybe?  can be expanded to have sorting args/filters/etc
+    // returns array to iterate over a list - only Data is returned which is different from Lists()
+    // can be expanded to have sorting args/filters/etc
     public function __invoke( $Tag )
     {
         // this behavior is handy, but needs to be streamlined somehow
         $R = $this->MDC->find(array('Site_id'=>$this->Site_id,'Tags.T'=>$Tag))->
                          sort(array('Tags.O'=>1));
+
         $R2 = array();
         foreach( $R as $V )
+        {
+            // bleh
+            $V['Data']['_id'] = $V['_id'];
             $R2[] = $V['Data'];
+        }
 
         return $R2;
+    }
+
+    // alias of __invoke
+    public function ls( $Tag )
+    {
+        return $this->__invoke($Tag);
     }
 
     // returns either 0 or max + 1 for the given Tag
@@ -333,21 +363,7 @@ class ListSet extends \fw\WireableBase
         }
     }
 
-    public function Delete( $D )
-    {
-        $R = $this->MDC->remove(array('_id'=>$D['_id'],'CurrentTS'=>$D['CurrentTS']))['n'];
-        if( $R === 1 )
-        {
-            foreach( $D['Tags'] as $T )
-            {
-                if( is_int($T['O']) )
-                    $this->Contract($T['O'],$T['T']);
-            }
-        }
 
-        $this->Refresh();
-        return $R;
-    }
 */
 /*
     // Add an existing data record at an optional $O
