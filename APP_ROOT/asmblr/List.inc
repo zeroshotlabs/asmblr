@@ -74,6 +74,10 @@ abstract class Item extends MongoStruct
 
 // O is the position of the item within it's list
 // this will typically use a single collection, defaulting to ListSet
+// this currently sort of supports a single item being in multiple lists (Tag), remnants from DataSet
+// we may remove that, having one item only be in one list at a time
+// DataSet also sort of supported string positions so that lists could be sorted, for example, alphabetically
+// this may too go away
 class ListSet extends \fw\WireableBase
 // implements \Iterator,\Countable
 // ,\ArrayAccess
@@ -162,14 +166,47 @@ class ListSet extends \fw\WireableBase
     public function Delete( $I )
     {
         $R = $this->MDC->remove(array('_id'=>$I['_id'],'CurrentTS'=>$I['CurrentTS']))['n'];
-//         if( $R === 1 )
-//         {
-//             foreach( $I['Tags'] as $T )
-//             {
-//                 if( is_int($T['O']) )
-//                     $this->Contract($T['O'],$T['T']);
-//             }
-//         }
+        if( $R === 1 )
+        {
+            foreach( $I['Tags'] as $T )
+            {
+                if( is_int($T['O']) )
+                    $this->Contract($T['O'],$T['T']);
+            }
+        }
+    }
+
+    public function Insert( &$I,$ListTag,\MongoId $Before_id = NULL )
+    {
+        // insert at the end, i.e. append
+        if( empty($Before_id) )
+        {
+            Item::SetSite_id($this->Site_id,$I);
+            Item::SetTag($ListTag,$this->NextO($ListTag),$I);
+            $this->MDC->insert($I);
+            return TRUE;
+        }
+        else
+        {
+            $Before = $this->Read_id($Before_id);
+            if( empty($Before) )
+                return FALSE;
+
+            foreach( $Before['Tags'] as $T )
+                if( $T['T'] === $ListTag )
+                {
+                    $O = $T['O'];
+                    break;
+                }
+
+            if( !isset($O) )
+                return FALSE;
+
+            Item::SetTag($ListTag,$O,$I);
+            $this->Expand($O,$ListTag);
+            $this->MDC->insert($I);
+            return TRUE;
+        }
     }
 
     // set entire Data for an Item - Item must exist
@@ -195,7 +232,9 @@ class ListSet extends \fw\WireableBase
 
         if( empty($R['err']) && $R['n'] === 1 )
         {
-            $I['Data'] = $Data;
+//            \fw\Log::Sys(array('_id'=>$I['_id'],'CurrentTS'=>$I['CurrentTS']));
+//            \fw\Log::Sys(array("Data.{$Key}"=>$Value));
+            $I['Data'][$Key] = $Value;
             return TRUE;
         }
         else
@@ -237,6 +276,126 @@ class ListSet extends \fw\WireableBase
             return 0;
         else
             return ($O['Tags'][0]['O']+1);
+    }
+
+
+    // moves an Item in front of another item, or to the end of the list
+    public function Move( $I,$Next_id,$ListTag )
+    {
+
+    }
+
+
+    // this supports moving only within the item's list - not across lists
+    public function Move33( $I,$NewO,$ListTag,$AsCopy = FALSE )
+    {
+        if( ($O = $this->OOf($I,$ListTag)) === NULL )
+            return FALSE;
+
+        // move to the end
+        if( $NewO === NULL )
+        {
+            if( $AsCopy )
+            {
+                Item::SetTag($ListTag,$this->NextO($ListTag),$I);
+                $this->MDC->insert($I);
+            }
+            else
+            {
+                $this->SetO($I,$this->NextO($ListTag),$ListTag);
+                $this->Contract($O,$ListTag);
+            }
+
+            return TRUE;
+        }
+
+        $NewO = (int) $NewO;
+
+        // same O is a no-op
+        if( $NewO === $O )
+            return FALSE;
+
+        // move right
+        if( $NewO > $O )
+        {
+            if( $AsCopy )
+            {
+                $D2 = Data::Init($this->Site_id,$this->Tag,$NewO,$D['Data']);
+//                Item::SetTag($ListTag,$this->
+                $this->Expand($NewO,$ListTag);
+                $this->MDC->insert($D2);
+                $this->Refresh();
+                return $D2;
+            }
+            else
+            {
+                $this->Expand($NewO);
+                $this->SetO($D['_id'],$NewO);
+                $this->Contract($O);
+                return $D;
+            }
+        }
+        // moving left
+        else
+        {
+            if( $AsCopy )
+            {
+                $D2 = Data::Init($this->Site_id,$this->Tag,$NewO,$D['Data']);
+                $this->Expand($NewO);
+                $this->MDC->insert($D2);
+                $this->Refresh();
+                return $D2;
+            }
+            else
+            {
+                $this->Expand($NewO);
+                $this->SetO($D['_id'],$NewO);
+                $this->Contract($O);
+                return $D;
+            }
+        }
+    }
+
+    protected function SetO( $I,$NewO,$ListTag )
+    {
+        return $this->MDC->update(array('_id'=>$I['_id'],'Tags.T'=>$ListTag),
+                                  array('$set'=>array('Tags.$.O'=>(int)$NewO)),
+                                  array('multiple'=>FALSE));
+    }
+
+    protected function OOf( $I,$ListTag )
+    {
+        $O = $this->MDC->findOne(array('_id'=>$I['_id'],'Tags.T'=>$ListTag),array('Tags.$'=>TRUE));
+
+        if( empty($O) )
+            return NULL;
+        else
+            return $O['Tags'][0]['O'];
+    }
+
+    // temp. we're not having a unique index so that this works
+    protected function Expand( $O,$ListTag )
+    {
+//         $Q = array('Site_id'=>$this->Site_id,
+//                                            'Tags'=>array('$elemMatch'=>array('T'=>$T===NULL?$this->Tag:$T,'O'=>array('$gte'=>$O))),
+//                                         '$orderby'=>array('Site_id'=>-1)
+//                                        );
+
+//         $R = $this->MDC->find($Q);
+//         llog(iterator_to_array($R));
+
+        return $this->MDC->update(array('Site_id'=>$this->Site_id,
+                                           'Tags'=>array('$elemMatch'=>array('T'=>$ListTag,'O'=>array('$gte'=>$O)))),
+                                  array('$inc'=>array('Tags.$.O'=>1)),
+                                  array('multiple'=>TRUE));
+    }
+
+    protected function Contract( $O,$ListTag )
+    {
+        return $this->MDC->update(array('Site_id'=>$this->Site_id,
+                                           'Tags'=>array('$elemMatch'=>array('T'=>$ListTag,'O'=>array('$gte'=>$O)))),
+                                  array('$inc'=>array('Tags.$.O'=>-1)),
+                                  array('multiple'=>TRUE));
     }
 
 /*
@@ -290,80 +449,6 @@ class ListSet extends \fw\WireableBase
 //         return $this->MDC->findOne(array('_id'=>$D));
 //     }
 /*
-    public function Move( $D,$NewO,$AsCopy = FALSE )
-    {
-        if( ($O = $this->OOf($D['_id'])) === NULL )
-            return FALSE;
-
-        // move to the end
-        if( $NewO === NULL )
-        {
-            if( $AsCopy )
-            {
-                $D2 = Data::Init($this->Site_id,$this->Tag,$this->NextO(),$D['Data']);
-                $this->MDC->insert($D2);
-                $this->Refresh();
-                return $D2;
-            }
-            else
-            {
-                $this->SetO($D['_id'],$this->NextO());
-                $this->Contract($O);
-                return $D;
-            }
-        }
-
-        $NewO = Data::NormO($NewO);
-
-        // differing O types not supported
-        if( gettype($NewO) !== gettype($O) )
-            return FALSE;
-
-        // same O is a no-op
-        if( $NewO === $O )
-            return FALSE;
-
-        // move right
-        if( $NewO > $O )
-        {
-            if( $AsCopy )
-            {
-                $D2 = Data::Init($this->Site_id,$this->Tag,$NewO,$D['Data']);
-                $this->Expand($NewO);
-                $this->MDC->insert($D2);
-                $this->Refresh();
-                return $D2;
-            }
-            else
-            {
-                $this->Expand($NewO);
-                $this->SetO($D['_id'],$NewO);
-                $this->Contract($O);
-                return $D;
-            }
-        }
-        // moving left
-        else
-        {
-            if( $AsCopy )
-            {
-                $D2 = Data::Init($this->Site_id,$this->Tag,$NewO,$D['Data']);
-                $this->Expand($NewO);
-                $this->MDC->insert($D2);
-                $this->Refresh();
-                return $D2;
-            }
-            else
-            {
-                $this->Expand($NewO);
-                $this->SetO($D['_id'],$NewO);
-                $this->Contract($O);
-                return $D;
-            }
-        }
-    }
-
-
 */
 /*
     // Add an existing data record at an optional $O
@@ -419,51 +504,6 @@ class ListSet extends \fw\WireableBase
             return $D;
         else
             return NULL;
-    }
-*/
-/*
-    public function OOf( \MongoId $D )
-    {
-        $O = $this->MDC->findOne(array('_id'=>$D,'Tags.T'=>$this->Tag),array('Tags.$'=>TRUE));
-
-        if( empty($O) )
-            return NULL;
-        else
-            return $O['Tags'][0]['O'];
-    }
-
-    protected function SetO( \MongoId $D,$NewO,$T = NULL )
-    {
-        $NewO = Data::NormO($NewO);
-
-        return $this->MDC->update(array('_id'=>$D,'Tags.T'=>$T===NULL?$this->Tag:$T),
-                                  array('$set'=>array('Tags.$.O'=>$NewO)),
-                                  array('multiple'=>FALSE));
-    }
-
-    // temp. we're not having a unique index so that this works
-    protected function Expand( $O,$T = NULL )
-    {
-//         $Q = array('Site_id'=>$this->Site_id,
-//                                            'Tags'=>array('$elemMatch'=>array('T'=>$T===NULL?$this->Tag:$T,'O'=>array('$gte'=>$O))),
-//                                         '$orderby'=>array('Site_id'=>-1)
-//                                        );
-
-//         $R = $this->MDC->find($Q);
-//         llog(iterator_to_array($R));
-
-        return $this->MDC->update(array('Site_id'=>$this->Site_id,
-                                           'Tags'=>array('$elemMatch'=>array('T'=>$T===NULL?$this->Tag:$T,'O'=>array('$gte'=>$O)))),
-                                  array('$inc'=>array('Tags.$.O'=>1)),
-                                  array('multiple'=>TRUE));
-    }
-
-    protected function Contract( $O,$T = NULL )
-    {
-        return $this->MDC->update(array('Site_id'=>$this->Site_id,
-                                           'Tags'=>array('$elemMatch'=>array('T'=>$T===NULL?$this->Tag:$T,'O'=>array('$gte'=>$O)))),
-                                  array('$inc'=>array('Tags.$.O'=>-1)),
-                                  array('multiple'=>TRUE));
     }
 */
 
