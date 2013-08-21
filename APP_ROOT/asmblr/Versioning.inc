@@ -83,8 +83,8 @@ class Versioning
         $coDir = sys_get_temp_dir()."/{$Site['Domain']}_co_".time();
 
         $this->svnExec("co {$this->BranchURL} {$coDir}");
-        $this->svnExec("merge {$this->TrunkURL} {$coDir}");
-        $this->svnExec("ci {$coDir} -m 'merge of trunk to {$Site['Domain']} branch'");
+//        $this->svnExec("merge {$this->TrunkURL} {$coDir}");
+//        $this->svnExec("ci {$coDir} -m 'merge of trunk to {$Site['Domain']} branch'");
 
         // now merge pages/templates/content from our local site in mongo - svn add new files
         $pack = new Pack($this->ss,$this->ps,$this->ts,$this->cs);
