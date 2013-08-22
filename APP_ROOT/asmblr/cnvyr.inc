@@ -26,7 +26,7 @@ class cnvyr extends \fw\WireableBase
 
     // serve a path based on a config - Token is used for cache files
     // a config must minimally contain an Origin. the origin must currently
-    // be a local file or http URL - at some point ContentSet might be an option
+    // be a local file or http URL or ContentSet object
     // this exits - could probably be abused - this whole class could probably be static
     public function Srv( $Path,$Token,$Config )
     {
@@ -41,37 +41,63 @@ class cnvyr extends \fw\WireableBase
         // Srv() could also be called in asmboot.php under it's own domain to bypass almost all of asmblr startup
         // do we need any config awareness here, such as cache?  \fw\HTTP::Cache($V[1]);
         // TODO: /cnvyri/ should be configurable
-        if( is_file("{$this->LocalCache}{$Path}_{$Token}") && $Config['NoLocalCache'] === FALSE )
+        // we should probably do some path normalization (replace slashes... or md5?)
+        if( is_file("{$this->LocalCache}{$Token}_{$Path}") && $Config['NoLocalCache'] === FALSE )
         {
-            header("X-Accel-Redirect: /cnvyri/{$Path}_{$Token}");
+            header("X-Accel-Redirect: /cnvyri/{$Token}_{$Path}");
             exit;
         }
 
         if( empty($Config['Origin']) )
             throw new Exception("No Origin for {$Path}");
 
+        // do we need to normalize Origin if a string?
         // security was already checked and all complex read checking :)
-        // do we need to normalize Origin?
-        $Buf = @file_get_contents($Config['Origin'].$Path);
-
-        if( strpos($Config['Origin'],'http') === 0 )
+        if( $Config['Origin'] instanceof \asm\ContentSet )
         {
-            // blind assumption
-            $HTR = $http_response_header;
-
-            if( empty($HTR[0]) || strpos($HTR[0],'200') === FALSE )
+            // basically same as Page SrvImg
+            $C = $Config['Origin']->Match(asm()->SrvSite['_id'],$Path);
+            if( empty($C) )
             {
                 \fw\HTTP::_404();
-                exit;
+            }
+            else
+            {
+                if( $C['Status'] !== 'Active' )
+                {
+                    \fw\HTTP::_404();
+                }
+                else
+                {
+                    // since an image, always the first case, right?
+                    if( is_object($C['Body']) )
+                        $Buf = $C['Body']->bin;
+                    else
+                        $Buf = $C['Body'];
+                }
             }
         }
         else
         {
-            if( empty($Buf) )
+            $Buf = @file_get_contents($Config['Origin'].$Path);
+
+            if( strpos($Config['Origin'],'http') === 0 )
             {
-                \fw\HTTP::_404();
-                exit;
+                // blind assumption
+                $HTR = $http_response_header;
+
+                if( empty($HTR[0]) || strpos($HTR[0],'200') === FALSE )
+                {
+                    \fw\HTTP::_404();
+                    exit;
+                }
             }
+        }
+
+        if( empty($Buf) )
+        {
+            \fw\HTTP::_404();
+            exit;
         }
 
         $FI = new \finfo(FILEINFO_MIME_TYPE);
@@ -90,14 +116,10 @@ class cnvyr extends \fw\WireableBase
         // we would handle non-op handler config, like Cache (which is HTTP caching)
         // perhaps we don't even do cache since it can be easily done by the calling Page or nginx
 
-        // it seems that we have to send the CT here, but not once written
-//          $CT = \fw\HTTP::ResolveContentType($Config['ContentType']);
-//          header("Content-Type: {$CT}");
-
         // write to local cache and serve using x-sendfile
-        file_put_contents("{$this->LocalCache}{$Path}_{$Token}",$OutputBuf);
+        file_put_contents("{$this->LocalCache}{$Token}_{$Path}",$OutputBuf);
 
-        header("X-Accel-Redirect: /cnvyri/{$Path}_{$Token}");
+        header("X-Accel-Redirect: /cnvyri/{$Token}_{$Path}");
         exit;
     }
 

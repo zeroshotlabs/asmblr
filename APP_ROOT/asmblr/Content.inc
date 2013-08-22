@@ -178,15 +178,19 @@ class ContentSet extends MongoSet
 
     // TODO: debugging
     // need to consider delivery directly out of mongo to the browser
-    // this expects a Path struct not a string
+    // this will handle with a path struct or assumed proper string
     public function Match( \MongoId $S,$Path )
     {
         // ditto here for Path - and really this practice probably makes sense for Page/PageSet too
 //        $T = \fw\Path::Init($Path);
-        $Path['IsDir'] = $Path['IsAbs'] = FALSE;
-        $DP = \fw\Path::ToURLString($Path);
 
-        if( ($C = $this->MDC->findOne(array('Site_id'=>$S,'Path'=>$DP))) !== NULL )
+        if( is_array($Path) )
+        {
+            $Path['IsDir'] = $Path['IsAbs'] = FALSE;
+            $Path = \fw\Path::ToURLString($Path);
+        }
+
+        if( ($C = $this->MDC->findOne(array('Site_id'=>$S,'Path'=>$Path))) !== NULL )
             return $C;
         else
             return NULL;
