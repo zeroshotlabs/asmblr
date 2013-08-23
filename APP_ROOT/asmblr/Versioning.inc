@@ -166,10 +166,23 @@ class Versioning
     {
         $R = 0;
         $OP = array();
-        exec("echo 't' | /usr/bin/svn --config-dir /tmp/svn.silly --config-option servers:global:store-auth-creds=no --username praxis --password st4ckw4r3 $Cmd 2>&1",$OP,$R);
+        exec("/usr/bin/svn --version",$OP,$R);
+        if( strpos($OP[0],'1.8') )
+        {
+            // must do a sudo -u nobody  /usr/bin/svn --config-dir /tmp/silly22 log https://svn....
+            $CStr = "/usr/bin/svn --config-dir /tmp/silly22  --username praxis --password st4ckw4r3 $Cmd 2>&1";
+        }
+        else
+        {
+            $CStr = "echo 't' | /usr/bin/svn --config-dir /tmp/svn.silly --config-option servers:global:store-auth-creds=no --username praxis --password st4ckw4r3 $Cmd 2>&1";
+        }
+
+        $R = 0;
+        $OP = array();
+        exec($CStr,$OP,$R);
 
         if( $R !== 0 )
-            throw new Exception("svn {$Cmd} failed: ".implode("\n",$OP));
+            throw new Exception("{$CStr}: ".implode("\n",$OP));
         else
             return $OP;
     }
