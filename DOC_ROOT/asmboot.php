@@ -55,8 +55,9 @@ class asmSrv extends \fw\App
     public $SrvSite;
 
     public $SysOp = 'asmblr@stackware.com';
-    // will need some way to reliably control this
+    // will need some way to securely control this
     public $LogPublic = TRUE;
+
     public $MongoDB = 'asmblr';
 
     public $SiteStatuses = array('Active','Disabled');
@@ -265,7 +266,7 @@ class fwApp extends \fw\App
     public $SysOp = 'asmblr@stackware.com';
     public $LogPublic = FALSE;
 
-    public static $ConsoleDomain = 'asmblr.local';
+    public static $ConsoleDomain = 'asmblr.co';
 
 
     // minimize internal startup

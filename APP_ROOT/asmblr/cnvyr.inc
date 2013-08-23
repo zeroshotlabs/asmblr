@@ -44,7 +44,17 @@ class cnvyr extends \fw\WireableBase
         // we should probably do some path normalization (replace slashes... or md5?)
         if( is_file("{$this->LocalCache}{$Token}_{$Path}") && $Config['NoLocalCache'] === FALSE )
         {
-            header("X-Accel-Redirect: /cnvyri/{$Token}_{$Path}");
+            if( PHP_SAPI === 'apache2handler' )
+            {
+                // this dance sucks - can't mod_xsendfile send the Content Type ?
+                $finfo = finfo_open(FILEINFO_MIME);
+                header('Content-Type: '.finfo_file($finfo,"{$this->LocalCache}{$Token}_{$Path}"));
+                header("X-SendFile: {$this->LocalCache}{$Token}_{$Path}");
+
+            }
+            else
+                header("X-Accel-Redirect: /cnvyri/{$Token}_{$Path}");
+
             exit;
         }
 
@@ -119,7 +129,16 @@ class cnvyr extends \fw\WireableBase
         // write to local cache and serve using x-sendfile
         file_put_contents("{$this->LocalCache}{$Token}_{$Path}",$OutputBuf);
 
-        header("X-Accel-Redirect: /cnvyri/{$Token}_{$Path}");
+        if( PHP_SAPI === 'apache2handler' )
+        {
+            // this dance sucks - can't mod_xsendfile send the Content Type ?
+            $finfo = finfo_open(FILEINFO_MIME);
+            header('Content-Type: '.finfo_file($finfo,"{$this->LocalCache}{$Token}_{$Path}"));
+            header("X-SendFile: {$this->LocalCache}{$Token}_{$Path}");
+        }
+        else
+            header("X-Accel-Redirect: /cnvyri/{$Token}_{$Path}");
+            
         exit;
     }
 
