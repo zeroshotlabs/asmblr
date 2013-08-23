@@ -2,7 +2,7 @@
 namespace asm;
 
 
-// this doesn't use a database except ListSet
+// this doesn't use a database
 class cnvyr extends \fw\WireableBase
 {
     // meta data for non-cached requests
@@ -341,6 +341,24 @@ class cnvyr extends \fw\WireableBase
             $Scale = $Factor;
 
         return array($Scale*$W,$Scale*$H);
+    }
+}
+
+
+// suited for prepending path segments to a filename
+class Linkcnvyr extends \fw\LinkSet
+{
+    // call as $limg('Filename.jpg','semgnet1/segmentN');
+    public function __invoke( $Name = NULL,$Set = '' )
+    {
+        $Base = $this->BaseURL;
+        foreach( explode('/',$Set) as $S )
+            $Base['Path']['Segments'][] = $S;
+
+        $Base['Path']['Segments'][] = $Name;
+        $Base['Path']['IsDir'] = $Base['Path']['IsAbs'] = FALSE;
+
+        return \fw\URL::ToString($Base);
     }
 }
 
