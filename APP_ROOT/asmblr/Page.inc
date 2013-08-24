@@ -277,7 +277,8 @@ class PageSet extends MongoSet
     public function Listing( \MongoId $S )
     {
         // $Fields = array('Path'=>1,'Domain'=>1,'Name'=>1,'Status'=>1,'CreateTS'=>1,'UpdateTS'=>1);
-        return iterator_to_array($this->MDC->find((array('Site_id'=>$S)))->sort(array('Name'=>TRUE)));
+//        return iterator_to_array($this->MDC->find((array('Site_id'=>$S)))->sort(array('Name'=>TRUE)));
+        return $this->MDC->find((array('Site_id'=>$S)))->sort(array('Name'=>TRUE));
     }
 
     // TODO: debugging
