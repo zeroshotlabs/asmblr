@@ -171,6 +171,7 @@ class TemplateSet extends MongoSet
     {
         $this->Templates = array();
         // ick - hopefully not too bad because there aren't a lot of templates per site
+        // we may not easily be able to avoid this, though not using iterator_to_array() makes a big difference
         foreach( $this->Listing($S) as $V )
             $this->Templates[$V['Name']] = $V;
     }
@@ -217,7 +218,8 @@ class TemplateSet extends MongoSet
     public function Listing( \MongoId $S )
     {
         // $Fields = array('Path'=>1,'Domain'=>1,'Name'=>1,'Status'=>1,'CreateTS'=>1,'UpdateTS'=>1);
-        return iterator_to_array($this->MDC->find((array('Site_id'=>$S))));
+        return $this->MDC->find((array('Site_id'=>$S)));
+//        return iterator_to_array($this->MDC->find((array('Site_id'=>$S))));
     }
 
     // handy for management stuff dealing with multiple sites - doesn't Load
