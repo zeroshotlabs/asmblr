@@ -245,7 +245,7 @@ class ListSet extends \fw\WireableBase
     // can be expanded to have sorting args/filters/etc
     public function __invoke( $Tag )
     {
-        // this behavior is handy, but needs to be streamlined somehow
+        // this behavior is handy, but needs to be streamlined somehow - it's slow....?
         $R = $this->MDC->find(array('Site_id'=>$this->Site_id,'Tags.T'=>$Tag))->
                          sort(array('Tags.O'=>1));
 
