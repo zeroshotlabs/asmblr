@@ -124,17 +124,7 @@ class TemplateSet extends MongoSet
             if( empty($RenderingTemplate['Routine']) )
             {
                 extract(\fw\Is::Arr(0,$Args)?$this->Connected+$Args[0]:$this->Connected);
-
-                if( $Name === 'Base' )
-                {
-                    eval("?>{$RenderingTemplate['Body']}");
-                }
-                else
-                {
-//                    echo "<div contenteditable=\"true\" class=\"asm-live-edit\" id=\"{$Name}\">";
-                    eval("?>{$RenderingTemplate['Body']}");
-//                    echo "</div>";
-                }
+                eval("?>{$RenderingTemplate['Body']}");
             }
             else
             {
@@ -146,22 +136,8 @@ class TemplateSet extends MongoSet
                 if( $AllowRender !== FALSE )
                 {
                     extract(\fw\Is::Arr(0,$Args)===TRUE?$this->Connected+$Args[0]:$this->Connected);
-                    if( $Name === 'Base' )
-                    {
-                        eval("?>{$RenderingTemplate['Body']}");
-                    }
-                    else
-                    {
-//                        echo "<div class=\"asm-live-edit\" id=\"{$Name}\">";
-                        eval("?>{$RenderingTemplate['Body']}");
-//                        echo "</div>";
-                    }
+                    eval("?>{$RenderingTemplate['Body']}");
                 }
-            }
-
-            if( $Name === 'Base' )
-            {
-//                echo '<script src="/jslib/ckeditor/ckeditor.js"></script>';
             }
         }
     }

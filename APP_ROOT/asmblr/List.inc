@@ -241,6 +241,11 @@ class ListSet extends \fw\WireableBase
             throw new Exception($R['err']);
     }
 
+    public function count( $Tag )
+    {
+    	return $this->MDC->count(array('Site_id'=>$this->Site_id,'Tags.T'=>$Tag));
+    }
+
     // returns array to iterate over a list - only Data is returned which is different from Lists()
     // can be expanded to have sorting args/filters/etc
     public function __invoke( $Tag )
