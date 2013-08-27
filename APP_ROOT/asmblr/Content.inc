@@ -52,7 +52,7 @@ abstract class Content extends MongoStruct
         $Path['IsDir'] = $Path['IsAbs'] = FALSE;
 
         $C['PathStruct'] = $Path;
-        $C['Path'] = \fw\Path::ToURLString($Path);
+        $C['Path'] = \fw\Path::ToString($Path);
     }
 
     // type is automatically set when setting Body, though this can set it explicitly afterwards
