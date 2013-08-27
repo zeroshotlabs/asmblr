@@ -67,7 +67,12 @@ abstract class Content extends MongoStruct
         if( empty($Body) )
         {
             $C['Body'] = '';
-            $C['Type'] = \fw\HTTP::ResolveContentType('txt');
+
+            if( empty($Type) )
+                $C['Type'] = \fw\HTTP::ResolveContentType('txt');
+            else
+                $C['Type'] = \fw\HTTP::ResolveContentType($Type);
+
             $C['Length'] = 0;
         }
         else
