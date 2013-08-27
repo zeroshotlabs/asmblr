@@ -188,5 +188,64 @@ class SessionStoreMongoDB implements \SessionHandlerInterface
     }
 }
 
+
+class JSON extends \fw\WireableBase implements \Iterator,\Countable
+{
+    protected $JSON = array();
+
+
+    public function __toString()
+    {
+        return json_encode($this->JSON);
+    }
+
+    public function __get( $Key )
+    {
+        return empty($this->JSON[$Key])?'':$this->JSON[$Key];
+    }
+
+    public function __set( $Key,$Value )
+    {
+        $this->JSON[$Key] = (string) $Value;
+    }
+
+    public function __isset( $Key )
+    {
+        return isset($this->JSON[$Key]);
+    }
+
+    public function count()
+    {
+        return count($this->JSON);
+    }
+
+    public function rewind()
+    {
+        reset($this->$Key);
+    }
+
+    public function current()
+    {
+        return $this->__get(key($this->JSON));
+    }
+
+    public function key()
+    {
+        return key($this->JSON);
+    }
+
+    public function next()
+    {
+        next($this->JSON);
+    }
+
+    public function valid()
+    {
+        return current($this->JSON)===FALSE?FALSE:TRUE;
+    }
+
+}
+
+
 }
 

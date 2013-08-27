@@ -120,14 +120,20 @@ class ListSet extends \fw\WireableBase
     }
 
     // for now a list doesn't have a title - just it's Tag which is stored in Data (confusing)
+    // though now we allow additional meta data
     // implicit list creation isn't possible - create a list here before adding an item
     // duplicate lists are not allowed
-    public function NewList( $Tag,$Type = '' )
+    public function NewList( $Tag,$Type = '',$Data = array() )
     {
         if( $this->IsList($Tag) )
             throw new Exception("List '{$Tag}' already exists.");
 
-        $I = Item::Init(array('Tag'=>$Tag),$Type);
+        if( empty($Data) )
+            $Data = array('Tag'=>$Tag);
+        else
+            $Data['Tag'] = $Tag;
+
+        $I = Item::Init($Data,$Type);
 
         Item::SetSite_id($this->Site_id,$I);
         Item::SetTag($this->DictTag,$this->NextO($this->DictTag),$I);
