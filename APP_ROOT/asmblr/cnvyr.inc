@@ -371,8 +371,11 @@ class Linkcnvyr extends \fw\LinkSet
     public function __invoke( $Name = NULL,$Set = '' )
     {
         $Base = $this->BaseURL;
-        foreach( explode('/',$Set) as $S )
-            $Base['Path']['Segments'][] = $S;
+        if( !empty($Set) )
+        {
+            foreach( explode('/',$Set) as $S )
+                $Base['Path']['Segments'][] = $S;
+        }
 
         $Base['Path']['Segments'][] = $Name;
         $Base['Path']['IsDir'] = $Base['Path']['IsAbs'] = FALSE;

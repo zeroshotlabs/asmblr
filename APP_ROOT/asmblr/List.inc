@@ -17,17 +17,21 @@ namespace asm;
 // $this->MDC->ensureIndex(array('Site_id'=>TRUE,'Tags.T'=>TRUE,'Tags.O'=>TRUE),array('unique'=>FALSE));
 // for pulling the list of lists (Dictionary)
 // $this->MDC->ensureIndex(array('Site_id'=>TRUE,'Type'=>TRUE,'Tags.T'=>TRUE,'Tags.O'=>TRUE),array('unique'=>FALSE));
+// we've added Key as a lookup field that's always indexed - it's not unique (though could be?)
+// $this->MDC->ensureIndex(array('Site_id'=>TRUE,'Type'=>TRUE,'Tags.T'=>TRUE,'Key'=>TRUE),array('unique'=>FALSE));
 abstract class Item extends MongoStruct
 {
-    protected static $Skel = array('Site_id'=>'','Type'=>'','Tags'=>array(),'CurrentTS'=>0,
+    protected static $Skel = array('Site_id'=>'','Type'=>'','Key'=>'','Tags'=>array(),'CurrentTS'=>0,
                                    'Data'=>array());
 
     // Site_id is set by the ListSet this Item is used in
     // and so is $Tag,$Ordering
-    public static function Init( $Data,$Type = '' )
+    public static function Init( $Data,$Type = '',$Key = '' )
     {
         $I = static::$Skel;
         $I['Type'] = $Type;
+        $I['Key'] = $Key;
+
 //        $D['Site_id'] = $S;
 //        $D['Tags'][] = array('T'=>$Tag,'O'=>static::NormO($Ordering));
         $I['Data'] = $Data;
@@ -108,7 +112,7 @@ class ListSet extends \fw\WireableBase
     }
 
     // returns mongocursor - full items are returned for now - array('Data.Tag')
-    public function Lists( $Type = '' )
+    public function Lists( $Type = '',$Sort = array() )
     {
         if( empty($Type) )
             $C = array('Site_id'=>$this->Site_id,'Tags.T'=>$this->DictTag);
@@ -116,7 +120,7 @@ class ListSet extends \fw\WireableBase
             $C = array('Site_id'=>$this->Site_id,'Type'=>$Type,'Tags.T'=>$this->DictTag);
 
         // ->sort(array('Tags.O'=>empty($this->ASC)?-1:1))
-        return $this->MDC->find($C);
+        return $this->MDC->find($C)->sort($Sort);
     }
 
     // for now a list doesn't have a title - just it's Tag which is stored in Data (confusing)
@@ -140,6 +144,13 @@ class ListSet extends \fw\WireableBase
 
         $this->MDC->insert($I);
     }
+    
+    // deletes a list and all of it's Items
+    public function DeleteList( $Tag )
+    {
+        $this->MDC->remove(array('Site_id'=>$this->Site_id,'Tags.T'=>$Tag),array('justOne'=>FALSE));
+        $this->MDC->remove(array('Site_id'=>$this->Site_id,'Tags.T'=>$this->DictTag,'Data.Tag'=>$Tag),array('justOne'=>FALSE));
+    }
 
     public function IsList( $Tag )
     {
@@ -150,12 +161,12 @@ class ListSet extends \fw\WireableBase
 
     // append data to the list determined by $Tag - list must already exist
     // expects just the data array and returns the Item as it was appended
-    public function Append( $Data,$Tag )
+    public function Append( $Data,$Tag,$Type = '',$Key = '' )
     {
         if( !$this->IsList($Tag) )
             throw new Exception("List '{$Tag}' doesn't exist - use NewList() first.");
 
-        $I = Item::Init($Data);
+        $I = Item::Init($Data,$Type,$Key);
         Item::SetSite_id($this->Site_id,$I);
         Item::SetTag($Tag,$this->NextO($Tag),$I);
 
@@ -168,6 +179,23 @@ class ListSet extends \fw\WireableBase
     {
         return $this->MDC->findOne(array('_id'=>$Item_id));
     }
+    
+    // read an Item by it's Key (which not all records are gauranteed to have)
+    // key should typically be a string or Mongo _id - this may return more than one result - always as an array of data
+    public function Read( $Key,$Tag,$Type = '' )
+    {
+        $R = $this->MDC->find(array('Site_id'=>$this->Site_id,'Type'=>$Type,'Tags.T'=>$Tag,'Key'=>$Key));
+
+        $R2 = array();
+        foreach( $R as $V )
+        {
+            $V['Data']['_id'] = $V['_id'];
+            $R2[] = $V['Data'];
+        }
+        
+        return $R2;
+    }
+        
 
     public function Delete( $I )
     {
