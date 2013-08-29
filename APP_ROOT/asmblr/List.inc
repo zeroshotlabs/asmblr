@@ -129,7 +129,7 @@ class ListSet extends \fw\WireableBase
     // duplicate lists are not allowed
     public function NewList( $Tag,$Type = '',$Data = array() )
     {
-        if( $this->IsList($Tag) )
+        if( !$this->ReadList($Tag) )
             throw new Exception("List '{$Tag}' already exists.");
 
         if( empty($Data) )
@@ -144,7 +144,7 @@ class ListSet extends \fw\WireableBase
 
         $this->MDC->insert($I);
     }
-    
+
     // deletes a list and all of it's Items
     public function DeleteList( $Tag )
     {
@@ -152,18 +152,16 @@ class ListSet extends \fw\WireableBase
         $this->MDC->remove(array('Site_id'=>$this->Site_id,'Tags.T'=>$this->DictTag,'Data.Tag'=>$Tag),array('justOne'=>FALSE));
     }
 
-    public function IsList( $Tag )
+    public function ReadList( $Tag )
     {
-        $R = $this->MDC->findOne(array('Site_id'=>$this->Site_id,'Tags.T'=>$this->DictTag,'Data.Tag'=>$Tag));
-        return empty($R)?FALSE:TRUE;
+        return $this->MDC->findOne(array('Site_id'=>$this->Site_id,'Tags.T'=>$this->DictTag,'Data.Tag'=>$Tag));
     }
-
 
     // append data to the list determined by $Tag - list must already exist
     // expects just the data array and returns the Item as it was appended
     public function Append( $Data,$Tag,$Type = '',$Key = '' )
     {
-        if( !$this->IsList($Tag) )
+        if( !$this->ReadList($Tag) )
             throw new Exception("List '{$Tag}' doesn't exist - use NewList() first.");
 
         $I = Item::Init($Data,$Type,$Key);
@@ -179,7 +177,7 @@ class ListSet extends \fw\WireableBase
     {
         return $this->MDC->findOne(array('_id'=>$Item_id));
     }
-    
+
     // read an Item by it's Key (which not all records are gauranteed to have)
     // key should typically be a string or Mongo _id - this may return more than one result - always as an array of data
     public function Read( $Key,$Tag,$Type = '' )
@@ -192,10 +190,10 @@ class ListSet extends \fw\WireableBase
             $V['Data']['_id'] = $V['_id'];
             $R2[] = $V['Data'];
         }
-        
+
         return $R2;
     }
-        
+
 
     public function Delete( $I )
     {

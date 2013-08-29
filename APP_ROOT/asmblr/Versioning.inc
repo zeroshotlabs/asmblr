@@ -47,6 +47,8 @@ class Versioning
         system("rm -rf {$exportDir}");
     }
 
+    // we need to track somehow the revision that the current mongo asmblr site was checked from
+    // then we can show which files were changed locally vs coming from upstream
     public function svnDiff( \MongoId $Site_id )
     {
         $Site = $this->ss->Read($Site_id);
