@@ -138,7 +138,7 @@ class cnvyr extends \fw\WireableBase
         }
         else
             header("X-Accel-Redirect: /cnvyri/{$Token}_{$Path}");
-            
+
         exit;
     }
 
@@ -146,6 +146,8 @@ class cnvyr extends \fw\WireableBase
     // optimize output image type/resolution/etc
     // return output as buffer
     // we only pay attention to Config directives/ops that we understand - the rest are expected to be handled elsewhere
+    // for big images like http://cms.cb.asmsrv.co//cnvyr/cprelated/190x190/2012_09-12-12_ferrara_snow-white-wine-bar.jpg PHP's mem
+    // limit needs to be bumped up (or perhaps the below could be optimized) - plus set_time_limit(0)
     protected function SrvImg( $Buf,&$Config,$OriginContentType )
     {
         $this->GD = imagecreatefromstring($Buf);
