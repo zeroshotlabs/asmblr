@@ -129,7 +129,7 @@ class ListSet extends \fw\WireableBase
     // duplicate lists are not allowed
     public function NewList( $Tag,$Type = '',$Data = array() )
     {
-        if( !$this->ReadList($Tag) )
+        if( $this->ReadList($Tag) )
             throw new Exception("List '{$Tag}' already exists.");
 
         if( empty($Data) )
