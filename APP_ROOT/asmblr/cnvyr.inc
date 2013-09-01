@@ -16,7 +16,6 @@ class cnvyr extends \fw\WireableBase
     protected $GDH = 0;
     protected $GDColorCount = 0;
 
-    protected $OutputType = '';
 
     // local cache must have a trailing slash and already exist/writeable by the web server
     public function __construct( $LocalCache )

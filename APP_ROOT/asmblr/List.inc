@@ -7,6 +7,9 @@ namespace asm;
 // item can be associated with different lists -
 // ListSet also uses Item to keep an internal list of it's lists, where each
 // can have an Item.List
+// we'll probably get rid of the multiple tags per item at some point and streamline everything/indexes/etc
+//      we might be able to get rid of it all together and just use Site_id (and maybe a List_id)
+// we'll probably also add Parent_id of sorts
 
 // Collection: ListSet
 // Unique: Site_id / Tags.T / Tags.O
@@ -143,6 +146,8 @@ class ListSet extends \fw\WireableBase
         Item::SetTag($this->DictTag,$this->NextO($this->DictTag),$I);
 
         $this->MDC->insert($I);
+
+        return $I;
     }
 
     // deletes a list and all of it's Items
