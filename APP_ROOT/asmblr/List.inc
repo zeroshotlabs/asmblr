@@ -285,11 +285,14 @@ class ListSet extends \fw\WireableBase
 
     // returns array to iterate over a list - only Data is returned which is different from Lists()
     // can be expanded to have sorting args/filters/etc
-    public function __invoke( $Tag )
+    public function __invoke( $Tag,$Sort = array() )
     {
+        if( empty($Sort) )
+            $Sort = array('Tags.O'=>1);
+
         // this behavior is handy, but needs to be streamlined somehow - it's slow....?
         $R = $this->MDC->find(array('Site_id'=>$this->Site_id,'Tags.T'=>$Tag))->
-                         sort(array('Tags.O'=>1));
+                         sort($Sort);
 
         $R2 = array();
         foreach( $R as $V )
@@ -303,9 +306,9 @@ class ListSet extends \fw\WireableBase
     }
 
     // alias of __invoke
-    public function ls( $Tag )
+    public function ls( $Tag,$Sort = array() )
     {
-        return $this->__invoke($Tag);
+        return $this->__invoke($Tag,$Sort);
     }
 
     // returns either 0 or max + 1 for the given Tag
