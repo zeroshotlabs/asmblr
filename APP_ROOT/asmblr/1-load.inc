@@ -204,6 +204,7 @@ class JSON extends \fw\WireableBase implements \Iterator,\Countable
         return empty($this->JSON[$Key])?'':$this->JSON[$Key];
     }
 
+    // maybe forcing all values as a string isn't great?  how do we pass in arrays?
     public function __set( $Key,$Value )
     {
         $this->JSON[$Key] = (string) $Value;
