@@ -22,7 +22,7 @@ namespace asm;
 // $this->MDC->ensureIndex(array('Site_id'=>TRUE,'Type'=>TRUE,'Tags.T'=>TRUE,'Tags.O'=>TRUE),array('unique'=>FALSE));
 // we've added Key as a lookup field that's always indexed - it's not unique (though could be?)
 // $this->MDC->ensureIndex(array('Site_id'=>TRUE,'Type'=>TRUE,'Tags.T'=>TRUE,'Key'=>TRUE),array('unique'=>FALSE));
-abstract class Item extends MongoStruct
+abstract class Item_old extends MongoStruct
 {
     protected static $Skel = array('Site_id'=>'','Type'=>'','Key'=>'','Tags'=>array(),'CurrentTS'=>0,
                                    'Data'=>array());
@@ -85,7 +85,7 @@ abstract class Item extends MongoStruct
 // we may remove that, having one item only be in one list at a time
 // DataSet also sort of supported string positions so that lists could be sorted, for example, alphabetically
 // this may too go away
-class ListSet extends \fw\WireableBase
+class ListSet_old extends \fw\WireableBase
 // implements \Iterator,\Countable
 // ,\ArrayAccess
 {

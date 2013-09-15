@@ -11,6 +11,14 @@ namespace asm;
  * We use UNIX/Windows filesystem command naming convention - ls, rm, rmdir, mkdir - and treat this
  * as in a filesystem model that's Mongo backed.  However dir/file names are not database-side unique.
  *
+ * For most methods that expect a directory parameter, the following forms are accepted:
+ *  - a MongoId
+ *  - a string, taken as the Name
+ *  - an array constraint of either Name=>'String','Type'=>'String','Parent_id'=>MongoId
+ *
+ *  When a string or constraint array is used, an additional FileSet::stat() is performed.  When a name, type or Parent_id
+ *  is used, it could resolve to more than one Dir in which case most methods will use the database's "first" one.
+ *
  * @todo Is file content (like images) better here than everything in ContentSet?  ContentSet would
  *       be then just renderable content.
  * @todo Possibly support "symlinks" of a file between directories.
@@ -77,6 +85,7 @@ abstract class File extends MongoStruct
      * @retval array Dir struct.
      *
      * @note Site_id, Dir_id and DirO is set by the ListSet object when saved.
+     * @note A File doesn't actually have a name, currently.
      */
     public static function Init( $Data,$Type = '' )
     {
@@ -114,9 +123,9 @@ class FileSet extends \fw\WireableBase
 
         // temp :)
         // per Dir Struct
-        $this->MDCd->ensureIndex(array('Site_id'=>TRUE,'_Type'=>TRUE,'Type'=>TRUE),array('unique'=>FALSE));
-        $this->MDCd->ensureIndex(array('Site_id'=>TRUE,'Parent_id'=>TRUE),array('unique'=>FALSE));
         $this->MDCd->ensureIndex(array('Site_id'=>TRUE,'Name'=>TRUE),array('unique'=>FALSE));
+        $this->MDCd->ensureIndex(array('Site_id'=>TRUE,'Type'=>TRUE),array('unique'=>FALSE));
+        $this->MDCd->ensureIndex(array('Site_id'=>TRUE,'Parent_id'=>TRUE),array('unique'=>FALSE));
 
         // per File Struct - we can't have a unique index because Mongo can't do an ordered update... ideas?
         $this->MDC->ensureIndex(array('Site_id'=>TRUE,'Dir_id'=>TRUE,'DirO'=>TRUE,'CurrentTS'=>TRUE),array('unique'=>FALSE));
@@ -129,6 +138,8 @@ class FileSet extends \fw\WireableBase
      * @param array $Constraint Optional database-side constraint to override default.
      * @param array $Sort Optional database-side sort.
      * @retval \MongoCursor
+     *
+     * @note To retrieve files, use ls()
      */
     public function dir( $Constraint = array(),$Sort = array() )
     {
@@ -165,20 +176,22 @@ class FileSet extends \fw\WireableBase
     }
 
     /**
-     * Make a new File in a list.
+     * Make a new File in a Dir.
      *
-     * File must already exist.
+     * Dir must already exist.
      *
      * @param array $Data The File's contents.
      * @param \MongoId $Dir_id The list to create the File in.
      * @param string $Type Optional data type.
      * @param \MongoId $Before_id Optional File_id to create File before, otherwise append.
+     * @param boolean $Before_id If TRUE, the File will be prepended.
      * @retval array Newly created File Struct.
      *
      * @throws Exception Dir_id must exist for mk.
-     * @TODO To move, rm() then this mk() works, but for "symlink" items that'd be a problem since the _id could change as things are now
+     * @todo To move, rm() then this mk() works, but for "symlink" items that'd be a problem since the _id could change as things are now
+     * @note File ordering always starts at 1 - MaxDirO returns 0 and we always add one.
      */
-    public function mk( $Data,\MongoId $Dir_id,$Type = '',\MongoId $Before_id = NULL )
+    public function mk( $Data,\MongoId $Dir_id,$Type = '',$Before_id = NULL )
     {
         if( $this->MDCd->findOne(array('_id'=>$Dir_id)) === NULL )
             throw new Exception('Dir_id must exist for mk.');
@@ -189,8 +202,16 @@ class FileSet extends \fw\WireableBase
 
         $DirO = NULL;
 
+        // prepend
+        if( $Before_id === TRUE )
+        {
+            $F = $this->MDC->findOne(array('Site_id'=>$this->Site_id,'Dir_id'=>$Dir_id,'DirO'=>1),array('_id'=>TRUE));
+            if( !empty($F) )
+                $Before_id = $F['_id'];
+        }
+
         // insert before this File _id (assumes belongs to our Dir_id)
-        if( !empty($Before_id) )
+        if( $Before_id instanceof \MongoId )
         {
             $DirO = $this->MDC->findOne(array('_id'=>$Before_id),array('DirO'=>TRUE));
             if( !empty($DirO) )
@@ -211,60 +232,90 @@ class FileSet extends \fw\WireableBase
     }
 
     /**
-     * Determine whether a string appears to be either a dir or file.
+     * Resolve a dir or file to it's struct.
      *
-     * @param \MongoId $_id The MongoId to check.
-     * @param string $_id The id to check (will be converted to a MongoId).
-     * @param boolean $Full TRUE to return the full Dir or File Struct.
+     * The following forms can be resolved:
+     *  - a MongoId, taken as the Dir or File _id
+     *  - a string, taken as a Dir Name (File lookup is not attempted)
+     *  - a constraint array of either Name=>'String','Type'=>'String','Parent_id'=>MongoId (File lookup is not attempted)
      *
-     * @retval boolean TRUE if the id is a dir or file or FALSE otherwise.
-     * @retval array The dir or file if Full is TRUE.
+     * @param \MongoId $Dir Dir or File _id to check.
+     * @param string $Dir Dir Name to check.
+     * @param array $_id Constraint array to check.
+     * @retval array The Dir or File Struct.
+     * @retval NULL The _id could not be resolved.
      */
     public function stat( $_id,$Full = FALSE )
     {
-        if( is_string($_id) )
-            $_id = new \MongoId($_id);
+        if( $_id instanceof \MongoId )
+        {
+            $R = $this->MDCd->findOne(array('_id'=>$_id));
+            if( !empty($R) )
+                return $R;
 
-        $R = $this->MDCd->findOne(array('_id'=>$_id));
-        if( !empty($R) )
-            return ($Full?$R:TRUE);
+            $R = $this->MDC->findOne(array('_id'=>$_id));
+            if( !empty($R) )
+                return $R;
 
-        $R = $this->MDC->findOne(array('_id'=>$_id));
-        if( !empty($R) )
-            return ($Full?$R:TRUE);
-
-        return FALSE;
+            return NULL;
+        }
+        else if( is_string($_id) )
+        {
+            return $this->MDCd->findOne(array('Site_id'=>$this->Site_id,'Name'=>$_id));
+        }
+        else if( is_array($_id) )
+        {
+            return $this->MDCd->findOne(array('Site_id'=>$this->Site_id)+$_id);
+        }
+        else
+            return NULL;
     }
 
     /**
      * Count how many Files in a Dir.
      *
-     * @param array $L The Dir Struct to count Files of.
+     * @param mixed $D The dir to count files of (stat() compatible).
      * @throws Exception Invalid Dir Struct.
      */
-    public function count( $L )
+    public function count( $D )
     {
-        if( empty($L['_id']) || !($L['_id'] instanceof \MongoId) )
-            throw new Exception('Invalid Dir Struct');
-
-    	return $this->MDC->count(array('Site_id'=>$this->Site_id,'Dir_id'=>$L['_id']));
+        if( $D instanceof \MongoId )
+            return $this->MDC->count(array('Site_id'=>$this->Site_id,'Dir_id'=>$D));
+        else
+        {
+            $D = $this->stat($D);
+            if( !empty($D) )
+                return $this->MDC->count(array('Site_id'=>$this->Site_id,'Dir_id'=>$D['_id']));
+            else
+                return 0;
+        }
     }
 
     /**
-     * Return list of list Files as File structs.
+     * Return directory listing as File structs.
      *
-     * @param array $L List struct to list.
+     * @param mixed $D The dir to list files of (stat() compatible).
      * @param array $Constraint Optional database-side constraint to override default.
-     * @param array $Sort Optional database-side sort.
+     * @param array $Sort Optional database-side sort or DirO ascending by default.
      * @retval \MongoCursor
-     * @throws Exception Invalid Dir Struct.
+     * @retval array Empty array if the directory could not be resolved.
+     * @throws Exception Invalid Dir parameter.
+     * @throws No directory Name '$Dir'
+     *
+     * @note When listing by name, if more than one directory has the same name, only
+     *       the "first" will be listed.
      */
-    public function __invoke( $L,$Constraint = array(),$Sort = array() )
+    public function __invoke( $D,$Constraint = array(),$Sort = array() )
     {
-        if( empty($L['_id']) || !($L['_id'] instanceof \MongoId) )
-            throw new Exception('Invalid Dir Struct');
+        if( !($D instanceof \MongoId) )
+        {
+            $D = $this->stat($D);
+            if( empty($D) )
+                return array();
+            $D = $D['_id'];
+        }
 
-        $C = array('Site_id'=>$this->Site_id,'Dir_id'=>$L['_id']);
+        $C = array('Site_id'=>$this->Site_id,'Dir_id'=>$D);
 
         if( !empty($Constraint) )
             $C = array_merge($C,$Constraint);
@@ -280,24 +331,26 @@ class FileSet extends \fw\WireableBase
     /**
      * Alias of __invoke() for listing contents.
      */
-    public function ls( $L,$Constraint = array(),$Sort = array() )
+    public function ls( $D,$Constraint = array(),$Sort = array() )
     {
-        return $this->__invoke($L,$Constraints,$Sort);
+        return $this->__invoke($D,$Constraint,$Sort);
     }
 
     /**
      * Delete a Dir and all of it's Files.
      *
-     * @param array $L The Dir Struct to delete.
+     * @param mixed $D The dir to delete (stat() compatible).
+     * @retval boolean TRUE if the directory was resolved and deleted.
      * @throws Exception Invalid Dir Struct.
      */
-    public function rmdir( $L )
+    public function rmdir( $D )
     {
-        if( empty($L['_id']) || !($L['_id'] instanceof \MongoId) )
-            throw new Exception('Invalid Dir Struct');
+        $D = $this->stat($D);
+        if( empty($D) )
+            return FALSE;
 
-        $this->MDCd->remove(array('_id'=>$L['_id']));
-        $this->MDC->remove(array('Dir_id'=>$L['_id']),array('justOne'=>FALSE));
+        $this->MDCd->remove(array('_id'=>$D['_id']));
+        $this->MDC->remove(array('Dir_id'=>$D['_id']),array('justOne'=>FALSE));
     }
 
     /**
