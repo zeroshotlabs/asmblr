@@ -74,6 +74,31 @@ class Versioning
         return array($status,$diff);
     }
 
+    public function svnUpdate( \MongoId $Site_id )
+    {
+        $Site = $this->ss->Read($Site_id);
+        if( empty($Site) )
+            return FALSE;
+
+        $coDir = sys_get_temp_dir()."/{$Site['Domain']}_update_".time().'/';
+
+        $this->svnExec("co {$this->BranchURL} {$coDir}");
+
+        $pack = new Pack($this->ss,$this->ps,$this->ts,$this->cs);
+        $asmS = $pack->FromMongo($Site['_id'],TRUE);
+
+        // merge from mongo into the wc
+        $this->ToSVNWC($asmS,$coDir);
+
+        $status = $this->svnExec("status {$coDir}");
+        $update = $this->svnExec("update {$coDir}");
+
+        // yup
+        system("rm -rf {$coDir}");
+
+        return array($status,$update);
+    }
+
     // commit changes to svn
     // this uses a lot of RAM
     public function svnCommit( \MongoId $Site_id,$NoContent = FALSE )

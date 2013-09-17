@@ -3,6 +3,9 @@ namespace asm;
 
 
 // this doesn't use a database
+// somehow automatic "noop" behavior would be nice - certain size/dimension/etc -
+// to avoid the optimizations - is the problem only with pngs?
+
 class cnvyr extends \fw\WireableBase
 {
     // meta data for non-cached requests
