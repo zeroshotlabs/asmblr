@@ -152,6 +152,7 @@ class cnvyr extends \fw\WireableBase
             $finfo = finfo_open(FILEINFO_MIME);
             header('Content-Type: '.finfo_buffer($finfo,$OutputBuf));
             echo $OutputBuf;
+            exit;
         }
     }
 
