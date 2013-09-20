@@ -128,20 +128,31 @@ class cnvyr extends \fw\WireableBase
         // we would handle non-op handler config, like Cache (which is HTTP caching)
         // perhaps we don't even do cache since it can be easily done by the calling Page or nginx
 
-        // write to local cache and serve using x-sendfile
-        file_put_contents("{$this->LocalCache}{$Token}_{$Path}",$OutputBuf);
-
-        if( PHP_SAPI === 'apache2handler' )
+        // write to local cache and serve using x-sendfile unless NoLocalCache === TRUE in which case
+        // we'll echo the results back
+        if( $Config['NoLocalCache'] === FALSE )
         {
-            // this dance sucks - can't mod_xsendfile send the Content Type ?
-            $finfo = finfo_open(FILEINFO_MIME);
-            header('Content-Type: '.finfo_file($finfo,"{$this->LocalCache}{$Token}_{$Path}"));
-            header("X-SendFile: {$this->LocalCache}{$Token}_{$Path}");
-        }
-        else
-            header("X-Accel-Redirect: /cnvyri/{$Token}_{$Path}");
+            file_put_contents("{$this->LocalCache}{$Token}_{$Path}",$OutputBuf);
 
-        exit;
+            if( PHP_SAPI === 'apache2handler' )
+            {
+                // this dance sucks - can't mod_xsendfile send the Content Type ?
+                $finfo = finfo_open(FILEINFO_MIME);
+                header('Content-Type: '.finfo_file($finfo,"{$this->LocalCache}{$Token}_{$Path}"));
+                header("X-SendFile: {$this->LocalCache}{$Token}_{$Path}");
+            }
+            else
+                header("X-Accel-Redirect: /cnvyri/{$Token}_{$Path}");
+
+            exit;
+        }
+        // slow, yes, but caching is off anyway
+        else
+        {
+            $finfo = finfo_open(FILEINFO_MIME);
+            header('Content-Type: '.finfo_buffer($finfo,$OutputBuf));
+            echo $OutputBuf;
+        }
     }
 
     // perform one or more change operations (based on query strings passed as configs)
