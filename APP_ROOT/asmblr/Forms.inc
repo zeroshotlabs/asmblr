@@ -59,6 +59,7 @@ abstract class v extends \fw\enUS
         // allow to clear Routine
         if( empty($H[$N]) )
         {
+            // why do we set it to an array? causes problems in Template::SetRoutine()
             $H[$N] = array();
             return TRUE;
         }

@@ -123,6 +123,7 @@ class FileSet extends \fw\WireableBase
 
         // temp :)
         // per Dir Struct
+/*
         $this->MDCd->ensureIndex(array('Site_id'=>TRUE,'Name'=>TRUE),array('unique'=>FALSE));
         $this->MDCd->ensureIndex(array('Site_id'=>TRUE,'Type'=>TRUE),array('unique'=>FALSE));
         $this->MDCd->ensureIndex(array('Site_id'=>TRUE,'Parent_id'=>TRUE),array('unique'=>FALSE));
@@ -130,6 +131,7 @@ class FileSet extends \fw\WireableBase
         // per File Struct - we can't have a unique index because Mongo can't do an ordered update... ideas?
         $this->MDC->ensureIndex(array('Site_id'=>TRUE,'Dir_id'=>TRUE,'DirO'=>TRUE,'CurrentTS'=>TRUE),array('unique'=>FALSE));
         $this->MDC->ensureIndex(array('Site_id'=>TRUE,'Dir_id'=>TRUE,'Type'=>TRUE,'DirO'=>TRUE),array('unique'=>FALSE));
+*/
     }
 
     /**
@@ -310,6 +312,9 @@ class FileSet extends \fw\WireableBase
         if( !($D instanceof \MongoId) )
         {
             $D = $this->stat($D);
+            
+            // returning array here is bad - need to revisit $D handling here and elsewhere
+            // maybe also return empty mongocursor
             if( empty($D) )
                 return array();
             $D = $D['_id'];

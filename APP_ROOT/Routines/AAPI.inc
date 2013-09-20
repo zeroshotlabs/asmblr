@@ -865,6 +865,9 @@ class AAPI extends \fw\RoutineSet
 
         static::AuthTemplate(new \MongoId($_POST['Template_id']));
 
+        // see our validator and Template::SetRoutine for this hack
+        if( empty($_POST['Routine']) )
+            $_POST['Routine'] = '';
         $R = static::$ts->SetRoutine($_POST['Routine'],static::$Template);
 
         if( $R === TRUE )
