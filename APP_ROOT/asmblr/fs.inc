@@ -99,6 +99,25 @@ abstract class File extends MongoStruct
     }
 }
 
+/**
+ * Specialized file that points to another directory.
+ *
+ * @note For now this is just a file with a destination _id (Dst_id) in Data and Type of Symlink.
+ * @note This shouldn't be used directly - see FileSet::ln().  Actually this isn't used/implemented right now.
+ */
+/*
+abstract class Symlink extends File
+{
+    protected static $Skel = array('Site_id'=>NULL,'Dir_id'=>NULL,'DirO'=>0,'Type'=>'','CurrentTS'=>0,'Data'=>array());
+
+    public static function Init( \MongoId $Dst_id )
+    {
+        return parent::Init(array('Dst_id'=>$Dst_id),'Symlink');
+    }
+}
+*/
+
+
 class FileSet extends \fw\WireableBase
 // NOTE: For iteration, a mongocursor is returned; this class doesn't do iteration
 // implements \Iterator,\Countable
@@ -176,6 +195,8 @@ class FileSet extends \fw\WireableBase
 
         return $L;
     }
+
+//    public function ln(
 
     /**
      * Make a new File in a Dir.
@@ -312,7 +333,7 @@ class FileSet extends \fw\WireableBase
         if( !($D instanceof \MongoId) )
         {
             $D = $this->stat($D);
-            
+
             // returning array here is bad - need to revisit $D handling here and elsewhere
             // maybe also return empty mongocursor
             if( empty($D) )
