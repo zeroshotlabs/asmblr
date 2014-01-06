@@ -1,0 +1,186 @@
+body
+{
+    font: normal 14px verdana,arial,sans-serif;
+    color: #555;
+}
+footer { padding-top: 45px; }
+
+.center { text-align: center; }
+
+p
+{
+    padding: 5px 0 5px 0;
+    line-height: 1.5em;
+}
+
+h1, h2, h3, h4, h5, h6 
+{ font: normal 250% 'Lucida Grande', 'Lucida Sans', 'Lucida Sans Unicode', 'Trebuchet MS', Verdana, Tahoma, Sans-Serif;
+  color: #444;
+  margin: 10px 0 0 0;
+}
+h2
+{ font: normal 24px 'Lucida Grande', 'Lucida Sans', 'Lucida Sans Unicode', 'Trebuchet MS', Verdana, Tahoma, Sans-Serif;
+  color: #FF4000;  
+  margin: 10px 0 0 0;
+}
+h3
+{ font-size: 120%;
+  margin: 15px 0 0 0;
+  color: #444;
+}
+h4, h5, h6
+{ margin: 0 0 5px 0;
+  font: normal 100% arial, sans-serif;
+  color: #FF4000;
+  line-height: 1em;
+}
+h5, h6
+{ font: italic 95% arial, sans-serif;
+  color: #888;
+  margin-bottom: 15px;
+}
+h6
+{ color: #362C20; }
+
+.navbar .brand {
+  padding: 5px;
+}
+.navbar .brand img
+{
+    max-height: 30px;
+}
+div.DebugMenu a
+{
+    color: white;
+    font-weight: normal;
+}
+div.swhero
+{
+    background-color: white;
+    padding-top: 0;
+    padding-bottom: 0;
+}
+footer p
+{
+    padding: 0;
+    margin: 0;
+    font-size: 75%;
+}
+
+div.footer-left-side
+{
+    float: left;
+    text-align: left;
+}
+div.footer-right-side
+{
+    float: right;
+    text-align: right;
+}
+pre.alert
+{
+    margin: 2px;
+    padding: 0 2px 0 2px;
+}
+div.alert-container
+{
+    padding: 10px;
+    text-align: center;
+    min-height: 40px;
+}
+div.label-container
+{
+    min-height: 20px;
+    padding: 5px 0 5px 0;
+}
+input.error
+{
+    border-color: #b94a48;
+}
+
+aside dt
+{
+    font-weight: normal;
+}
+aside dt > small
+{
+    font-size: 10px;
+}
+
+aside .btn-group
+{
+    margin: 3px 0 3px 0;
+}
+
+
+/** http://stackoverflow.com/questions/10349395/bootstrap-form-layout-the-correct-way  */
+ 
+@media all and (max-width: 767px)
+{
+    header
+    {
+        display: none;
+    }
+    div.page-footer > div
+    {
+        text-align: center;
+        float: none;
+        margin-bottom: 10px;
+    }
+/*    
+    div.hero-unit
+    {
+        padding: 0;
+    }
+*/    
+}
+
+div.spinner {
+    display: none;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    z-index:1234;
+}
+
+
+
+/*
+header
+{
+  width: 952px;
+  position: relative;
+  height: 39px;
+}
+*/
+/*
+section
+{ width: 950px;
+  overflow: hidden;
+  margin: 0 auto 0 auto;
+  padding: 0;
+  clear: both;
+  background: #fff;
+  border-top: 1px solid #E1E7F4;
+}
+*/
+/*
+aside
+{ float: right;
+  width: 250px;
+  margin: 25px 5px 0 25px;}
+*/
+/*
+footer
+{ clear: both;
+  width: 950px;
+  font: normal 80% 'Mate',  arial, sans-serif;
+  height: 85px;
+  padding: 5px 0 0 0;
+  color: #555;
+  background: transparent;
+  margin: 20px 0 10px 0;
+  border-top: 1px solid #E1E7F4;
+  text-align: right;
+}
+*/
