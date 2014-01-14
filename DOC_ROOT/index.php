@@ -32,6 +32,10 @@ require('../core/Load.inc');
  */
 class Instance extends \asm\Instance
 {
+
+    public $APP_ROOT = 'C:/Users/Hans Zaunere/Google Drive/asmblr-apps/';
+
+
     /**
      * Define known hostnames and their apps.
      *
@@ -39,16 +43,22 @@ class Instance extends \asm\Instance
      *
      * Exact hostname matching is performed first, then ordered matching is performed,
      * least specific to most specific, which match domains prefixed with a period.
+     *
+     * @todo Can this be automatically determined from APP_ROOT in a secure + fast way?
      */
-    protected $Apps = array('asmbp.local'=>'boilerplate');
+    protected $Apps = array('asmbp.local'=>'boilerplate',
+                            'swcom.local'=>'www.stackware.com','mc.local'=>'www.myclean.com');
 
     /**
      * Set the local cache directory.
      *
      * It must be outside of any document root or Google Drive share, already
      * exist, and be writeable by the web server (typically nobody or apache).
+     *
+     * @todo Can this be detected automatically on Windows, and default to something
+     *       reasonable on Linux so that it doesn't have always be explicitly set?
      */
-    protected $CacheDir = '/tmp/fwcache/';
+    protected $CacheDir = 'c:/windows/temp/';
 
     /**
      * Set to TRUE to cache app manifests from Google Docs.
@@ -106,7 +116,7 @@ class App extends \asm\App
         $this->lp = new \asm\LinkPage($this->ps,$this->Request['SiteURL']);
 
         // links for managed images (via cnvyr)
-        $this->limg = new \asm\Linkcnvyr($this->Config['Hostname'].'/img/');
+        $this->limg = new \asm\Linkcnvyr($this->Config['Hostname'].'/cnvyr/');
 
         // general purpose key/value store
         $this->page = new \asm\KeyValueSet;
@@ -122,11 +132,12 @@ class App extends \asm\App
         $this->html->Connect(array('lp'=>$this->lp,'limg'=>$this->limg,'page'=>$this->page,'msg'=>$this->msg,'vr'=>$this->vr));
 
 
-        // demonstrate mongo connectivity
+        // uncomment to demonstrate mongo connectivity
+        /*
         \asm\Inc::Ext('Mongo.inc');
-
         $mongo = new \asm\Mongo;
         $this->mydb = $mongo->Alias('mydb','mydb');
+        */
 
 
         // if we're not caching the manifest we know we're not in production, so implement
@@ -135,15 +146,18 @@ class App extends \asm\App
         {
             if( !empty($_GET['debug']) )
             {
+                $this->lp->SetBaseURL($this->Request['SiteURL'],$_GET);
+
                 $this->ps->DebugOn();
                 $this->html->DebugOn();
-                $this->mydb->DebugOn();
-                $this->lp->SetBaseURL($this->Request['SiteURL'],$_GET);
+
+                if( isset($this->mydb) )
+                    $this->mydb->DebugOn();
             }
         }
 
 
-        // determine our page by match it's path against the MatchPath
+        // match pages against the MatchPath to determine our executing page
         // this logic is left verbose for easy customization
 
         $OrderedMatch = $ExactMatch = NULL;
@@ -190,6 +204,8 @@ class App extends \asm\App
             if( !empty($C['StartSession']) && (strpos($C['PageNoSession'],$ExecPage['Name']) === FALSE))
                 session_start();
 
+            // seems to cause encoding errors, like for IE when the request doesn't finish normally
+            // and sometimes with Apache, though rarely
             if( !empty($C['zlib_output']) )
                 ini_set('zlib.output_compression',TRUE);
 

@@ -4,13 +4,16 @@ abstract class Stuff
 {
     public static function Home( $app )
     {
-        $mdb = $app->mydb;
+        if( isset($app->mydb) )
+        {
+            $mdb = $app->mydb;
 
-        // only CRUDC methods provide debugging
-        $mdb->CREATE('test',array('ts'=>date('r')));
+            // only CRUDC methods provide debugging
+            $mdb->CREATE('test',array('ts'=>date('r')));
 
-        foreach( $mdb->READ('test') as $V )
-            var_dump($V);
+            foreach( $mdb->READ('test') as $V )
+                var_dump($V);
+        }
     }
 }
 
