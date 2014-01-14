@@ -331,3 +331,50 @@ class MongoDB extends \MongoDB implements Debuggable,CRUDC
     }
 }
 
+
+
+/** Needs clean-up and testing/finalization/etc
+class SessionStoreMongoDB implements \SessionHandlerInterface
+{
+    protected $MDC;
+
+    public function __construct( \fw\MongoDB $MDB,$Collection = 'Session' )
+    {
+        $this->MDC = $MDB->$Collection;
+    }
+    public function open( $save_path,$session_id )
+    {
+        return TRUE;
+    }
+    public function close()
+    {
+        return TRUE;
+    }
+    public function read( $session_id )
+    {
+        $R = $this->MDC->findOne(array('_id'=>$session_id));
+
+        if( !empty($R) )
+            return $R['d'];
+        else
+            return '';
+    }
+    public function write( $session_id,$session_data )
+    {
+        $this->MDC->update(array('_id'=>$session_id),array('_id'=>$session_id,'cts'=>new \MongoDate,'d'=>$session_data),array('upsert'=>TRUE));
+        return TRUE;
+    }
+    public function destroy( $session_id )
+    {
+        // should we not remove it and let GC handle it?
+        $this->MDC->remove(array('_id'=>$session_id));
+        return TRUE;
+    }
+    // maybe not correct - can we avoid having cts?  if not, need an index on it
+    public function gc( $maxlifetime )
+    {
+        $this->MDC->remove(array('$lt'=>array('cts'=>new \MongoDate(time()-$maxlifetime))));
+        return TRUE;
+    }
+}
+*/

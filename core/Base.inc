@@ -32,7 +32,7 @@ interface Debuggable
      * Implementations of this method should typically check that the object
      * has already been App::Wire()'d.
      */
-    public function DebugOn( $Label );
+    public function DebugOn( $Label = NULL );
 
     /**
      * Turn off debugging for the Wire()'d object.

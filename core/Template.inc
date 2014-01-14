@@ -333,14 +333,26 @@ class TemplateSet implements Debuggable
 
 
     /**
-     * Perform a ReMap() according to a Directive.
+     * Perform a ReMap() or a Stack() according to a Directive.
      *
-     * @param string $Key The Name to map.
+     * If $Key is Stack a Stack will be performed in which case Value will be used as
+     * Name;Stack arguments to Stack().
+     *
+     * @param string $Key The Name to map or Stack.
      * @param string $Value The Template to map to.
      */
     public function ApplyDirective( $Key,$Value )
     {
-        $this->ReMap($Key,$Value);
+        if( $Key === 'Stack' )
+        {
+
+            $T = explode(';',$Value);
+            $this->Stack($T[0],$T[1]);
+        }
+        else
+        {
+            $this->ReMap($Key,$Value);
+        }
     }
 
     /**

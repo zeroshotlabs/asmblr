@@ -54,6 +54,7 @@ abstract class Request extends Struct
      *  - Path is set to the value of the first command line argument (argv[1]).
      *
      * @todo Use of PHP_SAPI?
+     * @todo Allow forging a request, i.e. pass in a URL and return the result, rather than store statically.
      */
     public static function Init()
     {

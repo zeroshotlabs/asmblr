@@ -301,7 +301,28 @@ class LinkPage extends LinkSet
 
         // apply Set() change strings
         if( !empty($Set) )
+        {
+            // TODO: this needs to be handled better in the case we want to prepend multiple segments
+            // this currently will break other change string support, like for query string
+            // and of course this is slow... and in fact, the whole strategy for linking to JS/CNVYR/CSS/IMG/etc
+            // should be reconsidered; we create a special linker for images, but don't really want to do the same
+            // for each JS/CSS cnvyr type of thing - preferably, we'd only have to create one, or just one extra one
+            // in addition to the standard page linker
+            // all this said, we like to try to keep images/JS/CSS on only a single path level - in any case, this
+            // stuff needs a solution/documentation/strategy - also dealing with the fact that things like bootstrap
+            // hardcode relative paths to things like fonts - and front-end developers do in general
+            // and this also raises questions about what cnvyr is for outside of images - like fonts/etc - this would
+            // include minification, bundling, and perhaps even URL version for breaking caching - also intelligent
+            // setting of headers for caching
+            if( strpos($Set,'/') )
+            {
+                $Set = explode('/',$Set);
+                foreach( $Set as &$V )
+                    $V = ">{$V}";
+            }
+
             URL::Set($Set,$Base);
+        }
 
         return URL::ToString($Base);
     }
@@ -316,7 +337,7 @@ class LinkPage extends LinkSet
      * @param mixed $False Value to return if Name is not executing.
      * @retval mixed Value of $True or $False parameter.
      */
-    public function Current( $Name,$True = 'active',$False = '' )
+    public function Current( $Name,$True = 'active',$False = NULL )
     {
         return (!empty($this->PageSet->Executed)&&end($this->PageSet->Executed)['Name']===$Name)?$True:$False;
     }
@@ -334,7 +355,7 @@ class LinkPage extends LinkSet
      * @note Use this gingerly as it's more expensive.  Use a hierarchal
      *       Page URLs like /admin/ instead.
      */
-    public function Currently( $Name,$True = 'active',$False = '' )
+    public function Currently( $Name,$True = 'active',$False = NULL )
     {
         return (!empty($this->PageSet->Executed)&&in_array(end($this->PageSet->Executed)['Name'],(array)$Name,TRUE))?$True:$False;
     }

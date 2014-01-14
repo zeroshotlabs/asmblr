@@ -17,7 +17,7 @@ namespace asm;
  *
  * @note We're using only Google Drive (file system) and no mongo/etc.
  *
- * @todo Include hook for instance-wide includes/
+ * @todo Include hook for an instance-wide lib
  * @todo Consider an instance manifest.
  */
 abstract class Instance
@@ -34,6 +34,8 @@ abstract class Instance
     public $DOC_ROOT = '';
 
 
+    // may need to slash normalization for windows vs linux
+    // also for AppRoot - and see Instance::LoadApp
     public function __construct()
     {
     	if( empty($this->DOC_ROOT) )
@@ -120,7 +122,8 @@ abstract class Instance
 
 
     // use a manifest.inc if it exists otherwise build from manifest.gsheet in the $AppPath
-    // $AppPath is trusted
+    // $AppPath is trusted - note that on Windows sometimes the file permissions have to be adjusted
+    // for both the directory and the manifest.gsheet file itsef
     protected function BuildAppManifest( $AppPath )
     {
         $SP = Path::Init($AppPath);
@@ -129,11 +132,12 @@ abstract class Instance
 
         // load and process as a Google Sheet and return a manifest array
         if( !is_readable($SP.'manifest.gsheet') )
-            throw new Exception("Can't find manifest.inc or manifest.gsheet in $AppPath");
+            throw new Exception("Can't find manifest.gsheet in $AppPath");
 
         $Manifest = array('AppRoot'=>$SP,'Config'=>array(),'Directives'=>array(),'Pages'=>array(),'PathPageMap'=>array(),'Templates'=>array());
 
         $SS = file_get_contents($SP.'manifest.gsheet');
+
         $SS = json_decode($SS,TRUE);
         $SS = URL::Init($SS['url']);
         $SS['Path']['Segments'][1] = 'pub';
@@ -146,6 +150,9 @@ abstract class Instance
         {
             $SS['Query']['gid'] = $i;
             $B = file(URL::ToString($SS));
+
+            if( isset($http_response_header[0]) && strpos($http_response_header[0],'200 OK') === FALSE )
+                throw new Exception("manifest.gsheet doesn't appear published in $AppPath");
 
             if( empty($B[0]) )
                 continue;
@@ -237,7 +244,9 @@ abstract class Instance
     // templates aren't included themselves, though the name of each file with any prefix is saved in the manifest
     protected function LoadApp( &$Manifest )
     {
-        $AppRoot = $Manifest['AppRoot'];
+        // sort of a hack but needed since otherwise on windows we get both slashes
+        // might also be an issue elsewhere so maybe we should normalize AppRoot right off the bat somehow
+        $AppRoot = str_replace('\\','/',$Manifest['AppRoot']);
 
         if( !is_dir($AppRoot) || !is_readable($AppRoot) )
             throw new Exception("Unreadable AppRoot '{$AppRoot}'");
