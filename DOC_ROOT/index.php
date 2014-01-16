@@ -32,28 +32,25 @@ require('../core/Load.inc');
  */
 class Instance extends \asm\Instance
 {
-
-    public $APP_ROOT = 'C:/Users/Hans Zaunere/Google Drive/asmblr-apps/';
-
-
     /**
      * Define known hostnames and their apps.
      *
-     * Must be of the form hostname => directory where directory is under APP_ROOT.
+     * Must be of the form hostname => absolute directory  (always use forward slashes)
+     *
+     * The hostname will be used as the base hostname which can be overridden by BaseURL
      *
      * Exact hostname matching is performed first, then ordered matching is performed,
      * least specific to most specific, which match domains prefixed with a period.
-     *
-     * @todo Can this be automatically determined from APP_ROOT in a secure + fast way?
      */
-    protected $Apps = array('asmbp.local'=>'boilerplate',
-                            'swcom.local'=>'www.stackware.com','mc.local'=>'www.myclean.com');
+    protected $Apps = array('mc.local'=>'C:/Users/Hans Zaunere/Google Drive/asmblr-apps/MC/');
 
     /**
      * Set the local cache directory.
      *
      * It must be outside of any document root or Google Drive share, already
      * exist, and be writeable by the web server (typically nobody or apache).
+     *
+     * Always use forward slashes.
      *
      * @todo Can this be detected automatically on Windows, and default to something
      *       reasonable on Linux so that it doesn't have always be explicitly set?
@@ -76,11 +73,10 @@ class Instance extends \asm\Instance
 
 /**
  * Application specific configuration and execution.
- *
- * @todo Implement AppFunction which takes over full control of execution.
  */
 class App extends \asm\App
 {
+    // for full control of execution, extend/override this method
     public function __construct( $Request,$Manifest )
     {
         parent::__construct($Request,$Manifest);
@@ -205,9 +201,9 @@ class App extends \asm\App
                 session_start();
 
             // seems to cause encoding errors, like for IE when the request doesn't finish normally
-            // and sometimes with Apache, though rarely
-            if( !empty($C['zlib_output']) )
-                ini_set('zlib.output_compression',TRUE);
+            // and sometimes with Apache, though rarely - only when we var_dump early in execution it seems
+//             if( !empty($C['zlib_output']) )
+//                 ini_set('zlib.output_compression',TRUE);
 
             if( !empty($C['mb_http_output']) )
                 mb_http_output($C['mb_http_output']);
@@ -229,17 +225,28 @@ class App extends \asm\App
                 $this->{$V[0]}->ApplyDirective($V[1],$V[2]);
         }
 
-        if( !empty($C['AppFunction']) )
+        // optionally execute a function just prior to the page and rendering
+        // if this function returns FALSE, nothing further is done
+        if( !empty($C['PreFunction']) )
         {
-            $AF = $C['AppFunction'];
-            $AF($this);
+            if( $C['PreFunction']($this) !== FALSE )
+            {
+                // now execute the actual page
+                $this->ps->Execute($ExecPage);
+
+                // and finally begin rendering at the Base.tpl template
+                $this->html->Base();
+            }
         }
+        // otherwise just execute the page and render
+        else
+        {
+            // now execute the actual page
+            $this->ps->Execute($ExecPage);
 
-        // now execute the actual page
-        $this->ps->Execute($ExecPage);
-
-        // and finally begin rendering at the Base.tpl template
-        $this->html->Base();
+            // and finally begin rendering at the Base.tpl template
+            $this->html->Base();
+        }
     }
 
 

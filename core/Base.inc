@@ -539,7 +539,10 @@ abstract class Inc
      * @todo We could have this convert DIR separators automatically to the current platform.
      *        And same with Dir().  Or just have people always use forward slash since Win
      *        doesn't seem to mind, though Linux cares about backslash.
+     *
+     * @todo Deprecated per new asmblr
      */
+/*
     public static function File( $File,$Path = APP_ROOT,$CB = NULL )
     {
         if( Path::IsAbs($File) === FALSE )
@@ -550,7 +553,7 @@ abstract class Inc
         else
             require($File);
     }
-
+*/
     /**
      * Require or perform an operation recursively on the files in a directory.
      *
@@ -565,7 +568,10 @@ abstract class Inc
      * @note This is recursive and the order in which files/directories are read is unknown.
      * @note This skips hidden files (those that start with a period).
      * @note This could do bad things - sanitize your input.
+     *
+     * @todo Deprecrated per new asmblr
      */
+/*
     public static function Dir( $Dir,$Path = APP_ROOT,$CB = NULL )
     {
         if( Path::IsAbs($Dir) === FALSE )
@@ -594,6 +600,7 @@ abstract class Inc
             }
         }
     }
+*/
 }
 
 

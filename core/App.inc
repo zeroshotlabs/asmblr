@@ -20,7 +20,6 @@ namespace asm;
  */
 abstract class App
 {
-    public $AppRoot;
     public $Request;
     public $Config;
     public $Directives;
@@ -34,7 +33,6 @@ abstract class App
         $this->Request = $Request;
         $this->Manifest = $Manifest;
 
-        $this->AppRoot = &$this->Manifest['AppRoot'];
         $this->Config = &$this->Manifest['Config'];
 
         $this->Directives = &$this->Manifest['Directives'];
@@ -155,15 +153,20 @@ abstract class App
      * Set PHP's open_basedir() directive for the application.
      *
      * @param string $Path Base directory.
+     * @todo implement/test
      */
     public function OpenBaseDir( $Path = '' )
     {
         if( empty($Path) )
         {
+            // these defaults need work - should use cache directory and AppRoot or something
+            // so no this is a no op
+            return;
+
             if( Instance::IsWindows() )
-                ini_set('open_basedir',"{$this->DOC_ROOT}../;".ASM_ROOT.';C:/Windows/Temp/');
+                ini_set('open_basedir',ASM_ROOT.';C:/Windows/Temp/');
             else
-                ini_set('open_basedir',"{$this->DOC_ROOT}../:".ASM_ROOT.':/tmp:/var/www/lib');
+                ini_set('open_basedir',ASM_ROOT.':/tmp');
         }
         else
             ini_set('open_basedir',$Path);

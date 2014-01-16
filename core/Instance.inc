@@ -29,21 +29,21 @@ abstract class Instance
     protected $CacheManifest = FALSE;
     protected $CacheApp = FALSE;
 
-    // these are typically detected correctly but can be overriden.
-    public $APP_ROOT = '';
-    public $DOC_ROOT = '';
+//     // these are typically detected correctly but can be overriden.
+//     public $APP_ROOT = '';
+//     public $DOC_ROOT = '';
 
 
     // may need to slash normalization for windows vs linux
     // also for AppRoot - and see Instance::LoadApp
-    public function __construct()
-    {
-    	if( empty($this->DOC_ROOT) )
-    		$this->DOC_ROOT = getcwd().'/';
+//     public function __construct()
+//     {
+//     	if( empty($this->DOC_ROOT) )
+//     		$this->DOC_ROOT = getcwd().'/';
 
-    	if( empty($this->APP_ROOT) )
-    		$this->APP_ROOT = $this->DOC_ROOT.'../APP_ROOT/';
-    }
+//     	if( empty($this->APP_ROOT) )
+//     		$this->APP_ROOT = $this->DOC_ROOT.'../APP_ROOT/';
+//     }
 
     /**
      * Match a requested hostname to an app.
@@ -64,7 +64,7 @@ abstract class Instance
     	// determine if we have an app for the exact hostname
     	if( isset($this->Apps[$Hostname]) )
     	{
-    	    $AppForThat = $this->Apps[$Hostname];
+    	    $AppRoot = $this->Apps[$Hostname];
     	}
     	// if not, find the most general match which must be defined with a leading period
     	else
@@ -73,47 +73,48 @@ abstract class Instance
             {
                 if( isset($this->Apps[$H]) )
                 {
-                    $AppForThat = $this->Apps[$H];
+                    $AppRoot = $this->Apps[$H];
                     break;
                 }
             }
         }
 
-        if( empty($AppForThat) )
+        if( empty($AppRoot) )
             throw new Exception("Unknown requested hostname '{$Hostname}'");
 
-        // make sure we're not misconfigured
-        if( !is_dir("{$this->APP_ROOT}/{$AppForThat}") )
-            throw new Exception("Can't read {$this->APP_ROOT}/{$AppForThat} for requested hostname '{$Hostname}'");
+        // make sure we're not misconfigured - this should always be an absolute dir which comes from
+        // our Instance::Apps config
+        if( !is_dir($AppRoot) )
+            throw new Exception("Can't read '{$AppRoot}' for requested hostname '{$Hostname}'");
 
         if( $this->CacheManifest === TRUE )
         {
-            if( (@include "{$this->CacheDir}/{$AppForThat}.manifest.inc") === FALSE )
+            if( (@include "{$this->CacheDir}/{$Hostname}.manifest.inc") === FALSE )
             {
-                $Manifest = $this->BuildAppManifest("{$this->APP_ROOT}/{$AppForThat}");
-                file_put_contents("{$this->CacheDir}/{$AppForThat}.manifest.inc",'<?php $Manifest = '.var_export($Manifest,TRUE).';');
+                $Manifest = $this->BuildAppManifest($AppRoot,$Hostname);
+                file_put_contents("{$this->CacheDir}/{$Hostname}.manifest.inc",'<?php $Manifest = '.var_export($Manifest,TRUE).';');
             }
         }
         else
         {
             // clear an existing cache
-            @unlink("{$this->CacheDir}/{$AppForThat}.manifest.inc");
-            $Manifest = $this->BuildAppManifest("{$this->APP_ROOT}/{$AppForThat}");
+            @unlink("{$this->CacheDir}/{$Hostname}.manifest.inc");
+            $Manifest = $this->BuildAppManifest($AppRoot,$Hostname);
         }
 
         if( $this->CacheApp === TRUE )
         {
             // PHP bug: always throws fatal error with no ability to detect @
-            if( (@include "{$this->CacheDir}/{$AppForThat}.app.inc") === FALSE )
+            if( (@include "{$this->CacheDir}/{$Hostname}.app.inc") === FALSE )
             {
-                file_put_contents("{$this->CacheDir}/{$AppForThat}.app.inc",$this->BuildApp($Manifest));
-                include "{$this->CacheDir}/{$AppForThat}.app.inc";
+                file_put_contents("{$this->CacheDir}/{$Hostname}.app.inc",$this->BuildApp($Manifest));
+                include "{$this->CacheDir}/{$Hostname}.app.inc";
             }
         }
         else
         {
             // clear an existing cache
-            @unlink("{$this->CacheDir}/{$AppForThat}.app.inc");
+            @unlink("{$this->CacheDir}/{$Hostname}.app.inc");
             $this->LoadApp($Manifest);
         }
 
@@ -121,22 +122,25 @@ abstract class Instance
     }
 
 
-    // use a manifest.inc if it exists otherwise build from manifest.gsheet in the $AppPath
-    // $AppPath is trusted - note that on Windows sometimes the file permissions have to be adjusted
+    // use a manifest.inc if it exists otherwise build from manifest.gsheet in the $AppRoot
+    // $AppRoot is trusted - note that on Windows sometimes the file permissions have to be adjusted
     // for both the directory and the manifest.gsheet file itsef
-    protected function BuildAppManifest( $AppPath )
+    // hostname is now determined by our instance config, not the manifest.gsheet
+    protected function BuildAppManifest( $AppRoot,$Hostname )
     {
-        $SP = Path::Init($AppPath);
-        $SP['IsDir'] = TRUE;
-        $SP = Path::ToString($SP);
+        $AppRoot = Path::Init($AppRoot);
+        $AppRoot['IsDir'] = TRUE;
+        $AppRoot = Path::ToString($AppRoot);
 
         // load and process as a Google Sheet and return a manifest array
-        if( !is_readable($SP.'manifest.gsheet') )
-            throw new Exception("Can't find manifest.gsheet in $AppPath");
+        if( !is_readable($AppRoot.'manifest.gsheet') )
+            throw new Exception("Can't find manifest.gsheet in $AppRoot");
 
-        $Manifest = array('AppRoot'=>$SP,'Config'=>array(),'Directives'=>array(),'Pages'=>array(),'PathPageMap'=>array(),'Templates'=>array());
+        $Manifest = array('AppRoot'=>$AppRoot,'Config'=>array(),'Directives'=>array(),'Pages'=>array(),'PathPageMap'=>array(),'Templates'=>array());
+        $Manifest['Config']['Hostname'] = $Hostname;
+        $Manifest['Config']['AppRoot'] = $AppRoot;
 
-        $SS = file_get_contents($SP.'manifest.gsheet');
+        $SS = file_get_contents($AppRoot.'manifest.gsheet');
 
         $SS = json_decode($SS,TRUE);
         $SS = URL::Init($SS['url']);
@@ -152,7 +156,7 @@ abstract class Instance
             $B = file(URL::ToString($SS));
 
             if( isset($http_response_header[0]) && strpos($http_response_header[0],'200 OK') === FALSE )
-                throw new Exception("manifest.gsheet doesn't appear published in $AppPath");
+                throw new Exception("manifest.gsheet doesn't appear published in $AppRoot");
 
             if( empty($B[0]) )
                 continue;
@@ -164,6 +168,11 @@ abstract class Instance
                 foreach( $B as $L )
                 {
                     $L = str_getcsv($L);
+
+                    // quick hack to ignore hostname from manifest
+//                     if( $L[0] === 'Hostname' )
+//                         continue;
+
                     if( empty($L[0]) )
                         continue;
                     else if( $L[0][0] === '$' )
@@ -172,12 +181,6 @@ abstract class Instance
                         $Manifest['Config']['AppFunction'] = $this->ParseFunctionName($L[1]);
                     else
                         $Manifest['Config'][$L[0]] = $L[1];
-                }
-
-                if( empty($Manifest['Config']['Hostname']) )
-                {
-                    trigger_error("Skipping invalid config at $V - No Hostname");
-                    break;
                 }
 
                 $ConfigDone = TRUE;
@@ -244,9 +247,7 @@ abstract class Instance
     // templates aren't included themselves, though the name of each file with any prefix is saved in the manifest
     protected function LoadApp( &$Manifest )
     {
-        // sort of a hack but needed since otherwise on windows we get both slashes
-        // might also be an issue elsewhere so maybe we should normalize AppRoot right off the bat somehow
-        $AppRoot = str_replace('\\','/',$Manifest['AppRoot']);
+        $AppRoot = $Manifest['AppRoot'];
 
         if( !is_dir($AppRoot) || !is_readable($AppRoot) )
             throw new Exception("Unreadable AppRoot '{$AppRoot}'");
@@ -271,7 +272,6 @@ abstract class Instance
         {
             include $K;
         }
-
 
         // subdirectories ARE prefixed and a Template struct is created with the proper name and filesystem path and merged with
         // any Function definition from the manifest - each is stored in the manifest - the actual template is NOT include()'d
@@ -322,6 +322,7 @@ abstract class Instance
     protected function BuildApp( &$Manifest )
     {
         $AppRoot = $Manifest['AppRoot'];
+
         if( !is_dir($AppRoot) || !is_readable($AppRoot) )
         	throw new Exception("Unreadable AppRoot '{$AppRoot}'");
 
