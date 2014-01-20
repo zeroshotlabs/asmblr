@@ -79,7 +79,9 @@ abstract class Request extends Struct
             $Request['Scheme'] = (empty($_SERVER['HTTPS'])||$_SERVER['HTTPS']==='off')?'http':'https';
 
             // If the hostname can't be determined, it's now silently left empty
-            if( !empty($_SERVER['SERVER_NAME']) )
+            // SERVER_NAME is first to support GAE/etc when on non-standard port
+            // the _ check is for nginx wildcard vhosting
+            if( !empty($_SERVER['SERVER_NAME']) && $_SERVER['SERVER_NAME'] !== '_' )
                 $Request['Hostname'] = Hostname::Init($_SERVER['SERVER_NAME']);
             else if( !empty($_SERVER['HTTP_HOST']) )
                 $Request['Hostname'] = Hostname::Init($_SERVER['HTTP_HOST']);
