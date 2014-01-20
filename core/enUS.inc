@@ -394,7 +394,7 @@ abstract class enUS
      *
      * The following is performed:
      *  - enUS:Text() to normalize and validate the element.
-     *  - The value of the two elements must be identical (type-strict).
+     *  - ctype_digit() is used to ensure all digits.
      *
      * @param string $Label The name of the element to check.
      * @param array $Src The array of data.
@@ -402,7 +402,7 @@ abstract class enUS
      * @retval boolean TRUE if the element exists and validates or is empty and not required, FALSE if required but empty.
      * @retval NULL Data did not validate.
      *
-     * @note This validates a string of digits - not a PHP integer type.
+     * @note This validates a string of digits - not an integer string or PHP integer type.  This means 0111 is valid.
      */
     public static function Number( $Label,&$Src,$Required = TRUE )
     {
@@ -558,6 +558,41 @@ abstract class enUS
     }
 
     /**
+     * Normalize and validate an element as a date.
+     *
+     * This uses PHP's native DateTime functions.
+     *
+     * IT will be alter the original data to a standard ISO date YYYY-mm-dd.
+     *
+     * @param string $Label The name of the element to check.
+     * @param array $Src The array of data.
+     * @param boolean $Required Set to FALSE if the element is allowed to be empty (or not exist).
+     * @retval boolean TRUE if the element exists and validates or is empty and not required, FALSE if required but empty.
+     * @retval NULL Data did not validate.
+     */
+    public static function Date( $Label,&$Src,$Required = TRUE )
+    {
+        $R = static::Text($Label,$Src,$Required);
+
+        if( $R !== TRUE )
+            return $R;
+
+        if( empty($Src[$Label]) )
+            return !$Required;
+
+        try
+        {
+            $DT = new \DateTime($Src[$Label]);
+            $Src[$Label] = $DT->format('Y-m-d');
+            return TRUE;
+        }
+        catch( Exception $E )
+        {
+            return NULL;
+        }
+    }
+
+    /**
      * Noramlize and validate an element as a 5 or 9 digit US zip code.
      *
      * @param string $Label The name of the element to check.
@@ -706,6 +741,8 @@ abstract class enUS
      * @param boolean $Required Set to FALSE if the element is allowed to be empty (or not exist).
      * @retval boolean TRUE if the element exists and validates or is empty and not required, FALSE if required but empty.
      * @retval NULL Data did not validate.
+     *
+     * @todo Could also use a CCExpiration and CCCVV
      */
     public static function CCNumber( $Label,&$Src,$Required = TRUE )
     {
