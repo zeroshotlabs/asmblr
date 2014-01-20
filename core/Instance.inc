@@ -29,21 +29,14 @@ abstract class Instance
     protected $CacheManifest = FALSE;
     protected $CacheApp = FALSE;
 
-//     // these are typically detected correctly but can be overriden.
-//     public $APP_ROOT = '';
-//     public $DOC_ROOT = '';
 
-
-    // may need to slash normalization for windows vs linux
-    // also for AppRoot - and see Instance::LoadApp
-//     public function __construct()
-//     {
-//     	if( empty($this->DOC_ROOT) )
-//     		$this->DOC_ROOT = getcwd().'/';
-
-//     	if( empty($this->APP_ROOT) )
-//     		$this->APP_ROOT = $this->DOC_ROOT.'../APP_ROOT/';
-//     }
+    public function __construct()
+    {
+        // try to detect temp dir if needed - hardwired to one of two values
+        // could also use sys_get_temp_dir()
+        if( empty($this->CacheDir) )
+            $this->CacheDir = empty($_SERVER['TEMP'])?'/tmp/':'c:/windows/temp/';
+    }
 
     /**
      * Match a requested hostname to an app.
