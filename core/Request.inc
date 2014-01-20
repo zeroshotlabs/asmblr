@@ -157,6 +157,7 @@ abstract class Request extends Struct
      *
      * @note Paths are lowercased.
      * @note Username/password is not considered and not merged.
+     * @note The static $Request property isn't overwritten.
      */
     public static function CalcURLs( &$Request,$BaseURL )
     {

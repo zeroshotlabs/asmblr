@@ -185,6 +185,9 @@ class TemplateSet implements Debuggable
      * @param array $Args Optional associative array of keys/values variables for the Template's scope.
      *
      * @note This uses eval() to do the rendering.
+     * @note Render functions cannot ReMap() the template they are executing under, though they can
+     *       manually render another template and then return FALSE.
+     * @note Render functions should expect $this->Connected,$Args,$this->App as parameters.
      * @note Variables $RenderingTemplate, $AllowRender and $this are reserved variable names.
      * @note WARNING: There is no escaping - it should be done inline in the Template's Body.
      * @note No error is raised if the Template Name isn't found and debugging is off.
@@ -215,6 +218,7 @@ class TemplateSet implements Debuggable
             {
                 // if empty body, assume we have the body on the filesystem
                 // otherwise eval() it (basically just to support @@@)
+                // TODO: sort of clumsy...???
                 if( empty($RenderingTemplate['Body']) )
                     include $RenderingTemplate['Path'];
                 else
@@ -370,7 +374,7 @@ class TemplateSet implements Debuggable
     public function Stack( $Name,$Stack )
     {
         if( empty($this->Templates[$Name]) )
-            throw new Exception("Template '$Name' does not exist.");
+            throw new Exception("Template '{$Name}' does not exist for Stack '{$Stack}'.");
 
         if( isset($this->Stacks[$Stack]) )
             $this->Stacks[$Stack][] = $Name;

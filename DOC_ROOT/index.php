@@ -42,7 +42,8 @@ class Instance extends \asm\Instance
      * Exact hostname matching is performed first, then ordered matching is performed,
      * least specific to most specific, which match domains prefixed with a period.
      */
-    protected $Apps = array('mc.local'=>'C:/Users/Hans Zaunere/Google Drive/asmblr-apps/MC/');
+    protected $Apps = array('mc2.stackop.com'=>'/var/www/asmblr-apps/MC',
+                            'mmc.stackop.com'=>'/var/www/asmblr-apps/MC');
 
     /**
      * Set the local cache directory.
@@ -55,7 +56,7 @@ class Instance extends \asm\Instance
      * @todo Can this be detected automatically on Windows, and default to something
      *       reasonable on Linux so that it doesn't have always be explicitly set?
      */
-    protected $CacheDir = 'c:/windows/temp/';
+    protected $CacheDir = '/tmp/';
 
     /**
      * Set to TRUE to cache app manifests from Google Docs.
@@ -170,6 +171,8 @@ class App extends \asm\App
 
         // if an ordered match isn't found, attempt an exact match
         // this and other matching behavior can be easily customized
+        // NOTE: This means that if a page with /admin/ matches, a page with /admin/something WILL NOT
+        // be executed
         if( $OrderedMatch === NULL )
             $ExactMatch = $this->ps->Match(\asm\Path::ToString($this->Request['MatchPath']));
 

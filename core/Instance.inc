@@ -300,12 +300,17 @@ abstract class Instance
 
                 $Manifest['Templates'][$Prefix.$P['Segments'][1]] = Template::Init($Prefix.$P['Segments'][1],$K,$F);
             }
-            // supporting @@@ is a bit annoying but very useful for SQL so we're keeping it for now
-            // note that these DO get their body populated
+            // supporting @@@ is a bit annoying but very useful for SQL and even stacking JS frags so
+            // we're keeping it for now
+            // note that these DO get their body populated and so are eval()'d rather than being included
+            // note also that the name here will be prefixed with a sub-directory
+            // this regex needs to be more robust, including handling empty frags, frags that don't
+            // start with whitespace, those that end with a comment, etc.
             else
             {
                 $B = preg_split("/\s*@@@(\w+[a-zA-Z0-9\-]*)/m",$Buf,0,PREG_SPLIT_DELIM_CAPTURE|PREG_SPLIT_NO_EMPTY);
                 $CNT = count($B);
+
                 for( $i = 0; $i < $CNT; $i+=2 )
                 {
                     if( !empty($Manifest['Templates'][$Prefix.$B[$i]]) )
