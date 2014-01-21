@@ -188,7 +188,18 @@ abstract class Instance
                     else if( $L[0] === 'AppFunction' )
                         $Manifest['Config']['AppFunction'] = $this->ParseFunctionName($L[1]);
                     else
-                        $Manifest['Config'][$L[0]] = $L[1];
+                    {
+                        // trim and normalize to boolean/NULL
+                        $Manifest['Config'][$L[0]] = trim($L[1]);
+                        $T = strtolower($Manifest['Config'][$L[0]]);
+
+                        if( $T === 'false' )
+                            $Manifest['Config'][$L[0]] = FALSE;
+                        else if( $T === 'true' )
+                            $Manifest['Config'][$L[0]] = TRUE;
+                        else if( $T === 'null' )
+                            $Manifest['Config'][$L[0]] = NULL;
+                    }
                 }
 
                 $ConfigDone = TRUE;
