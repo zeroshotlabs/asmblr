@@ -35,15 +35,21 @@ class Instance extends \asm\Instance
     /**
      * Define known hostnames and their apps.
      *
-     * Must be of the form hostname => absolute directory  (always use forward slashes)
+     * Must be of the form hostname => array('/absolute/app/directory/','pageset-name')
+     *
+     * Always use forward slashes in the directory.
      *
      * The hostname will be used as the base hostname which can be overridden by BaseURL
+     * when forming URLs.
+     *
+     * The pageset-name will be the default routing pageset for requests to that domain.  The
+     * default routing pageset and it's linkset will be available as ps and lp, respectively.
      *
      * Exact hostname matching is performed first, then ordered matching is performed,
      * least specific to most specific, which match domains prefixed with a period.
      */
-    protected $Apps = array('mc2.stackop.com'=>'/var/www/asmblr-apps/MC',
-                            'mmc.stackop.com'=>'/var/www/asmblr-apps/MC');
+    protected $Apps = array('mc.centz'=>array('/var/www/asmblr-apps/MC','mc'),
+                            'mcm.centz'=>array('/var/www/asmblr-apps/MC','mcm'));
 
     /**
      * Set the local cache directory.
@@ -56,7 +62,7 @@ class Instance extends \asm\Instance
      * @todo Can this be detected automatically on Windows, and default to something
      *       reasonable on Linux so that it doesn't have always be explicitly set?
      */
-    protected $CacheDir = '/tmp/';
+    protected $CacheDir = '';
 
     /**
      * Set to TRUE to cache app manifests from Google Docs.
@@ -105,12 +111,19 @@ class App extends \asm\App
 
         // instantiate system objects
         // this sets dynamic properties - know your names
-        $this->ps = new \asm\PageSet($this);
+
+        // we support more than one pageset though there is always a single default
+        // routing pageset which is tied to our requested domain (configured above in Instance)
+        // the default routing pageset and it's linker are available as ps and lp respetively
+        // other pagesets/linkers can be instantiated manually if needed
+        // a pageset must be defined
+        if( empty($Manifest['DefaultPageSet']) || empty($this->Pages[$Manifest['DefaultPageSet']]) )
+            throw new Exception("Unable to determine default pageset for '{$Manifest['Config']['Hostname']}'.");
+
+        $this->ps = new \asm\PageSet($this->Pages[$Manifest['DefaultPageSet']],$this->PageMaps[$Manifest['DefaultPageSet']]);
+        $this->lp = new \asm\LinkPage($this->ps,$this,$this->Request['SiteURL']);
 
         $this->html = new \asm\enUSHTMLSet($this);
-
-        // links for pages (internal linking)
-        $this->lp = new \asm\LinkPage($this->ps,$this->Request['SiteURL']);
 
         // links for managed images (via cnvyr)
         $this->limg = new \asm\Linkcnvyr($this->Config['Hostname'].'/cnvyr/');
@@ -152,6 +165,9 @@ class App extends \asm\App
                     $this->mydb->DebugOn();
             }
         }
+
+        // based on our actually requested domain, use a configured pageset
+        // $app->Request['Hostname'];
 
 
         // match pages against the MatchPath to determine our executing page

@@ -24,6 +24,8 @@ abstract class Instance
 {
     protected $Apps = array();
 
+    protected $RequestedHostname;
+
     protected $CacheDir = '';
 
     protected $CacheManifest = FALSE;
@@ -52,12 +54,12 @@ abstract class Instance
      */
     public function Match( $Request )
     {
-    	$Hostname = Hostname::ToString($Request['Hostname']);
+    	$this->RequestedHostname = Hostname::ToString($Request['Hostname']);
 
     	// determine if we have an app for the exact hostname
-    	if( isset($this->Apps[$Hostname]) )
+    	if( isset($this->Apps[$this->RequestedHostname]) )
     	{
-    	    $AppRoot = $this->Apps[$Hostname];
+    	    $App = $this->Apps[$this->RequestedHostname];
     	}
     	// if not, find the most general match which must be defined with a leading period
     	else
@@ -66,48 +68,48 @@ abstract class Instance
             {
                 if( isset($this->Apps[$H]) )
                 {
-                    $AppRoot = $this->Apps[$H];
+                    $App = $this->Apps[$H];
                     break;
                 }
             }
         }
 
-        if( empty($AppRoot) )
-            throw new Exception("Unknown requested hostname '{$Hostname}'");
+        if( empty($App) )
+            throw new Exception("Unknown requested hostname '{$this->RequestedHostname}'");
 
         // make sure we're not misconfigured - this should always be an absolute dir which comes from
         // our Instance::Apps config
-        if( !is_dir($AppRoot) )
-            throw new Exception("Can't read '{$AppRoot}' for requested hostname '{$Hostname}'");
+        if( !is_dir($App[0]) )
+            throw new Exception("Can't read '{$App[0]}' for requested hostname '{$this->RequestedHostname}'");
 
         if( $this->CacheManifest === TRUE )
         {
-            if( (@include "{$this->CacheDir}/{$Hostname}.manifest.inc") === FALSE )
+            if( (@include "{$this->CacheDir}/{$this->RequestedHostname}.manifest.inc") === FALSE )
             {
-                $Manifest = $this->BuildAppManifest($AppRoot,$Hostname);
-                file_put_contents("{$this->CacheDir}/{$Hostname}.manifest.inc",'<?php $Manifest = '.var_export($Manifest,TRUE).';');
+                $Manifest = $this->BuildAppManifest($App,$this->RequestedHostname);
+                file_put_contents("{$this->CacheDir}/{$this->RequestedHostname}.manifest.inc",'<?php $Manifest = '.var_export($Manifest,TRUE).';');
             }
         }
         else
         {
             // clear an existing cache
-            @unlink("{$this->CacheDir}/{$Hostname}.manifest.inc");
-            $Manifest = $this->BuildAppManifest($AppRoot,$Hostname);
+            @unlink("{$this->CacheDir}/{$this->RequestedHostname}.manifest.inc");
+            $Manifest = $this->BuildAppManifest($App,$this->RequestedHostname);
         }
 
         if( $this->CacheApp === TRUE )
         {
             // PHP bug: always throws fatal error with no ability to detect @
-            if( (@include "{$this->CacheDir}/{$Hostname}.app.inc") === FALSE )
+            if( (@include "{$this->CacheDir}/{$this->RequestedHostname}.app.inc") === FALSE )
             {
-                file_put_contents("{$this->CacheDir}/{$Hostname}.app.inc",$this->BuildApp($Manifest));
-                include "{$this->CacheDir}/{$Hostname}.app.inc";
+                file_put_contents("{$this->CacheDir}/{$this->RequestedHostname}.app.inc",$this->BuildApp($Manifest));
+                include "{$this->CacheDir}/{$this->RequestedHostname}.app.inc";
             }
         }
         else
         {
             // clear an existing cache
-            @unlink("{$this->CacheDir}/{$Hostname}.app.inc");
+            @unlink("{$this->CacheDir}/{$this->RequestedHostname}.app.inc");
             $this->LoadApp($Manifest);
         }
 
@@ -119,9 +121,9 @@ abstract class Instance
     // $AppRoot is trusted - note that on Windows sometimes the file permissions have to be adjusted
     // for both the directory and the manifest.gsheet file itsef
     // hostname is now determined by our instance config, not the manifest.gsheet
-    protected function BuildAppManifest( $AppRoot,$Hostname )
+    protected function BuildAppManifest( $App,$Hostname )
     {
-        $AppRoot = Path::Init($AppRoot);
+        $AppRoot = Path::Init($App[0]);
         $AppRoot['IsDir'] = TRUE;
         $AppRoot = Path::ToString($AppRoot);
 
@@ -129,7 +131,10 @@ abstract class Instance
         if( !is_readable($AppRoot.'manifest.gsheet') )
             throw new Exception("Can't find manifest.gsheet in $AppRoot");
 
-        $Manifest = array('AppRoot'=>$AppRoot,'Config'=>array(),'Directives'=>array(),'Pages'=>array(),'PathPageMap'=>array(),'Templates'=>array());
+        // Pages/PageMaps are numeric arrays of one of more page sets
+        $Manifest = array('AppRoot'=>$AppRoot,'DefaultPageSet'=>$App[1],'Config'=>array(),
+                          'Directives'=>array(),'Pages'=>array(),'PageMaps'=>array(),'Templates'=>array());
+
         $Manifest['Config']['Hostname'] = $Hostname;
         $Manifest['Config']['AppRoot'] = $AppRoot;
 
@@ -162,10 +167,6 @@ abstract class Instance
                 {
                     $L = str_getcsv($L);
 
-                    // quick hack to ignore hostname from manifest
-//                     if( $L[0] === 'Hostname' )
-//                         continue;
-
                     if( empty($L[0]) )
                         continue;
                     else if( $L[0][0] === '$' )
@@ -179,18 +180,29 @@ abstract class Instance
                 $ConfigDone = TRUE;
             }
             // pages tab - Name, Path, Status, Function, Directives
+            // a 6th column in the header is required as a unique token for the page set (will clobber)
             else if( strpos($B[0],'Name,Path,Status') !== FALSE )
             {
-                array_shift($B);
+                $L = array_shift($B);
+                $L = str_getcsv($L);
+                if( empty($L[5]) )
+                {
+                    trigger_error('Skipping invalid Page header: '.implode(',',$L));
+                    continue;
+                }
+
+                $PageSetName = trim($L[5]);
+
                 $LastPage = '';
+                $Page = $PageMap = array();
                 foreach( $B as $L )
                 {
                     $L = str_getcsv($L);
                     if( !empty($L[0]) )
                     {
                         $P = Page::Init($L[0],$L[1],$L[2],$this->ParseFunctionName($L[3]));
-                        $Manifest['Pages'][$P['Name']] = $P;
-                        $Manifest['PathPageMap'][$P['Path']] = $P['Name'];
+                        $Page[$P['Name']] = $P;
+                        $PageMap[$P['Path']] = $P['Name'];
                         $LastPage = $P['Name'];
                     }
 
@@ -202,9 +214,13 @@ abstract class Instance
                             $D = explode(',',$L[4]);
 
                         if( !empty($LastPage) )
-                            $Manifest['Pages'][$LastPage]['Directives'][] = $D;
+                            $Page[$LastPage]['Directives'][] = $D;
                     }
                 }
+
+                // duplicate/empty PageSetNames will overwrite
+                $Manifest['Pages'][$PageSetName] = $Page;
+                $Manifest['PageMaps'][$PageSetName] = $PageMap;
 
                 $PagesDone = TRUE;
             }

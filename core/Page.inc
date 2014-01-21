@@ -54,16 +54,6 @@ abstract class Page extends Struct
 
         $Page['Function'] = $Function;
 
-/*
-        if( !empty($Routine) )
-            $Page['Function'] = Routine::Init($Routine);
-
-        if( !empty($Directives) )
-        {
-            foreach( (array) $Directives as $V )
-                $Page['Directives'][] = Directive::Init($V);
-        }
-*/
         return $Page;
     }
 }
@@ -82,7 +72,8 @@ class PageSet implements Debuggable
 {
     use Debugged;
 
-    public $App;
+    public $Pages;
+    public $PageMap;
 
     /**
      * Array of Match()'d Pages.
@@ -95,9 +86,10 @@ class PageSet implements Debuggable
     public $Executed = array();
 
 
-    public function __construct( \asm\App $App )
+    public function __construct( $Pages,$PageMap )
     {
-        $this->App = $App;
+        $this->Pages = $Pages;
+        $this->PageMap = $PageMap;
     }
 
     /**
@@ -119,8 +111,8 @@ class PageSet implements Debuggable
         if( isset($_SERVER[$this->DebugToken]) )
             $this->DebugMatch($Path);
 
-        if( isset($this->App->PathPageMap[$Path]) )
-            return ($this->Matched[] = $this->App->Pages[$this->App->PathPageMap[$Path]]);
+        if( isset($this->PageMap[$Path]) )
+            return ($this->Matched[] = $this->Pages[$this->PageMap[$Path]]);
         else
             return NULL;
     }
@@ -145,6 +137,9 @@ class PageSet implements Debuggable
      */
     public function Execute( $Page )
     {
+        global $asmapp;
+
+
         if( isset($_SERVER[$this->DebugToken]) )
         {
             $BT = Debug::Backtrace();
@@ -157,16 +152,16 @@ class PageSet implements Debuggable
 
         foreach( $Page['Directives'] as $V )
         {
-            if( empty($this->App->$V[0]) )
-                throw new Exception("Directive object {$V[0]}' doesn't exist while executing Page '{$Page[0]}'.");
+            if( empty($asmapp->$V[0]) )
+                throw new Exception("Directive object '{$V[0]}' doesn't exist while executing Page '{$Page['Name']}'.");
             else
-                $this->App->$V[0]->ApplyDirective($V[1],$V[2]);
+                $asmapp->$V[0]->ApplyDirective($V[1],$V[2]);
         }
 
         if( !empty($Page['Function']) )
         {
             // this automatically executes class::func when an array..??? sweet
-            $Page['Function']($this->App);
+            $Page['Function']($asmapp);
         }
     }
 
@@ -181,9 +176,9 @@ class PageSet implements Debuggable
         $BT = Debug::Backtrace();
         $BT = current(Debug::BT2Str($BT,'Match'));
 
-        if( isset($this->App->PathPageMap[$Path]) )
+        if( isset($this->PageMap[$Path]) )
         {
-            $P = $this->App->Pages[$this->App->PathPageMap[$Path]];
+            $P = $this->Pages[$this->PageMap[$Path]];
             $Buf = "\${$this->DebugToken}::Match('{$Path}') to '{$P['Name']}' called from {$BT}";
         }
         else

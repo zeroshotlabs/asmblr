@@ -219,6 +219,7 @@ class LinkSet
  */
 class LinkPage extends LinkSet
 {
+    protected $App;
     protected $PageSet;
 
 
@@ -235,9 +236,10 @@ class LinkPage extends LinkSet
      * @param NULL $BaseURL App::$SiteURL will be used.
      * @param array $Set Array of change strings for persistent changes to BaseURL.
      */
-    public function __construct( \asm\PageSet $PageSet,$BaseURL = NULL,$Set = array() )
+    public function __construct( \asm\PageSet $PageSet,\asm\App $App,$BaseURL = NULL,$Set = array() )
     {
         $this->PageSet = $PageSet;
+        $this->App = $App;
         $this->SetBaseURL($BaseURL,$Set);
     }
 
@@ -286,18 +288,18 @@ class LinkPage extends LinkSet
         if( empty($Name) )
         {
             if( ($P = end($this->PageSet->Executed)) === FALSE )
-                $P = array('PathStruct'=>$this->PageSet->App->Request['SiteURL']['Path'],'Name'=>'Home');
+                $P = array('PathStruct'=>$this->App->Request['SiteURL']['Path'],'Name'=>'Home');
 
             $Name = $P['Name'];
         }
         // page isn't known
-        else if( empty($this->PageSet->App->Pages[$Name]) )
+        else if( empty($this->PageSet->Pages[$Name]) )
         {
             Path::Append("PAGE-{$Name}-NOT-FOUND",$Base['Path']);
             return URL::ToString($Base);
         }
 
-        Path::Merge($this->PageSet->App->Pages[$Name]['PathStruct'],$Base['Path']);
+        Path::Merge($this->PageSet->Pages[$Name]['PathStruct'],$Base['Path']);
 
         // apply Set() change strings
         if( !empty($Set) )

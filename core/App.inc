@@ -21,10 +21,14 @@ namespace asm;
 abstract class App
 {
     public $Request;
+    public $Manifest;
+
     public $Config;
     public $Directives;
+
     public $Pages;
-    public $PathPageMap;
+    public $PageMaps;
+
     public $Templates;
 
 
@@ -38,7 +42,7 @@ abstract class App
         $this->Directives = &$this->Manifest['Directives'];
 
         $this->Pages = &$this->Manifest['Pages'];
-        $this->PathPageMap = &$this->Manifest['PathPageMap'];
+        $this->PageMaps = &$this->Manifest['PageMaps'];
 
         $this->Templates = &$this->Manifest['Templates'];
 
