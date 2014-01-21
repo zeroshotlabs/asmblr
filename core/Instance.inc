@@ -26,6 +26,7 @@ abstract class Instance
 
     protected $RequestedHostname;
 
+    // gs://asmblr-mc-tmp/
     protected $CacheDir = '';
 
     protected $CacheManifest = FALSE;
@@ -34,10 +35,9 @@ abstract class Instance
 
     public function __construct()
     {
-        // try to detect temp dir if needed - hardwired to one of two values
-        // could also use sys_get_temp_dir()
+        // seems to hold us for linux/windows/gae
         if( empty($this->CacheDir) )
-            $this->CacheDir = empty($_SERVER['TEMP'])?'/tmp/':'c:/windows/temp/';
+            $this->CacheDir = sys_get_temp_dir();
     }
 
     /**
@@ -99,7 +99,21 @@ abstract class Instance
 
         if( $this->CacheApp === TRUE )
         {
-            // PHP bug: always throws fatal error with no ability to detect @
+/*
+            $Options = array('gs'=>array('Content-Type'=>'text/plain'));
+            $ctx = stream_context_create($Options);
+
+            $B = file_get_contents("{$this->CacheDir}/{$Hostname}.app.inc",false,$ctx);
+            var_dump($B);
+            //            eval($B);
+            exit('ok');
+            include "{$this->CacheDir}/{$Hostname}.app.inc";
+
+            //            var_dump($B);
+            //            eval($B);
+            exit;
+*/
+            // PHP bug: always throws fatal error with no ability to detect @ when consecutive after above include()
             if( (@include "{$this->CacheDir}/{$this->RequestedHostname}.app.inc") === FALSE )
             {
                 file_put_contents("{$this->CacheDir}/{$this->RequestedHostname}.app.inc",$this->BuildApp($Manifest));

@@ -50,25 +50,20 @@ class Instance extends \asm\Instance
      */
     protected $Apps = array('mc.centz'=>array('/var/www/asmblr-apps/MC','mc'),
                             'mcm.centz'=>array('/var/www/asmblr-apps/MC','mcm'));
-
-    /**
-     * Set the local cache directory.
-     *
-     * It must be outside of any document root or Google Drive share, already
-     * exist, and be writeable by the web server (typically nobody or apache).
-     *
-     * Always use forward slashes.
-     *
-     * @todo Can this be detected automatically on Windows, and default to something
-     *       reasonable on Linux so that it doesn't have always be explicitly set?
-     */
-    protected $CacheDir = '';
+    /*
+     protected $Apps = array('asmblr-mc.appspot.com'=>'../../MC',
+             'localhost'=>'C:/Users/Hans Zaunere/Google Drive/asmblr-MC/MC',
+             'mc.wisp'=>'C:/Users/Hans Zaunere/Google Drive/asmblr-MC/MC',
+             'mcm.wisp'=>'C:/Users/Hans Zaunere/Google Drive/asmblr-apps/MC');
+    */
 
     /**
      * Set to TRUE to cache app manifests from Google Docs.
      * Setting to FALSE will disable and delete an existing cache file.
      */
     protected $CacheManifest = FALSE;
+
+    protected $CacheDir = '';
 
     /**
      * Set to TRUE to cache apps built from disk.
@@ -126,7 +121,7 @@ class App extends \asm\App
         $this->html = new \asm\enUSHTMLSet($this);
 
         // links for managed images (via cnvyr)
-        $this->limg = new \asm\Linkcnvyr($this->Config['Hostname'].'/cnvyr/');
+        $this->limg = new \asm\Linkcnvyr(\asm\URL::ToString($this->Request['SiteURL']).'/cnvyr/');
 
         // general purpose key/value store
         $this->page = new \asm\KeyValueSet;
