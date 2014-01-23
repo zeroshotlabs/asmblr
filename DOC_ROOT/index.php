@@ -47,6 +47,9 @@ class Instance extends \asm\Instance
      *
      * Exact hostname matching is performed first, then ordered matching is performed,
      * least specific to most specific, which match domains prefixed with a period.
+     *
+     * @note This type of configuration really belongs in an App's file, not as a part of asmblr itself.
+     * @note This also means we need to rethink how DOC_ROOT is handled and this index.php file itself.
      */
     protected $Apps = array('mc.centz'=>array('/var/www/asmblr-apps/MC','mc'),
                             'mcm.centz'=>array('/var/www/asmblr-apps/MC','mcm'));
@@ -60,10 +63,11 @@ class Instance extends \asm\Instance
     /**
      * Set to TRUE to cache app manifests from Google Docs.
      * Setting to FALSE will disable and delete an existing cache file.
+     *
+     * NOTE: This should be TRUE only when manipulating the manifest, even during development.
      */
-    protected $CacheManifest = FALSE;
+    protected $CacheManifest = TRUE;
 
-    protected $CacheDir = '';
 
     /**
      * Set to TRUE to cache apps built from disk.
@@ -161,9 +165,6 @@ class App extends \asm\App
             }
         }
 
-        // based on our actually requested domain, use a configured pageset
-        // $app->Request['Hostname'];
-
 
         // match pages against the MatchPath to determine our executing page
         // this logic is left verbose for easy customization
@@ -180,23 +181,32 @@ class App extends \asm\App
             }
         }
 
-        // if an ordered match isn't found, attempt an exact match
-        // this and other matching behavior can be easily customized
-        // NOTE: This means that if a page with /admin/ matches, a page with /admin/something WILL NOT
-        // be executed
-        if( $OrderedMatch === NULL )
+        // if an ordered match isn't found, attempt an exact match.  if the ordered match is
+        // Weak, an exact match is also allowed
+        // i.e.  default:  /admin/ matches then a page with /admin/something will NOT match
+        //          Weak:  /admin/ matches then a page with /admin/something WILL match
+        if( $OrderedMatch === NULL || (strpos($OrderedMatch['Status'],'Weak') !== FALSE) )
             $ExactMatch = $this->ps->Match(\asm\Path::ToString($this->Request['MatchPath']));
-
-        // determine which page to execute
+/*
+        // determine which page(s) to execute
         if( $OrderedMatch !== NULL )
             $ExecPage = $OrderedMatch;
         else if( $ExactMatch !== NULL )
             $ExecPage = $ExactMatch;
         else
             $ExecPage = NULL;
-
-        if( empty($ExecPage) || $ExecPage['Status'] !== 'Active' )
+*/
+        // if no pages, it's a 404
+        if( empty($OrderedMatch) && empty($ExactMatch) )
             $this->NoPageHandler();
+
+        // or if one isn't active
+        if( (!empty($OrderedMatch['Status']) && (strpos($OrderedMatch['Status'],'Active') === FALSE))
+         || (!empty($ExactMatch['Status']) && ($ExactMatch['Status'] !== 'Active')) )
+            $this->NoPageHandler();
+
+        $this->OrderedMatch = $OrderedMatch;
+        $this->ExactMatch = $ExactMatch;
 
         // asmblr supports CLI execution natively, though some config directives
         // only make sense when serving an HTTP request, or for certain pages
@@ -211,7 +221,7 @@ class App extends \asm\App
             }
 
             // start a session if appropriate
-            if( !empty($C['StartSession']) && (strpos($C['PageNoSession'],$ExecPage['Name']) === FALSE))
+            if( !empty($C['StartSession']) && (strpos($C['PageNoSession'],$OrderedMatch['Name']) === FALSE) && (strpos($C['PageNoSession'],$ExactMatch['Name']) === FALSE))
                 session_start();
 
             // seems to cause encoding errors, like for IE when the request doesn't finish normally
@@ -240,13 +250,17 @@ class App extends \asm\App
         }
 
         // optionally execute a function just prior to the page and rendering
-        // if this function returns FALSE, nothing further is done
+        // if this function returns FALSE things are left to the function and nothing further is done
         if( !empty($C['PreFunction']) )
         {
             if( $C['PreFunction']($this) !== FALSE )
             {
-                // now execute the actual page
-                $this->ps->Execute($ExecPage);
+                // now execute the actual page(s)
+                if( !empty($OrderedMatch) )
+                    $this->ps->Execute($OrderedMatch);
+
+                if( !empty($ExactMatch) )
+                    $this->ps->Execute($ExactMatch);
 
                 // and finally begin rendering at the Base.tpl template
                 $this->html->Base();
@@ -255,8 +269,12 @@ class App extends \asm\App
         // otherwise just execute the page and render
         else
         {
-            // now execute the actual page
-            $this->ps->Execute($ExecPage);
+            // now execute the actual page(s)
+            if( !empty($OrderedMatch) )
+                $this->ps->Execute($OrderedMatch);
+
+            if( !empty($ExactMatch) )
+                $this->ps->Execute($ExactMatch);
 
             // and finally begin rendering at the Base.tpl template
             $this->html->Base();
