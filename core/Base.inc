@@ -252,6 +252,7 @@ abstract class Log
      *
      * @note This uses error_log() 0 and 4 on Windows and Linux, respectively.
      * @todo Context and Backtrace are currently ignored.
+     * @todo Do we want to use syslog() instead (for GAE PHP)?
      */
     public static function Sys( $Msg,$Level = 'LOG',$Backtrace = NULL,$Context = NULL )
     {

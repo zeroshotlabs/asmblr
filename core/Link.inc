@@ -330,36 +330,37 @@ class LinkPage extends LinkSet
     }
 
     /**
-     * Test whether a Page is the currently executing Page.
+     * Test whether one or more Pages have been matched for this request.
      *
      * $True or $False is returned accordingly.
+     *
+     *
      *
      * @param string $Name Page Name to test.
-     * @param mixed $True Value to return if Name is executing.
-     * @param mixed $False Value to return if Name is not executing.
-     * @retval mixed Value of $True or $False parameter.
-     */
-    public function Current( $Name,$True = 'active',$False = NULL )
-    {
-        return (!empty($this->PageSet->Executed)&&end($this->PageSet->Executed)['Name']===$Name)?$True:$False;
-    }
-
-    /**
-     * Test whether one or more Pages is the currently executing Page.
-     *
-     * $True or $False is returned accordingly.
-     *
      * @param array $Name Page Names to test.
      * @param mixed $True Value to return if Name is executing.
      * @param mixed $False Value to return if Name is not executing.
      * @retval mixed Value of $True or $False parameter.
      *
-     * @note Use this gingerly as it's more expensive.  Use a hierarchal
-     *       Page URLs like /admin/ instead.
+     * @note Matching multiple pages is slower if overused - use a hierarchal page like /admin/ instead.
+     * @note Matched pages may or may not ever actually execute.
      */
-    public function Currently( $Name,$True = 'active',$False = NULL )
+    public function Current( $Name,$True = 'active',$False = NULL )
     {
-        return (!empty($this->PageSet->Executed)&&in_array(end($this->PageSet->Executed)['Name'],(array)$Name,TRUE))?$True:$False;
+        if( is_string($Name) )
+        {
+            return empty($this->PageSet->Matched[$Name])?$False:$True;
+        }
+        else
+        {
+            foreach( $Name as $N )
+            {
+                if( !empty($this->PageSet->Matched[$N]) )
+                    return $True;
+            }
+
+            return $False;
+        }
     }
 }
 

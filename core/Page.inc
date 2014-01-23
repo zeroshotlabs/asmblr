@@ -97,7 +97,7 @@ class PageSet implements Debuggable
      *
      * An exact match of a Page's Path is done.  Only one or none Pages will match.
      *
-     * The matching Page Struct will be appended to PageSet::$Matched and returned.
+     * The matching Page Struct will be set in PageSet::$Matched (using Page Name) and returned.
      *
      * @param string $Path The absolute path to match.
      * @retval array The matched Page Struct.
@@ -105,6 +105,7 @@ class PageSet implements Debuggable
      *
      * @note This is the primary Page routing mechanism in Framewire.
      * @note Matching should be done against unencoded paths.
+     * @note If multiple pages with the same name are matched (rare), only the first instance will be stored in $Matched.
      */
     public function Match( $Path )
     {
@@ -112,7 +113,7 @@ class PageSet implements Debuggable
             $this->DebugMatch($Path);
 
         if( isset($this->PageMap[$Path]) )
-            return ($this->Matched[] = $this->Pages[$this->PageMap[$Path]]);
+            return ($this->Matched[$this->PageMap[$Path]] = $this->Pages[$this->PageMap[$Path]]);
         else
             return NULL;
     }
@@ -124,7 +125,7 @@ class PageSet implements Debuggable
      *  - Appying Directives, if any
      *  - Executing the Function, if any
      *
-     * The executing Page Struct will be appended to PageSet::$Executed.
+     * The executing Page Struct will be set in PageSet::$Executed (using Page Name).
      *
      * @param array $Page The Page Struct to execute.
      * @retval mixed The value returned by the function, if any.
@@ -134,11 +135,11 @@ class PageSet implements Debuggable
      *
      * @note It is not enforced that the Page must exist in the PageSet,
      *       i.e. this can be used to execute any Page.
+     * @note If multiple pages with the same name are executed, only the first instance will be stored in $Executed.
      */
     public function Execute( $Page )
     {
         global $asmapp;
-
 
         if( isset($_SERVER[$this->DebugToken]) )
         {
@@ -148,7 +149,7 @@ class PageSet implements Debuggable
             Log::Log("\${$this->DebugToken}::Execute('{$Page['Name']}') called from {$BT}",'WARN',NULL,$Page);
         }
 
-        $this->Executed[] = $Page;
+        $this->Executed[$Page['Name']] = $Page;
 
         foreach( $Page['Directives'] as $V )
         {
