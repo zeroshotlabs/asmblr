@@ -19,6 +19,7 @@ namespace asm;
  *
  * @todo Include hook for an instance-wide lib
  * @todo Consider an instance manifest.
+ * @note asmblr error logging like llog()/console isn't available in these methods because they haven't been set yet (done in app)
  */
 abstract class Instance
 {
@@ -149,28 +150,61 @@ abstract class Instance
         $Manifest = array('AppRoot'=>$AppRoot,'DefaultPageSet'=>$App[1],'Config'=>array(),
                           'Directives'=>array(),'Pages'=>array(),'PageMaps'=>array(),'Templates'=>array());
 
-        $Manifest['Config']['Hostname'] = $Hostname;
-        $Manifest['Config']['AppRoot'] = $AppRoot;
-
+        // pull the main URL from our local gsheet file
         $SS = file_get_contents($AppRoot.'manifest.gsheet');
-
         $SS = json_decode($SS,TRUE);
-        $SS = URL::Init($SS['url']);
+        $SS = $OrigURL =  URL::Init($SS['url']);
+
+        // munge to be exportable as html
         $SS['Path']['Segments'][1] = 'pub';
-        $SS['Query']['single'] = 'true';
-        $SS['Query']['output'] = 'csv';
+        $SS['Query']['output'] = 'html';
         $SS['Query']['usp'] = NULL;
 
-        $ConfigDone = $PagesDone = $TemplatesDone = FALSE;
-        for( $i = 0; $i < 10; ++$i )
+        // read in the HTML version which we scrape for each of the tabs
+        $Buf = file_get_contents(URL::ToString($SS));
+        $Stats = $this->ParseManifestHeaders($http_response_header);
+
+        if( empty($Stats['HTTP']) )
+            throw new Exception("manifest.gsheet doesn't appear published in $AppRoot");
+
+        libxml_use_internal_errors(TRUE);
+        $DOM = new \DOMDocument;
+        $DOM->strictErrorChecking = FALSE;
+        $DOM->preserveWhiteSpace = TRUE;
+        $DOM->formatOutput = TRUE;
+        $DOM->xmlStandalone = TRUE;
+        $DOM->recover = TRUE;
+        $DOM->resolveExternals = FALSE;
+        @$DOM->loadHTML($Buf);
+
+        $XPR = new \DOMXPath($DOM);
+
+        // hack because of google: the first tab is the original URL which has no gid
+        $Tabs = array('FIRST'=>URL::ToString($SS));
+
+        $R = $XPR->query('//ul[@id="sheettabs"]/li/a');
+
+        foreach( $R as $V )
         {
-            $SS['Query']['gid'] = $i;
-            $B = file(URL::ToString($SS));
+            // tabs must be unique named
+            $Tabs[$V->textContent] = $V->getAttribute('href');
+        }
 
-            if( isset($http_response_header[0]) && strpos($http_response_header[0],'200 OK') === FALSE )
-                throw new Exception("manifest.gsheet doesn't appear published in $AppRoot");
+        // go over each tab and pull as CSV and parse into our manifest
+        foreach( $Tabs as $Label => $T )
+        {
+            if( strtolower($Label) === 'reference' )
+                continue;
 
-            if( empty($B[0]) )
+            $SS = URL::Init($T);
+            // munge to get CSV
+            $SS['Query']['output'] = 'csv';
+
+            $B = @file(URL::ToString($SS));
+            $Stats = $this->ParseManifestHeaders($http_response_header);
+
+            // something isn't right so just skip (not 200 or not csv)
+            if( empty($Stats['HTTP']) || empty($Stats['CSV']) )
                 continue;
 
             // config tab - Key, Value
@@ -201,8 +235,6 @@ abstract class Instance
                             $Manifest['Config'][$L[0]] = NULL;
                     }
                 }
-
-                $ConfigDone = TRUE;
             }
             // pages tab - Name, Path, Status, Function, Directives
             // a 6th column in the header is required as a unique token for the page set (will clobber)
@@ -246,8 +278,6 @@ abstract class Instance
                 // duplicate/empty PageSetNames will overwrite
                 $Manifest['Pages'][$PageSetName] = $Page;
                 $Manifest['PageMaps'][$PageSetName] = $PageMap;
-
-                $PagesDone = TRUE;
             }
             // templates tab - Name, Function - we just store the name/function mapping and the rest is init in the AppFile
             // name must contain a prefix if the template file is in a sub-directory
@@ -262,20 +292,48 @@ abstract class Instance
                     else
                         $Manifest['Templates'][$L[0]] = $this->ParseFunctionName($L[1]);
                 }
-
-                $TemplatesDone = TRUE;
             }
-
-            if( $ConfigDone && $PagesDone && $TemplatesDone )
-                break;
         }
+
+        // if no config something isn't right
+        if( empty($Manifest['Config']) )
+            throw new Exception("Couldn't find a config tab at '".URL::ToString($OrigURL));
 
         // lastly, add some instance info - handy for debugging
         $Manifest['CacheManifest'] = $this->CacheManifest;
         $Manifest['CacheApp'] = $this->CacheApp;
 
+        $Manifest['Config']['Hostname'] = $Hostname;
+        $Manifest['Config']['AppRoot'] = $AppRoot;
+
         return $Manifest;
     }
+
+    // just pulls out/normalizes HTTP response and content type for now
+    private function ParseManifestHeaders( $Raw )
+    {
+        $Headers = array();
+        foreach( $Raw as $V )
+        {
+            if( strpos($V,'HTTP/') === 0 )
+            {
+                if( strpos($V,'200 OK') !== FALSE )
+                    $Headers['HTTP'] = TRUE;
+                else
+                    $Headers['HTTP'] = FALSE;
+            }
+            else if( strpos($V,'Content-Type') === 0 )
+            {
+                if( strpos($V,'text/csv') !== FALSE )
+                    $Headers['CSV'] = TRUE;
+                else
+                    $Headers['CSV'] = FALSE;
+            }
+        }
+
+        return $Headers;
+    }
+
 
     // include() each file from functions/lib when in non-cache/dev mode
     // templates aren't included themselves, though the name of each file with any prefix is saved in the manifest
