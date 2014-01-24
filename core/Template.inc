@@ -204,18 +204,19 @@ class TemplateSet implements Debuggable
         {
             $RenderingTemplate = $this->Templates[$Name];
 
-            // scope the connected variables plus any arguments
-            foreach( $this->Connected as $K => $V )
-                $$K = $V;
-
-            if( !empty($Args[0]) )
-            {
-                foreach( $Args[0] as $K => $V )
-                    $$K = $V;
-            }
-
             if( empty($RenderingTemplate['Function']) )
             {
+
+                // scope the connected variables plus any arguments
+                foreach( $this->Connected as $K => $V )
+                    $$K = $V;
+
+                if( !empty($Args[0]) )
+                {
+                    foreach( $Args[0] as $K => $V )
+                        $$K = $V;
+                }
+
                 // if empty body, assume we have the body on the filesystem
                 // otherwise eval() it (basically just to support @@@)
                 // TODO: sort of clumsy...???
@@ -229,6 +230,18 @@ class TemplateSet implements Debuggable
                 // the function should expects arguments $this->Connected,$Args,$App
                 if( ($RenderingTemplate['Function']($this->Connected,$Args,$this->App)) !== FALSE )
                 {
+
+                    // scope the connected variables plus any arguments
+                    // we have to do this here again since our function may connect variables... probably a slicker way...
+                    foreach( $this->Connected as $K => $V )
+                        $$K = $V;
+
+                    if( !empty($Args[0]) )
+                    {
+                        foreach( $Args[0] as $K => $V )
+                            $$K = $V;
+                    }
+
                     if( empty($RenderingTemplate['Body']) )
                         include $RenderingTemplate['Path'];
                     else
