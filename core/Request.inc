@@ -318,7 +318,7 @@ abstract class Request extends Struct
     /**
      * Determine if the request is ChromePHP aware.
      *
-     * @note ChromePHP doesn't currently announce itself so this has little use
+     * @note ChromePHP doesn't currently announce itself so this has little use and isn't supported anymore.
      *       https://github.com/ccampbell/chromelogger/issues/8
      * @note Set fwApp::$LogPublic to TRUE/FALSE until they fix this.
      */
