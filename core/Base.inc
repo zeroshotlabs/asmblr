@@ -226,15 +226,15 @@ abstract class Log
         }
         else
         {
+
             // detect FirePHP or ChromePHP or fallback to Log::Sys()
+            // NOTE:  Chrome PHP doesn't announce itself so we're not supporting it anymore
             if( $LogPublic === TRUE )
             {
-                // since ChromePHP doesn't announce itself, we check FirePHP first
                 if( Request::IsFirePHP() )
                     Log::Wildfire($Msg,$Level,$Backtrace,$Context);
-                // this always returns TRUE
-                else if( Request::IsChromePHP() )
-                    Log::ChromePHP($Msg,$Level,$Backtrace,$Context);
+//                else if( Request::IsChromePHP() )
+//                    Log::ChromePHP($Msg,$Level,$Backtrace,$Context);
                 else
                     Log::Sys($Msg,$Level,$Backtrace,$Context);
             }
