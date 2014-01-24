@@ -151,7 +151,7 @@ class App extends \asm\App
 
         // if we're not caching the manifest we know we're not in production, so implement
         // some easy toggling of debugging pages and templates and tweak our links to persist
-        if( empty($Manifest['CacheManifest']) )
+        if( empty($Manifest['CacheManifest']) || !empty($_GET['or']) )
         {
             if( !empty($_GET['debug']) )
             {
