@@ -74,6 +74,14 @@ trait Debugged
         if( !empty($this->DebugToken) )
             unset($_SERVER[$this->DebugToken]);
     }
+
+    /**
+     * Determine whether is enabled.
+     */
+    public function IsDebug()
+    {
+        return !empty($_SERVER[$this->DebugToken]);
+    }
 }
 
 

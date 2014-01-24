@@ -438,21 +438,32 @@ class TemplateSet implements Debuggable
         {
             $T = $this->Templates[$Name];
             $Buf = "\${$this->DebugToken}::{$Name} as {$T['Name']} called from {$BT}";
-
-            // make this noticeable if we're called from outside a template or stack
-            if( strpos($BT,'eval') === FALSE && strpos($BT,'Template.inc') === FALSE )
-                $L = 'WARN';
-            else
-                $L = 'LOG';
         }
         else
         {
             $Buf = "\${$this->DebugToken}::{$Name} as NULL RENDER called from {$BT}";
-            $L = 'LOG';
         }
 
-        Log::Log($Buf,$L,NULL,$Extracts);
+        Log::Log($Buf,'LOG',NULL,$Extracts);
     }
+
+
+    /**
+     * Helper method for resolving the name of a template.
+     *
+     * Used for in-template debugging.
+     *
+     * @param string $Name Name of template.
+     * @retval string The original or ReMap()'d name.
+     */
+    protected function LookupName( $Name )
+    {
+        if( isset($this->Templates[$Name]) )
+            return $this->Templates[$Name]['Name'];
+        else
+            return 'NULL';
+    }
+
 
     /**
      * Internal method for debugging template name remapping.
