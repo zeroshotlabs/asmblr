@@ -75,16 +75,6 @@ class PageSet implements Debuggable
     public $Pages;
     public $PageMap;
 
-    /**
-     * Array of Match()'d Pages.
-     */
-    public $Matched = array();
-
-    /**
-     * Array of Execute()'d Pages.
-    */
-    public $Executed = array();
-
 
     public function __construct( $Pages,$PageMap )
     {
@@ -112,10 +102,7 @@ class PageSet implements Debuggable
         if( isset($_SERVER[$this->DebugToken]) )
             $this->DebugMatch($Path);
 
-        if( isset($this->PageMap[$Path]) )
-            return ($this->Matched[$this->PageMap[$Path]] = $this->Pages[$this->PageMap[$Path]]);
-        else
-            return NULL;
+        return (isset($this->PageMap[$Path])===TRUE?$this->Pages[$this->PageMap[$Path]]:NULL);
     }
 
     /**
@@ -149,8 +136,7 @@ class PageSet implements Debuggable
             Log::Log("\${$this->DebugToken}::Execute('{$Page['Name']}') called from {$BT}",'WARN',NULL,$Page);
         }
 
-        $this->Executed[$Page['Name']] = $Page;
-
+        // would like to streamline this somehow
         foreach( $Page['Directives'] as $V )
         {
             if( empty($asmapp->$V[0]) )

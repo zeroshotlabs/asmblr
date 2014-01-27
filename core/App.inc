@@ -20,11 +20,24 @@ namespace asm;
  */
 abstract class App
 {
+    // gs://asmblr-mc-tmp/
+    // array('gs'=>array('Content-Type'=>'text/plain'))
+    // TODO: may need a cnvyr specific cache dir
+    protected $CacheDir = '';
+
+    public $CacheManifest = FALSE;
+    public $CacheApp = FALSE;
+
+    public $AppRoot;
+    public $Hostname;
+
+    public $OrderedMatch;
+    public $ExactMatch;
+
     public $Request;
     public $Manifest;
 
     public $Config;
-    public $Directives;
 
     public $Pages;
     public $PageMaps;
@@ -32,22 +45,588 @@ abstract class App
     public $Templates;
 
 
-    public function __construct( $Request,$Manifest )
+
+    /**
+     * Default app build/execute.
+     *
+     * @todo Implement locking/flock() for manifest/app cache files.
+     */
+    public function __construct( $App,$Request )
     {
+        $this->Hostname = $App['Hostname'];
+        $this->AppRoot = $App['AppRoot'];
+        $this->CacheManifest = $App['CacheManifest'];
+        $this->CacheApp = $App['CacheApp'];
+        $this->RoutingPS = $App['RoutingPS'];
+
         $this->Request = $Request;
-        $this->Manifest = $Manifest;
 
-        $this->Config = &$this->Manifest['Config'];
+        // seems to hold us for linux/windows/gae
+        if( empty($this->CacheDir) )
+            $this->CacheDir = sys_get_temp_dir();
 
-        $this->Directives = &$this->Manifest['Directives'];
-
-        $this->Pages = &$this->Manifest['Pages'];
-        $this->PageMaps = &$this->Manifest['PageMaps'];
-
-        $this->Templates = &$this->Manifest['Templates'];
-
-        // Put this object global
+        // make this object global :)
         $GLOBALS['asmapp'] = $this;
+
+
+        // build/cache our manifest
+        if( $this->CacheManifest === TRUE )
+        {
+            if( (@include "{$this->CacheDir}/{$this->Hostname}.manifest.inc") === FALSE )
+            {
+                $this->Manifest = $this->BuildManifest($App,$this->Hostname);
+                file_put_contents("{$this->CacheDir}/{$this->Hostname}.manifest.inc",'<?php $this->Manifest = '.var_export($this->Manifest,TRUE).';');
+            }
+        }
+        else
+        {
+            // clear an existing cache
+            @unlink("{$this->CacheDir}/{$this->Hostname}.manifest.inc");
+            $this->Manifest = $this->BuildManifest($App,$this->Hostname);
+        }
+
+        // set local properties for the manifest - would like to streamline as it's wasteful
+        // but we'd need to refactor how we pull from the cache
+        $this->Config = $this->Manifest['Config'];
+        $this->Pages = $this->Manifest['Pages'];
+        $this->PageMaps = $this->Manifest['PageMaps'];
+
+        // build/cache our app file
+        // include/eval of this will set our $this->Templates property
+        if( $this->CacheApp === TRUE )
+        {
+            if( (@include "{$this->CacheDir}/{$this->Hostname}.app.inc") === FALSE )
+            {
+                file_put_contents("{$this->CacheDir}/{$this->Hostname}.app.inc",$this->BuildFile());
+                include "{$this->CacheDir}/{$this->Hostname}.app.inc";
+            }
+        }
+        else
+        {
+            // clear an existing cache
+            @unlink("{$this->CacheDir}/{$this->Hostname}.app.inc");
+            $T = $this->BuildFile();
+            eval('?>'.$T);
+        }
+
+
+        // now proceed by applying general purpose config settings
+
+        if( empty($this->Config['Status']) || $this->Config['Status'] !== 'Active' )
+            HTTP::_400();
+
+        // set a base directory - DO WE WANT THIS?
+        if( !empty($this->Config['open_basedir']) )
+            $this->OpenBaseDir($this->Config['open_basedir']);
+
+        // Activate the Framewire error handler
+        if( empty($this->Config['error_handler']) )
+            set_error_handler(array($this,'ErrorHandler'));
+        else
+            set_error_handler(array($this,$this->Config['error_handler']));
+
+        // Calculate app-wide URLs, modifying our Request array.  This creates
+        // $SiteURL and $MatchPath elements which are used for creating URLs (LinkSet) and
+        // matching pages (PageSet), respectively.
+        Request::CalcURLs($this->Request,$this->Config['BaseURL']);
+
+
+        // instantiate system objects
+        // this sets dynamic properties - know your names
+
+        // one or more page sets are supported though there is always a single routing page set
+        // as defined by $this->RoutingPS
+        // the routing page set and it's linker are always available as ps and lp, respectively
+        // other pagesets/linkers can be instantiated manually if needed
+        if( empty($this->RoutingPS) || empty($this->Pages[$this->RoutingPS]) )
+            throw new Exception("Invalid routing page set for '{$this->Hostname}'");
+
+        $this->ps = new PageSet($this->Pages[$this->RoutingPS],$this->PageMaps[$this->RoutingPS]);
+        $this->lp = new LinkPage($this->ps,$this,$this->Request['SiteURL']);
+
+        // TODO: needs to be configuration aware
+        $this->html = new enUSHTMLSet($this);
+
+        // links for managed images (via cnvyr)
+        // TODO: need to include for CSS/JS/fonts/etc
+        $this->limg = new Linkcnvyr(\asm\URL::ToString($this->Request['SiteURL']).'/cnvyr/');
+
+        // general purpose key/value store for in-template info (meta-tags, CSS classes, etc)
+        $this->page = new KeyValueSet;
+
+        // session based UI messages/alerts
+        $this->msg = new Messager;
+
+        // track form/request validation using a default 'has-error' CSS class
+        $this->vr = new ValidationReport('has-error');
+
+        // templates need access to some of these Connect() them in
+        // if you later Connect() something using the same name it will overwrite the object here
+        $this->html->Connect(array('lp'=>$this->lp,'limg'=>$this->limg,'page'=>$this->page,'msg'=>$this->msg,'vr'=>$this->vr));
+
+
+        // reference code for loading/connecting to mongo
+        /*
+        \asm\Inc::Ext('Mongo.inc');
+        $mongo = new \asm\Mongo;
+        $this->mydb = $mongo->Alias('mydb','mydb');
+        */
+    }
+
+    /**
+     * Match pages and execute the application.
+     */
+    public function Execute()
+    {
+        // match pages against the MatchPath to determine our executing page
+        $this->OrderedMatch = $this->ExactMatch = NULL;
+
+        // first attempt a hierarchal ordered match/execute - most general to most specific URL path
+        if( $this->Request['MatchPath']['IsRoot'] === FALSE )
+        {
+            foreach( \asm\Path::Order($this->Request['MatchPath']) as $V )
+            {
+                if( ($this->OrderedMatch = $this->ps->Match($V)) !== NULL )
+                    break;
+            }
+        }
+
+        // if an ordered match isn't found, attempt an exact match.  if the ordered match is
+        // Weak, an exact match is also allowed
+        // i.e.  default:  /admin/ matches then a page with /admin/something will NOT match
+        //          Weak:  /admin/ matches then a page with /admin/something WILL match
+        if( $this->OrderedMatch === NULL || (strpos($this->OrderedMatch['Status'],'Weak') !== FALSE) )
+            $this->ExactMatch = $this->ps->Match(\asm\Path::ToString($this->Request['MatchPath']));
+
+        // if no pages, it's a 404
+        if( empty($this->OrderedMatch) && empty($this->ExactMatch) )
+            $this->NoPageHandler();
+
+        // or if one isn't active
+        if( (!empty($this->OrderedMatch['Status']) && (strpos($this->OrderedMatch['Status'],'Active') === FALSE))
+        || (!empty($this->ExactMatch['Status']) && ($this->ExactMatch['Status'] !== 'Active')) )
+            $this->NoPageHandler();
+
+
+        // apply additional config parameters based on our environment/page
+
+        // asmblr supports CLI execution natively, though some config directives
+        // only make sense when serving an HTTP request, or for certain pages
+        if( $this->Request['IsCLI'] === FALSE )
+        {
+            // IsBaseHostname indicates whether the request is using the full hostname
+            // configured by BaseURL.  If not, redirect to it.
+            if( $this->Config['ForceBaseHostname'] === TRUE && $this->Request['IsBaseHostname'] === FALSE )
+            {
+                $this->Request['Hostname'] = $this->Request['BaseURL']['Hostname'];
+                HTTP::Location($this->Request);
+            }
+
+            // start a session if appropriate
+            // TODO: needs review/check
+            if( !empty($this->Config['StartSession']) && (strpos($this->Config['PageNoSession'],$this->OrderedMatch['Name']) === FALSE) && (strpos($this->Config['PageNoSession'],$this->ExactMatch['Name']) === FALSE))
+                session_start();
+
+            // seems to cause encoding errors, like for IE when the request doesn't finish normally
+            // and sometimes with Apache, though rarely - only when we var_dump early in execution it seems
+            if( !empty($this->Config['zlib_output']) )
+                ini_set('zlib.output_compression',TRUE);
+
+            if( !empty($this->Config['mb_http_output']) )
+                mb_http_output($this->Config['mb_http_output']);
+
+            // these can also be handled when creating the enUSHTMLSet template object
+            if( empty($this->Config['ContentType']) )
+                $this->Config['ContentType'] = 'text/html; charset=UTF-8';
+
+            header("Content-Type: {$this->Config['ContentType']}");
+        }
+
+        // apply any app-wide directives
+        foreach( $this->Manifest['Directives'] as $V )
+        {
+            if( empty($this->{$V[0]}) )
+                throw new Exception("Directive object {$V[0]}' doesn't exist while executing app for '{$this->Config['Hostname']}'.");
+            else
+                $this->{$V[0]}->ApplyDirective($V[1],$V[2]);
+        }
+
+        // optionally execute a function just prior to the page and rendering
+        // if this function returns FALSE things are left to the function and nothing further is done
+        if( !empty($this->Config['PreFunction']) )
+        {
+            if( $this->Config['PreFunction']($this) !== FALSE )
+            {
+                // now execute the actual page(s)
+                if( !empty($this->OrderedMatch) )
+                    $this->ps->Execute($this->OrderedMatch);
+
+                if( !empty($this->ExactMatch) )
+                    $this->ps->Execute($this->ExactMatch);
+
+                // and finally begin rendering at the Base.tpl template
+                $this->html->Base();
+            }
+        }
+        // otherwise just execute the page and render
+        else
+        {
+            // now execute the actual page(s)
+            if( !empty($this->OrderedMatch) )
+                $this->ps->Execute($this->OrderedMatch);
+
+            if( !empty($this->ExactMatch) )
+                $this->ps->Execute($this->ExactMatch);
+
+            // and finally begin rendering at the Base.tpl template
+            $this->html->Base();
+        }
+    }
+
+
+    /**
+     * Perform an ordered (wildcard) match by hostname.
+     *
+     * Find the most general match which must be defined with a leading period.
+     *
+     * EXPERIMENTAL: Not fully implemented and may be relocated.
+     */
+    public static function OrderedMatch( $Request,$Apps )
+    {
+        foreach( Hostname::Order($Request['Hostname']) as $H )
+        {
+            if( isset($Apps[$H]) )
+            {
+                return $Apps[$H];
+            }
+        }
+    }
+
+    /**
+     * Determine whether we're executing in a Windows environment.
+     *
+     * @retval boolean TRUE if the application is executing in a Windows environment.
+     * @todo Should PHP_OS be used instead?
+     */
+    public static function IsWindows()
+    {
+        return isset($_SERVER['SystemRoot']);
+    }
+
+    // generic debugger
+    public function Debugger()
+    {
+        // if we're not caching the manifest we know we're not in production, so implement
+        // some easy toggling of debugging pages and templates and tweak our links to persist
+        if( empty($this->Manifest['CacheManifest']) || !empty($_GET['or']) )
+        {
+            if( !empty($_GET['debug']) )
+            {
+                $this->lp->SetBaseURL($this->Request['SiteURL'],$_GET);
+
+                $this->ps->DebugOn();
+                $this->html->DebugOn();
+            }
+        }
+    }
+
+
+    /**
+     * Build the application's manifest and set as $this->Manifest.
+     *
+     * Currently this assumes a manifest.gsheet file in the app root.
+     *
+     * @retval array The application's manifest.
+     */
+    protected function BuildManifest()
+    {
+        $AppRoot = Path::Init($this->AppRoot);
+        $AppRoot['IsDir'] = TRUE;
+        $AppRoot = Path::ToString($AppRoot);
+
+        if( !is_readable($AppRoot.'manifest.gsheet') )
+            throw new Exception("Can't read {$AppRoot}manifest.gsheet");
+
+        // Pages/PageMaps are numeric arrays of one of more page sets
+        // Directives are app-wide directives executed for every request.
+        $Manifest = array('AppRoot'=>$AppRoot,'Config'=>array(),'Directives'=>array(),
+                          'Pages'=>array(),'PageMaps'=>array(),'Templates'=>array());
+
+        // pull the main URL from our local gsheet file
+        $SS = file_get_contents($AppRoot.'manifest.gsheet');
+        $SS = json_decode($SS,TRUE);
+        $SS = $OrigURL =  URL::Init($SS['url']);
+
+        // munge to be exportable as html
+        $SS['Path']['Segments'][1] = 'pub';
+        $SS['Query']['output'] = 'html';
+        $SS['Query']['usp'] = NULL;
+
+        // read in the HTML version which we scrape for each of the tabs
+        $Buf = file_get_contents(URL::ToString($SS));
+
+        $Headers = \asm\restr::ParseHeaders($http_response_header);
+
+        if( empty($Headers['HTTP']) || strpos($Headers['HTTP'],'200') === FALSE )
+            throw new Exception("manifest.gsheet doesn't appear published in $AppRoot");
+
+        libxml_use_internal_errors(TRUE);
+        $DOM = new \DOMDocument;
+        $DOM->strictErrorChecking = FALSE;
+        $DOM->preserveWhiteSpace = TRUE;
+        $DOM->formatOutput = TRUE;
+        $DOM->xmlStandalone = TRUE;
+        $DOM->recover = TRUE;
+        $DOM->resolveExternals = FALSE;
+        @$DOM->loadHTML($Buf);
+
+        $XPR = new \DOMXPath($DOM);
+
+        // hack because of google: the first tab is the original URL which has no gid
+        $Tabs = array('FIRST'=>URL::ToString($SS));
+
+        $R = $XPR->query('//ul[@id="sheettabs"]/li/a');
+
+        foreach( $R as $V )
+        {
+            // tabs must be uniquely named
+            $Tabs[$V->textContent] = $V->getAttribute('href');
+        }
+
+        // go over each tab and pull as CSV and parse into our manifest
+        foreach( $Tabs as $Label => $T )
+        {
+            // skip documentation tab
+            if( strtolower($Label) === 'reference' )
+                continue;
+
+            $SS = URL::Init($T);
+            // munge to get CSV
+            $SS['Query']['output'] = 'csv';
+
+            $B = @file(URL::ToString($SS));
+
+            $Headers = \asm\restr::ParseHeaders($http_response_header);
+
+            // something isn't right so just skip (not 200 or not csv)
+            if( empty($Headers['HTTP']) || strpos($Headers['HTTP'],'200') === FALSE
+             || empty($Headers['Content-Type']) || strpos($Headers['Content-Type'],'text/csv') === FALSE )
+                continue;
+
+            // config tab - Key, Value
+            if( strpos($B[0],'Key,Value') !== FALSE )
+            {
+                array_shift($B);
+                foreach( $B as $L )
+                {
+                    $L = str_getcsv($L);
+
+                    if( empty($L[0]) )
+                        continue;
+                    else if( $L[0][0] === '$' )
+                        $Manifest['Directives'][] = array(str_replace('$','',$L[0]),$L[1],$L[2]);
+                    else if( $L[0] === 'AppFunction' )
+                        $Manifest['Config']['AppFunction'] = $this->ParseFunctionName($L[1]);
+                    else
+                    {
+                        // trim and normalize to boolean/NULL
+                        $Manifest['Config'][$L[0]] = trim($L[1]);
+                        $T = strtolower($Manifest['Config'][$L[0]]);
+
+                        if( $T === 'false' )
+                            $Manifest['Config'][$L[0]] = FALSE;
+                        else if( $T === 'true' )
+                            $Manifest['Config'][$L[0]] = TRUE;
+                        else if( $T === 'null' )
+                            $Manifest['Config'][$L[0]] = NULL;
+                    }
+                }
+            }
+            // pages tab - Name, Path, Status, Function, Directives
+            // a 6th column in the header is required as a unique token for the page set (will clobber)
+            else if( strpos($B[0],'Name,Path,Status') !== FALSE )
+            {
+                $L = array_shift($B);
+                $L = str_getcsv($L);
+                if( empty($L[5]) )
+                {
+                    trigger_error('Skipping invalid Page header: '.implode(',',$L));
+                    continue;
+                }
+
+                $PageSetName = trim($L[5]);
+
+                $LastPage = '';
+                $Page = $PageMap = array();
+                foreach( $B as $L )
+                {
+                    $L = str_getcsv($L);
+                    if( !empty($L[0]) )
+                    {
+                        $P = Page::Init($L[0],$L[1],$L[2],$this->ParseFunctionName($L[3]));
+                        $Page[$P['Name']] = $P;
+                        $PageMap[$P['Path']] = $P['Name'];
+                        $LastPage = $P['Name'];
+                    }
+
+                    if( !empty($L[4]) )
+                    {
+                        if( !empty($L[5]) )
+                            $D = array($L[4],$L[5],$L[6]);
+                        else
+                            $D = explode(',',$L[4]);
+
+                        if( !empty($LastPage) )
+                            $Page[$LastPage]['Directives'][] = $D;
+                    }
+                }
+
+                // duplicate/empty PageSetNames will overwrite
+                $Manifest['Pages'][$PageSetName] = $Page;
+                $Manifest['PageMaps'][$PageSetName] = $PageMap;
+            }
+            // templates tab - Name, Function - we just store the name/function mapping and the rest is init in the AppFile
+            // name must contain a prefix if the template file is in a sub-directory
+            else if( strpos($B[0],'Name,Function') !== FALSE )
+            {
+                array_shift($B);
+                foreach( $B as $L )
+                {
+                    $L = str_getcsv($L);
+                    if( empty($L[0]) )
+                        continue;
+                    else
+                        $Manifest['Templates'][$L[0]] = $this->ParseFunctionName($L[1]);
+                }
+            }
+        }
+
+        // if no config something isn't right
+        if( empty($Manifest['Config']) )
+            throw new Exception("Couldn't find a config tab at '".URL::ToString($OrigURL));
+
+        return $Manifest;
+    }
+
+    protected function BuildFile()
+    {
+        $AppRoot = $this->Manifest['AppRoot'];
+
+        if( !is_dir($AppRoot) || !is_readable($AppRoot) )
+            throw new Exception("Unreadable AppRoot '{$AppRoot}'");
+
+        $Hostname = $this->Hostname;
+
+        $AppFile = '';
+
+        // PHP Bug - can't use FilesystemIterator::CURRENT_AS_PATHNAME |  FilesystemIterator::KEY_AS_FILENAME with recursive dirs
+        $Flags = \FilesystemIterator::SKIP_DOTS | \FilesystemIterator::UNIX_PATHS;
+
+        // subdirectories are NOT prefixed
+        $dir = new \RecursiveDirectoryIterator("{$AppRoot}lib",$Flags);
+        $fs = new \RecursiveIteratorIterator($dir);
+        foreach( $fs as $K => $V )
+        {
+            // if we're not caching, just include the file
+            // this helps tremendously with useful error messages - ditto below as well
+            if( empty($this->CacheApp) )
+            {
+                include $K;
+            }
+            else
+            {
+                $AppFile .= "\n\n\n/*** {$K} ***/";
+
+                $T = php_strip_whitespace($K);
+                if( strpos($T,'<?php') === 0 )
+                    $AppFile .= "\n".substr($T,5);
+                else
+                    $AppFile .= $T;
+            }
+        }
+
+        // subdirectories are NOT prefixed
+        $dir = new \RecursiveDirectoryIterator("{$AppRoot}functions",$Flags);
+        $fs = new \RecursiveIteratorIterator($dir);
+        foreach( $fs as $K => $K )
+        {
+            if( empty($this->CacheApp) )
+            {
+                include $K;
+            }
+            else
+            {
+                $AppFile .= "\n\n\n/*** {$K} ***/";
+
+                $T = php_strip_whitespace($K);
+                if( strpos($T,'<?php') === 0 )
+                    $AppFile .= "\n".substr($T,5);
+                else
+                    $AppFile .= $T;
+            }
+        }
+
+        // subdirectories ARE prefixed and merge any Function definition from the manifest
+        $AppFile .= "\n\n\n/*** {$AppRoot}templates ***/";
+        $dir = new \RecursiveDirectoryIterator("{$AppRoot}templates",$Flags);
+        $fs = new \RecursiveIteratorIterator($dir);
+        $Templates = array();
+        foreach( $fs as $K => $V )
+        {
+            $P = Path::Init($K);
+            $P = Path::Bottom($P,2);
+
+            if( $P['Segments'][0] !== 'templates' )
+                $Prefix = $P['Segments'][0].'_';
+            else
+                $Prefix = '';
+
+            $Buf = file_get_contents($K);
+
+            if( strpos(substr($Buf,0),"\n@@@") === FALSE )
+            {
+                $P['Segments'][1] = pathinfo($P['Segments'][1],PATHINFO_FILENAME);
+
+                if( !empty($this->Manifest['Templates'][$Prefix.$P['Segments'][1]]) )
+                    $F = $this->Manifest['Templates'][$Prefix.$P['Segments'][1]];
+                else
+                    $F = array();
+
+                $Templates[$Prefix.$P['Segments'][1]] = Template::Init($Prefix.$P['Segments'][1],$K,$F,$Buf);
+            }
+            else
+            {
+                // this regex needs to be more robust, including handling empty frags, frags that don't
+                // start with whitespace, those that end with a comment, etc.
+                $B = preg_split("/\s*@@@(\w+[a-zA-Z0-9\-]*)/m",$Buf,0,PREG_SPLIT_DELIM_CAPTURE|PREG_SPLIT_NO_EMPTY);
+                $CNT = count($B);
+                for( $i = 0; $i < $CNT; $i+=2 )
+                {
+                    if( !empty($this->Manifest['Templates'][$Prefix.$B[$i]]) )
+                        $F = $this->Manifest['Templates'][$Prefix.$B[$i]];
+                    else
+                        $F = array();
+
+                    $Templates[$Prefix.$B[$i]] = Template::Init($Prefix.$B[$i],$K,$F,$B[$i+1]);
+                }
+            }
+        }
+
+        return "<?php\n\n{$AppFile} \n\n \$this->Templates = ".var_export($Templates,TRUE).';';
+    }
+
+
+    protected function ParseFunctionName( $F )
+    {
+        if( strpos($F,'::') === FALSE )
+        {
+            return trim(str_replace(array('(',')'),'',$F));
+        }
+        else
+        {
+            $T = explode('::',$F);
+            return array(trim($T[0]),trim(str_replace(array('(',')'),'',$T[1])));
+        }
     }
 
 
@@ -66,8 +645,6 @@ abstract class App
         exit;
     }
 
-
-    /** The handlers below could be a recursion danger zone.  :) **/
 
     /**
      * User error handler.
@@ -88,9 +665,8 @@ abstract class App
      * @param string $errfile The filename from which the message came.
      * @param int $errline The line number of the file.
      * @param array $errcontext Local scope where the error occurred.
-     * @retval void
+     * @retval boolean FALSE if the error should be ignored, TRUE if not.
      *
-     * @see FatalErrorHandler()
      * @todo errcontext can be huge - might filter/etc
      */
     public function ErrorHandler( $errno,$errstr,$errfile,$errline,$errcontext )
@@ -114,50 +690,10 @@ abstract class App
     }
 
     /**
-     * Handle fatal and internal PHP errors.
-     *
-     * This method is set using register_shutdown_function() in App::__construct()
-     * (so technically it's a shutdown function, not an error handler).
-     *
-     * It allows most fatal/parse errors to be handled in the same way as user
-     * errors are by Framewire.
-     *
-     * @note Cannot handle fatal errors that occur in fwboot.php
-     * @note This could go recursive if any errors occur in ErrorHandler() or Log.
-     * @note PHP bug: in certain cases, like trying to consecutively include() two files that don't exist,
-     *       this is called as a fatal error, but there is no way to detect whether was @ was used -
-     *       see Instance::__construct when CacheApp === TRUE
-     */
-/*
-    public function FatalErrorHandler()
-    {
-        if( ($E = error_get_last()) !== NULL )
-        {
-            $this->ErrorHandler($E['type'],$E['message'],$E['file'],$E['line'],NULL);
-        }
-    }
-*/
-
-    /**
-     * Handle uncaught exceptions.
-     *
-     * This method is set using set_exception_handler() in App::__construct().
-     *
-     * This method should be overridden in the application's extending App class.
-     *
-     * @param Exception $E An uncaught exception.
-     */
-/*
-    public function UncaughtExceptionHandler( \Exception $E = NULL )
-    {
-        Log::Log('UNCAUGHT '.(string)$E,'ERROR',$E->getTrace());
-    }
-*/
-    /**
      * Set PHP's open_basedir() directive for the application.
      *
      * @param string $Path Base directory.
-     * @todo implement/test
+     * @todo implement/test - currently a no op
      */
     public function OpenBaseDir( $Path = '' )
     {

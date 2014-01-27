@@ -152,21 +152,6 @@ class LinkSet
     }
 
     /**
-     * Apply a BaseURL according to the Directive.
-     *
-     * @param string $Key Only 'BaseURL' is supported.
-     * @param string $Value The BaseURL to set.
-     * @retval void
-     */
-    public function ApplyDirective( $Key,$Value )
-    {
-        if( $Key === 'BaseURL' )
-            $this->SetBaseURL($Value);
-        else
-            parent::ApplyDirective($Key,$Value);
-    }
-
-    /**
      * Alias of __invoke() for creating a URL.
      *
      * @see LinkSet::__invoke().
@@ -240,6 +225,7 @@ class LinkPage extends LinkSet
     {
         $this->PageSet = $PageSet;
         $this->App = $App;
+
         $this->SetBaseURL($BaseURL,$Set);
     }
 
@@ -333,8 +319,6 @@ class LinkPage extends LinkSet
      * Test whether one or more Pages have been matched for this request.
      *
      * $True or $False is returned accordingly.
-     *
-     *
      *
      * @param string $Name Page Name to test.
      * @param array $Name Page Names to test.

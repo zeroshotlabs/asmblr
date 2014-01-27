@@ -33,7 +33,6 @@ function llog( $Msg,$Level = 'LOG',$Backtrace = NULL,$Context = NULL )
 require(ASM_ROOT.'Base.inc');
 require(ASM_ROOT.'Request.inc');
 
-require(ASM_ROOT.'Instance.inc');
 require(ASM_ROOT.'App.inc');
 
 require(ASM_ROOT.'Page.inc');

@@ -206,7 +206,6 @@ class TemplateSet implements Debuggable
 
             if( empty($RenderingTemplate['Function']) )
             {
-
                 // scope the connected variables plus any arguments
                 foreach( $this->Connected as $K => $V )
                     $$K = $V;
@@ -217,20 +216,21 @@ class TemplateSet implements Debuggable
                         $$K = $V;
                 }
 
-                // if empty body, assume we have the body on the filesystem
-                // otherwise eval() it (basically just to support @@@)
-                // TODO: sort of clumsy...???
-                if( empty($RenderingTemplate['Body']) )
-                    include $RenderingTemplate['Path'];
-                else
+                // this is clunky for now but for dev/non-caching needed for easy debugging
+                // and proper error messages from PHP
+
+                // assume we haven't loaded things from disk, or that we have and we eval()
+                // same below - though we'd like to avoid the string manipulation
+                if( empty($this->App->CacheApp) )
                     eval("?>{$RenderingTemplate['Body']}");
+                else
+                    include $RenderingTemplate['Path'];
             }
             else
             {
-                // the function should expects arguments $this->Connected,$Args,$App
+                // the function should expect arguments $this->Connected,$Args,$App
                 if( ($RenderingTemplate['Function']($this->Connected,$Args,$this->App)) !== FALSE )
                 {
-
                     // scope the connected variables plus any arguments
                     // we have to do this here again since our function may connect variables... probably a slicker way...
                     foreach( $this->Connected as $K => $V )
@@ -242,10 +242,10 @@ class TemplateSet implements Debuggable
                             $$K = $V;
                     }
 
-                    if( empty($RenderingTemplate['Body']) )
-                        include $RenderingTemplate['Path'];
-                    else
+                    if( empty($this->App->CacheApp) )
                         eval("?>{$RenderingTemplate['Body']}");
+                    else
+                        include $RenderingTemplate['Path'];
                 }
             }
         }
@@ -343,11 +343,13 @@ class TemplateSet implements Debuggable
      *
      * @note This does not return a reference.  Use wisely.
      */
-    public function GetConnect( $Name )
+    public function GetConnect( $Name = NULL )
     {
-        return empty($this->Connected[$Name])?NULL:$this->Connected[$Name];
+        if( empty($Name) )
+            return $this->Connected;
+        else
+            return empty($this->Connected[$Name])?NULL:$this->Connected[$Name];
     }
-
 
     /**
      * Perform a ReMap() or a Stack() according to a Directive.
@@ -362,7 +364,6 @@ class TemplateSet implements Debuggable
     {
         if( $Key === 'Stack' )
         {
-
             $T = explode(';',$Value);
             $this->Stack($T[0],$T[1]);
         }
@@ -460,24 +461,6 @@ class TemplateSet implements Debuggable
         Log::Log($Buf,'LOG',NULL,$Extracts);
     }
 
-
-    /**
-     * Helper method for resolving the name of a template.
-     *
-     * Used for in-template debugging.
-     *
-     * @param string $Name Name of template.
-     * @retval string The original or ReMap()'d name.
-     */
-    protected function LookupName( $Name )
-    {
-        if( isset($this->Templates[$Name]) )
-            return $this->Templates[$Name]['Name'];
-        else
-            return 'NULL';
-    }
-
-
     /**
      * Internal method for debugging template name remapping.
      *
@@ -519,6 +502,22 @@ class TemplateSet implements Debuggable
             $Buf = "\${$this->DebugToken}::ReMap('{$Name}') to UNKNOWN";
             Log::Log($Buf,'ERROR',NULL,NULL);
         }
+    }
+
+    /**
+     * Helper method for resolving the name of a template.
+     *
+     * Used in-template for debugging purposes.
+     *
+     * @param string $Name Name of template.
+     * @retval string The original or ReMap()'d name.
+     */
+    protected function LookupName( $Name )
+    {
+        if( isset($this->Templates[$Name]) )
+            return $this->Templates[$Name]['Name'];
+        else
+            return 'NULL';
     }
 }
 

@@ -273,7 +273,7 @@ abstract class Log
             error_log("\r\n".str_replace(array("\r\n","\n"),"\r\n",$Msg),4);
         }
         // We're on Windows so do it all in one shot and change line endings - assumes IIS - goes to php.log file
-        else if( Instance::IsWindows() === TRUE )
+        else if( App::IsWindows() === TRUE )
         {
             error_log(str_replace(array("\r\n","\n"),"\r\n",$Msg),0);
         }
