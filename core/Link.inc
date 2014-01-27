@@ -273,10 +273,11 @@ class LinkPage extends LinkSet
 
         if( empty($Name) )
         {
-            if( ($P = end($this->PageSet->Executed)) === FALSE )
+            // should rarely/never happen
+            if( empty($this->App->ClosestMatchName) )
                 $P = array('PathStruct'=>$this->App->Request['SiteURL']['Path'],'Name'=>'Home');
-
-            $Name = $P['Name'];
+            else
+                $Name = $this->App->ClosestMatchName;
         }
         // page isn't known
         else if( empty($this->PageSet->Pages[$Name]) )
@@ -333,13 +334,13 @@ class LinkPage extends LinkSet
     {
         if( is_string($Name) )
         {
-            return empty($this->PageSet->Matched[$Name])?$False:$True;
+            return $this->App->ClosestMatchName===$Name?$True:$False;
         }
         else
         {
             foreach( $Name as $N )
             {
-                if( !empty($this->PageSet->Matched[$N]) )
+                if( $this->App->ClosestMatchName === $Name )
                     return $True;
             }
 

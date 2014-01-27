@@ -33,6 +33,8 @@ abstract class App
 
     public $OrderedMatch;
     public $ExactMatch;
+    // just handy (i.e. for LinkPage)
+    public $ClosestMatchName;
 
     public $Request;
     public $Manifest;
@@ -187,7 +189,10 @@ abstract class App
             foreach( \asm\Path::Order($this->Request['MatchPath']) as $V )
             {
                 if( ($this->OrderedMatch = $this->ps->Match($V)) !== NULL )
+                {
+                    $this->ClosestMatchName = $this->OrderedMatch['Name'];
                     break;
+                }
             }
         }
 
@@ -196,7 +201,10 @@ abstract class App
         // i.e.  default:  /admin/ matches then a page with /admin/something will NOT match
         //          Weak:  /admin/ matches then a page with /admin/something WILL match
         if( $this->OrderedMatch === NULL || (strpos($this->OrderedMatch['Status'],'Weak') !== FALSE) )
+        {
             $this->ExactMatch = $this->ps->Match(\asm\Path::ToString($this->Request['MatchPath']));
+            $this->ClosestMatchName = $this->ExactMatch['Name'];
+        }
 
         // if no pages, it's a 404
         if( empty($this->OrderedMatch) && empty($this->ExactMatch) )
