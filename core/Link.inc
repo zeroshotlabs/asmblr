@@ -273,7 +273,7 @@ class LinkPage extends LinkSet
 
         if( empty($Name) )
         {
-            // should rarely/never happen
+            // should rarely happen
             if( empty($this->App->ClosestMatchName) )
                 $P = array('PathStruct'=>$this->App->Request['SiteURL']['Path'],'Name'=>'Home');
             else
@@ -291,18 +291,8 @@ class LinkPage extends LinkSet
         // apply Set() change strings
         if( !empty($Set) )
         {
-            // TODO: this needs to be handled better in the case we want to prepend multiple segments
-            // this currently will break other change string support, like for query string
-            // and of course this is slow... and in fact, the whole strategy for linking to JS/CNVYR/CSS/IMG/etc
-            // should be reconsidered; we create a special linker for images, but don't really want to do the same
-            // for each JS/CSS cnvyr type of thing - preferably, we'd only have to create one, or just one extra one
-            // in addition to the standard page linker
-            // all this said, we like to try to keep images/JS/CSS on only a single path level - in any case, this
-            // stuff needs a solution/documentation/strategy - also dealing with the fact that things like bootstrap
-            // hardcode relative paths to things like fonts - and front-end developers do in general
-            // and this also raises questions about what cnvyr is for outside of images - like fonts/etc - this would
-            // include minification, bundling, and perhaps even URL version for breaking caching - also intelligent
-            // setting of headers for caching
+            // this currently will break other change strings at the same time
+            // see URL::Set() - this all could use some optimization
             if( strpos($Set,'/') )
             {
                 $Set = explode('/',$Set);
@@ -328,7 +318,8 @@ class LinkPage extends LinkSet
      * @retval mixed Value of $True or $False parameter.
      *
      * @note Matching multiple pages is slower if overused - use a hierarchal page like /admin/ instead.
-     * @note Matched pages may or may not ever actually execute.
+     * @note When checking multiple pages, if any matches, $True is returned.
+     * @todo This checks the most exact matched page.  We may add the option to specify an exact or ordered match.
      */
     public function Current( $Name,$True = 'active',$False = NULL )
     {

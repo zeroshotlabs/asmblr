@@ -70,6 +70,9 @@ abstract class Template extends Struct
  * This is the default templating mechanism in Framewire.
  *
  * This TemplateSet manages file-based templates.
+ *
+ * @todo Cacheable templates - Some templates, like subnav, can be
+ *       expensive to create and don't change much - should be savable to disk/app file
  */
 class TemplateSet implements Debuggable
 {
@@ -220,9 +223,10 @@ class TemplateSet implements Debuggable
                 // and proper error messages from PHP
 
                 // assume we haven't loaded things from disk, or that we have and we eval()
-                // same below - though we'd like to avoid the string manipulation
-                if( empty($this->App->CacheApp) )
-                    eval("?>{$RenderingTemplate['Body']}");
+                // same below - App::BuildFile() prepends the opening tag for eval()
+                // we don't check CacheApp since for @@@ frags they will always be in body
+                if( empty($RenderingTemplate['Path']) )
+                    eval($RenderingTemplate['Body']);
                 else
                     include $RenderingTemplate['Path'];
             }
@@ -242,8 +246,8 @@ class TemplateSet implements Debuggable
                             $$K = $V;
                     }
 
-                    if( empty($this->App->CacheApp) )
-                        eval("?>{$RenderingTemplate['Body']}");
+                    if( empty($RenderingTemplate['Path']) )
+                        eval($RenderingTemplate['Body']);
                     else
                         include $RenderingTemplate['Path'];
                 }

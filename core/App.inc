@@ -23,29 +23,28 @@ abstract class App
     // gs://asmblr-mc-tmp/
     // array('gs'=>array('Content-Type'=>'text/plain'))
     // TODO: may need a cnvyr specific cache dir
-    protected $CacheDir = '';
+    public $CacheDir = '';
 
-    public $CacheManifest = FALSE;
-    public $CacheApp = FALSE;
-
-    public $AppRoot;
     public $Hostname;
+    public $AppRoot;
+
+    public $CacheManifest;
+    public $CacheApp;
+
+    public $RoutingPS;
 
     public $OrderedMatch;
     public $ExactMatch;
-    // just handy (i.e. for LinkPage)
+
     public $ClosestMatchName;
 
     public $Request;
     public $Manifest;
 
-    public $Config;
-
     public $Pages;
     public $PageMaps;
-
+    public $Config;
     public $Templates;
-
 
 
     /**
@@ -117,7 +116,7 @@ abstract class App
         if( empty($this->Config['Status']) || $this->Config['Status'] !== 'Active' )
             HTTP::_400();
 
-        // set a base directory - DO WE WANT THIS?
+        // set a base directory (this may cause problems is not properly set)
         if( !empty($this->Config['open_basedir']) )
             $this->OpenBaseDir($this->Config['open_basedir']);
 
@@ -126,6 +125,7 @@ abstract class App
             set_error_handler(array($this,'ErrorHandler'));
         else
             set_error_handler(array($this,$this->Config['error_handler']));
+
 
         // Calculate app-wide URLs, modifying our Request array.  This creates
         // $SiteURL and $MatchPath elements which are used for creating URLs (LinkSet) and
@@ -237,9 +237,11 @@ abstract class App
 
             // seems to cause encoding errors, like for IE when the request doesn't finish normally
             // and sometimes with Apache, though rarely - only when we var_dump early in execution it seems
-            if( !empty($this->Config['zlib_output']) )
-                ini_set('zlib.output_compression',TRUE);
+//             if( !empty($this->Config['zlib_output']) )
+//                 ini_set('zlib.output_compression',TRUE);
 
+            // TODO: do we need this?  Does it do anything?  needs testing.
+            // do we need mb_output_handler()?
             if( !empty($this->Config['mb_http_output']) )
                 mb_http_output($this->Config['mb_http_output']);
 
@@ -291,35 +293,6 @@ abstract class App
         }
     }
 
-
-    /**
-     * Perform an ordered (wildcard) match by hostname.
-     *
-     * Find the most general match which must be defined with a leading period.
-     *
-     * EXPERIMENTAL: Not fully implemented and may be relocated.
-     */
-    public static function OrderedMatch( $Request,$Apps )
-    {
-        foreach( Hostname::Order($Request['Hostname']) as $H )
-        {
-            if( isset($Apps[$H]) )
-            {
-                return $Apps[$H];
-            }
-        }
-    }
-
-    /**
-     * Determine whether we're executing in a Windows environment.
-     *
-     * @retval boolean TRUE if the application is executing in a Windows environment.
-     * @todo Should PHP_OS be used instead?
-     */
-    public static function IsWindows()
-    {
-        return isset($_SERVER['SystemRoot']);
-    }
 
     // generic debugger
     public function Debugger()
@@ -516,6 +489,9 @@ abstract class App
         return $Manifest;
     }
 
+    // if CacheApp isn't TRUE, we leave templates on disk and will include them - this helps with debugging
+    // since PHP's error messages directly point to a line and file - see also Template::__call()
+    // only .php and .inc files are pulled in - .tpl and .html and .js and .css for templates
     protected function BuildFile()
     {
         $AppRoot = $this->Manifest['AppRoot'];
@@ -535,6 +511,10 @@ abstract class App
         $fs = new \RecursiveIteratorIterator($dir);
         foreach( $fs as $K => $V )
         {
+            $PI = pathinfo($K);
+            if( in_array(strtolower($PI['extension']),array('php','inc')) === FALSE )
+                continue;
+
             // if we're not caching, just include the file
             // this helps tremendously with useful error messages - ditto below as well
             if( empty($this->CacheApp) )
@@ -558,6 +538,10 @@ abstract class App
         $fs = new \RecursiveIteratorIterator($dir);
         foreach( $fs as $K => $K )
         {
+            $PI = pathinfo($K);
+            if( in_array(strtolower($PI['extension']),array('php','inc')) === FALSE )
+                continue;
+
             if( empty($this->CacheApp) )
             {
                 include $K;
@@ -581,6 +565,10 @@ abstract class App
         $Templates = array();
         foreach( $fs as $K => $V )
         {
+            $PI = pathinfo($K);
+            if( in_array(strtolower($PI['extension']),array('php','inc','tpl','html','css','js')) === FALSE )
+                continue;
+
             $P = Path::Init($K);
             $P = Path::Bottom($P,2);
 
@@ -600,12 +588,21 @@ abstract class App
                 else
                     $F = array();
 
+                // if we're not caching, don't store the body - it'll be include()'d in TemplateSet::__call()
+                // if we are, prepend the start tag so that it can be eval()'d without string munging
+                // same for below
+                if( empty($this->CacheApp) )
+                    $Buf = '';
+                else
+                    $Buf = "?>{$Buf}";
+
                 $Templates[$Prefix.$P['Segments'][1]] = Template::Init($Prefix.$P['Segments'][1],$K,$F,$Buf);
             }
             else
             {
                 // this regex needs to be more robust, including handling empty frags, frags that don't
-                // start with whitespace, those that end with a comment, etc.
+                // start with whitespace, those that end with a comment, etc. - these are always set in the body
+                // and never have a path
                 $B = preg_split("/\s*@@@(\w+[a-zA-Z0-9\-]*)/m",$Buf,0,PREG_SPLIT_DELIM_CAPTURE|PREG_SPLIT_NO_EMPTY);
                 $CNT = count($B);
                 for( $i = 0; $i < $CNT; $i+=2 )
@@ -615,7 +612,7 @@ abstract class App
                     else
                         $F = array();
 
-                    $Templates[$Prefix.$B[$i]] = Template::Init($Prefix.$B[$i],$K,$F,$B[$i+1]);
+                    $Templates[$Prefix.$B[$i]] = Template::Init($Prefix.$B[$i],'',$F,"?>{$B[$i+1]}");
                 }
             }
         }
@@ -719,4 +716,16 @@ abstract class App
         else
             ini_set('open_basedir',$Path);
     }
+
+    /**
+     * Determine whether we're executing in a Windows environment.
+     *
+     * @retval boolean TRUE if the application is executing in a Windows environment.
+     * @todo Should PHP_OS be used instead?
+     */
+    public static function IsWindows()
+    {
+        return isset($_SERVER['SystemRoot']);
+    }
+
 }

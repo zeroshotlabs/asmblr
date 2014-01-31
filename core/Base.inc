@@ -648,6 +648,9 @@ abstract class HTTP
             'vcard'=>'text/vcard',
             'csv'=>'text/csv',
 
+            'eot'=>'application/vnd.ms-fontobject','svg'=>'image/svg+xml',
+            'ttf'=>'application/x-font-ttf','woff'=>'application/octet-stream',
+
             'gif'=>'image/gif','jpeg'=>'image/jpeg','jpg'=>'image/jpeg','png'=>'image/png',
 
             'zip'=>'application/zip','gzip'=>'application/x-gzip','gz'=>'application/x-gzip',
@@ -2584,6 +2587,9 @@ abstract class URL extends Struct
      * @param array $Needle An array of change to make.
      * @param array &$Haystack URL Struct.
      * @retval void
+     *
+     * @todo This needs optimization and perhaps better support, including appending/prepending
+     * more than one path segment at a time (i.e. from LinkPage).
      */
     public static function Set( $Needle,&$Haystack )
     {
