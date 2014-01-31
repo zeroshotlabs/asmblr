@@ -13,7 +13,7 @@ namespace asm;
 /**
  * Base configuration, controller and runtime container for an application.
  *
- * It should be extended and customized in index.php.
+ * It can be extended and customized in an application's Load.inc.
  *
  * @note This is your GOD anti-pattern, including dynamic properties.  The
  *       mess goes here, so the rest is clean.
@@ -50,7 +50,7 @@ abstract class App
     /**
      * Default app build/execute.
      *
-     * @todo Implement locking/flock() for manifest/app cache files.
+     * @todo Implement locking/flock() for manifest/app cache file creation.
      */
     public function __construct( $App,$Request )
     {
@@ -75,7 +75,7 @@ abstract class App
         {
             if( (@include "{$this->CacheDir}/{$this->Hostname}.manifest.inc") === FALSE )
             {
-                $this->Manifest = $this->BuildManifest($App,$this->Hostname);
+                $this->Manifest = $this->BuildManifest($App['ManifestURL']);
                 file_put_contents("{$this->CacheDir}/{$this->Hostname}.manifest.inc",'<?php $this->Manifest = '.var_export($this->Manifest,TRUE).';');
             }
         }
@@ -83,7 +83,7 @@ abstract class App
         {
             // clear an existing cache
             @unlink("{$this->CacheDir}/{$this->Hostname}.manifest.inc");
-            $this->Manifest = $this->BuildManifest($App,$this->Hostname);
+            $this->Manifest = $this->BuildManifest($App['ManifestURL']);
         }
 
         // set local properties for the manifest - would like to streamline as it's wasteful
@@ -235,10 +235,10 @@ abstract class App
             if( !empty($this->Config['StartSession']) && (strpos($this->Config['PageNoSession'],$this->OrderedMatch['Name']) === FALSE) && (strpos($this->Config['PageNoSession'],$this->ExactMatch['Name']) === FALSE))
                 session_start();
 
-            // seems to cause encoding errors, like for IE when the request doesn't finish normally
-            // and sometimes with Apache, though rarely - only when we var_dump early in execution it seems
-//             if( !empty($this->Config['zlib_output']) )
-//                 ini_set('zlib.output_compression',TRUE);
+            // note that this can lead to decoding errors in a browser if the request doesn't complete,
+            // this includes var_dump()/exit debugging
+            if( !empty($this->Config['zlib_output']) )
+                ini_set('zlib.output_compression',TRUE);
 
             // TODO: do we need this?  Does it do anything?  needs testing.
             // do we need mb_output_handler()?
@@ -294,7 +294,9 @@ abstract class App
     }
 
 
-    // generic debugger
+    /**
+     * Generic debug toggler for pages and templates.
+     */
     public function Debugger()
     {
         // if we're not caching the manifest we know we're not in production, so implement
@@ -313,38 +315,48 @@ abstract class App
 
 
     /**
-     * Build the application's manifest and set as $this->Manifest.
+     * Build the application's manifest from a Google Spreadsheet.
      *
-     * Currently this assumes a manifest.gsheet file in the app root.
+     * A manifest URL typically looks something like:
+     *   https://docs.google.com/spreadsheet/ccc?key=SOME_STRING_OF_CHARS&usp=docslist_api
      *
+     * @param string $ManifestURL URL to load Google spreadsheet from.
+     * @param NULL The manifest's URL will be looked for in the manifest.gsheet local file.
      * @retval array The application's manifest.
      */
-    protected function BuildManifest()
+    protected function BuildManifest( $ManifestURL = NULL )
     {
         $AppRoot = Path::Init($this->AppRoot);
         $AppRoot['IsDir'] = TRUE;
         $AppRoot = Path::ToString($AppRoot);
 
-        if( !is_readable($AppRoot.'manifest.gsheet') )
-            throw new Exception("Can't read {$AppRoot}manifest.gsheet");
-
         // Pages/PageMaps are numeric arrays of one of more page sets
         // Directives are app-wide directives executed for every request.
         $Manifest = array('AppRoot'=>$AppRoot,'Config'=>array(),'Directives'=>array(),
-                          'Pages'=>array(),'PageMaps'=>array(),'Templates'=>array());
+                'Pages'=>array(),'PageMaps'=>array(),'Templates'=>array());
 
-        // pull the main URL from our local gsheet file
-        $SS = file_get_contents($AppRoot.'manifest.gsheet');
-        $SS = json_decode($SS,TRUE);
-        $SS = $OrigURL =  URL::Init($SS['url']);
+        if( empty($ManifestURL) )
+        {
+            if( !is_readable($AppRoot.'manifest.gsheet') )
+                throw new Exception("Can't read {$AppRoot}manifest.gsheet and no ManifestURL provided.");
+
+            // pull the main URL from our local gsheet file
+            $ManifestURL = file_get_contents($AppRoot.'manifest.gsheet');
+            $ManifestURL = json_decode($ManifestURL,TRUE);
+            $ManifestURL = $ManifestURLOrig =  URL::Init($ManifestURL['url']);
+        }
+        else
+        {
+            $ManifestURL = $ManifestURLOrig = URL::Init($ManifestURL);
+        }
 
         // munge to be exportable as html
-        $SS['Path']['Segments'][1] = 'pub';
-        $SS['Query']['output'] = 'html';
-        $SS['Query']['usp'] = NULL;
+        $ManifestURL['Path']['Segments'][1] = 'pub';
+        $ManifestURL['Query']['output'] = 'html';
+        $ManifestURL['Query']['usp'] = NULL;
 
         // read in the HTML version which we scrape for each of the tabs
-        $Buf = file_get_contents(URL::ToString($SS));
+        $Buf = file_get_contents(URL::ToString($ManifestURL));
 
         $Headers = \asm\restr::ParseHeaders($http_response_header);
 
@@ -364,7 +376,7 @@ abstract class App
         $XPR = new \DOMXPath($DOM);
 
         // hack because of google: the first tab is the original URL which has no gid
-        $Tabs = array('FIRST'=>URL::ToString($SS));
+        $Tabs = array('FIRST'=>URL::ToString($ManifestURL));
 
         $R = $XPR->query('//ul[@id="sheettabs"]/li/a');
 
@@ -381,11 +393,11 @@ abstract class App
             if( strtolower($Label) === 'reference' )
                 continue;
 
-            $SS = URL::Init($T);
+            $ManifestURL = URL::Init($T);
             // munge to get CSV
-            $SS['Query']['output'] = 'csv';
+            $ManifestURL['Query']['output'] = 'csv';
 
-            $B = @file(URL::ToString($SS));
+            $B = @file(URL::ToString($ManifestURL));
 
             $Headers = \asm\restr::ParseHeaders($http_response_header);
 
@@ -484,7 +496,7 @@ abstract class App
 
         // if no config something isn't right
         if( empty($Manifest['Config']) )
-            throw new Exception("Couldn't find a config tab at '".URL::ToString($OrigURL));
+            throw new Exception("Couldn't find a config tab at '".URL::ToString($ManifestURLOrig));
 
         return $Manifest;
     }
