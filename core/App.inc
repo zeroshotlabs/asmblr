@@ -321,10 +321,9 @@ abstract class App
      *   https://docs.google.com/spreadsheet/ccc?key=SOME_STRING_OF_CHARS&usp=docslist_api
      *
      * @param string $ManifestURL URL to load Google spreadsheet from.
-     * @param NULL The manifest's URL will be looked for in the manifest.gsheet local file.
      * @retval array The application's manifest.
      */
-    protected function BuildManifest( $ManifestURL = NULL )
+    protected function BuildManifest( $ManifestURL )
     {
         $AppRoot = Path::Init($this->AppRoot);
         $AppRoot['IsDir'] = TRUE;
@@ -335,6 +334,7 @@ abstract class App
         $Manifest = array('AppRoot'=>$AppRoot,'Config'=>array(),'Directives'=>array(),
                 'Pages'=>array(),'PageMaps'=>array(),'Templates'=>array());
 
+        // TODO: filesystem manifest.gsheet will likely be deprecated
         if( empty($ManifestURL) )
         {
             if( !is_readable($AppRoot.'manifest.gsheet') )
