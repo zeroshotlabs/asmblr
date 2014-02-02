@@ -10,19 +10,14 @@
 namespace asm;
 
 
-// could include bundlr functionality?
-class minifyr
-{
-}
-
-
-
 /**
  * Provide caching and HTTP delivery of assets.
  *
  * This is designed as a base class for functions and should be
  * extended by an application.  Delivery methods can then be
  * defined normally as pages, utilizing base methods of this class.
+ *
+ * It is recommended that header_remove() be called for all cnvyr methods.
  *
  * All caching is done to a local filesystem path.
  *
@@ -31,8 +26,134 @@ class minifyr
  */
 abstract class cnvyr
 {
-    // Base path for nginx's X-Accel-Redirect - needs trailing slash
+    // Base URL path for nginx's X-Accel-Redirect - needs leading and trailing slashes
+    // Must match nginx config (see nginx-asmblr.conf)
     protected static $XAccelRedirectBase = '/xcnvyr/';
+
+
+    /**
+     * Perform a default image serve.
+     *
+     * The op-token is prepended to the cached resource's filename.
+     *
+     * This method must be overriden by an application specific page function.
+     *
+     * @param \asm\App $app Application object.
+     * @param string $OpToken Op-token for resource.  Must be unique for different variations of the same resource.
+     * @param string $Filename Resource's filename.
+     * @param string $OriginBase Absolute origin path of resource.  Use forward slashes.
+     *
+     * @note The additional parameters are not optional as this is expected to be overridden and
+     *       recalled from the parent.
+     * @note This could be executed in Load.inc to avoid the asmblr startup (with some config tweaks).
+     * @note This exits.
+     * @note If dynamic ops are read from the query string, they need to be added to the op-token, otherwise
+     *       cache collisions will occur.  This is not done automatically by this method.
+     * @todo This may be refactored, specifically to handle ops and split the cache hit with img processing.
+     */
+    public static function img( \asm\App $app,$OpToken = '',$Filename = '',$OriginFilename = '' )
+    {
+        $cnvyrCacheDir = $app->Config['cnvyrCacheDir'];
+        $cnvyrCacheLocal = $app->Config['cnvyrCacheLocal'];
+
+        // cache directory is relative to app's CacheDir
+        if( strpos($cnvyrCacheDir,'/') === FALSE )
+            $cnvyrCacheDir = "{$app->CacheDir}/{$cnvyrCacheDir}/";
+
+        // good?
+        ini_set('zlib.output_compression',FALSE);
+        mb_http_output('pass');
+
+        // first attempt a cache hit if allowed and we're done
+        if( $cnvyrCacheLocal === TRUE && static::CacheHit("{$OpToken}_{$Filename}",$cnvyrCacheDir) )
+        {
+            exit;
+        }
+
+        // pull the raw resource, manipulate as needed, and cache if allowed
+        // the requested URL is always lowercased thus origin assets (especially on-disk)
+        // must also be lowercased
+        if( is_readable($OriginFilename) === FALSE )
+        {
+            HTTP::_404();
+            exit;
+        }
+
+        $img = new \asm\imgr(file_get_contents($OriginFilename));
+
+        // ops would be performed here
+        // TODO: need hooks...?
+        // $img->Scale2Width(100);
+
+        $imgbuf = $img->Render();
+
+        if( $cnvyrCacheLocal === TRUE )
+        {
+            if( empty($OpToken) )
+                file_put_contents("{$cnvyrCacheDir}{$Filename}",$imgbuf);
+            else
+                file_put_contents("{$cnvyrCacheDir}{$OpToken}_{$Filename}",$imgbuf);
+        }
+
+        header('Content-Type: '.$img->ContentType);
+        echo $imgbuf;
+
+        exit;
+    }
+
+    /**
+     * Parse a path into filename and op-token components.
+     *
+     * This requires a Path Struct, typically the request's MatchPath, and expects a path in the form:
+     *   /any-page-url/{optional-cache-buster}/{optional-op-token}/filename.ext
+     *
+     * A cache-buster must be all digits and is generally ignored.
+     *
+     * The resource filename and op-token are rawurldecode()'d and stripped of '..' and '/' characters.
+     *
+     * @param array $P Path Struct to parse.
+     * @retval array Numeric array with cache-buster, op-token and filename elements.
+     * @retval NULL The path could not be parsed.
+     */
+    protected static function PathParse( $P )
+    {
+        // /anything/cache-buster/op-token pattern
+        if( !empty($P['Segments'][3]) )
+        {
+            $CacheBuster = $P['Segments'][1];
+            $OpToken = str_replace(array('..','/'),'',rawurldecode($P['Segments'][2]));
+            $Filename = str_replace(array('..','/'),'',rawurldecode($P['Segments'][3]));
+        }
+        // a cache-buster or op-token depending on whether the segment is all digits.
+        else if( !empty($P['Segments'][2]) )
+        {
+            $Filename = str_replace(array('..','/'),'',rawurldecode($P['Segments'][2]));
+
+            if( ctype_digit($P['Segments'][1]) === FALSE )
+            {
+                $OpToken = str_replace(array('..','/'),'',rawurldecode($P['Segments'][1]));
+                $CacheBuster = '';
+            }
+            else
+            {
+                $OpToken = '';
+                $CacheBuster = $P['Segments'][1];
+            }
+        }
+        // just a filename
+        else if( !empty($P['Segments'][1]) )
+        {
+            $Filename = str_replace(array('..','/'),'',rawurldecode($P['Segments'][1]));
+            $OpToken = $CacheBuster = '';
+        }
+        // nothing (probably a 404)
+        else
+        {
+            return NULL;
+        }
+
+        return array($CacheBuster,$OpToken,$Filename);
+    }
 
 
     /**
@@ -50,21 +171,22 @@ abstract class cnvyr
      */
     public static function CacheHit( $Filename,$CacheDir )
     {
-        header_remove();
-
         if( is_readable($CacheDir.$Filename) === FALSE )
             return FALSE;
 
         // nginx
         if( PHP_SAPI === 'fpm-fcgi' )
         {
+            // required so that nginx sets the correct header.
+            // nginx generally also sets correct etag/last-modified headers based on the cache file.
+            header_remove('Content-Type');
             header('X-Accel-Redirect: '.static::$XAccelRedirectBase.$Filename);
         }
         // apache2 - assumes mod_xsendfile has been configured
         else if( PHP_SAPI === 'apache2handler' )
         {
             // should support three and four letter extensions
-            HTTP::ContentType(trim(substr($Filename,-4)));
+            HTTP::ContentType(ltrim(substr($Filename,-4),'.'));
 
             // TODO: need content length?
             header("X-SendFile: {$CacheDir}{$Filename}");
@@ -73,7 +195,7 @@ abstract class cnvyr
         else
         {
             // should support three and four letter extensions
-            HTTP::ContentType(trim(substr($Filename,-4)));
+            HTTP::ContentType(ltrim(substr($Filename,-4),'.'));
 
             // TODO: also sending content length a good idea?
             readfile($CacheDir.$Filename);
@@ -85,6 +207,18 @@ abstract class cnvyr
 
 
 
+
+
+// includes minify
+class bundlr
+{
+}
+
+
+
+
+
+
 /**
  * Manipulate images from a buffer string.
  *
@@ -92,7 +226,7 @@ abstract class cnvyr
  *       set_time_limit(0) and/or increasing PHP's memory limit may be required.
  *
  * @todo Take a look at further web-optimizations, especially for JPEGS + PNGs.  Right now we're basically
- *       always using truecolor PNGs and only JPEGs get "optimized"
+ *       always using truecolor PNGs and only JPEGs get "optimized".
  *
  * @todo Optimize operations such as counting number of colors; determine crop to ratio least-pixels-affected calcs.
  *       http://perplexed.co.uk/1814_png_optimization_with_gd_library.htm
@@ -240,6 +374,8 @@ class imgr
 
         $this->GDR = $GDRnew;
         $this->Height = $Height;
+
+        return TRUE;
     }
 
     /**
@@ -266,6 +402,8 @@ class imgr
         $this->GDR = $GDRnew;
         $this->Width = $Width;
         $this->Height = $Height;
+
+        return TRUE;
     }
 
     /**
@@ -292,6 +430,8 @@ class imgr
         $this->GDR = $GDRnew;
         $this->Width = $Width;
         $this->Height = $Height;
+
+        return TRUE;
     }
 }
 
