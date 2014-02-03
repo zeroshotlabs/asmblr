@@ -372,7 +372,7 @@ abstract class FileUpload extends Struct
      * uploads, the name of the form field is assumed to be of the
      * FieldName[] naming convention.
      *
-     * @param string $Name The name of the file upload form field.
+     * @param string $Name The name of the file upload form field or empty to take all of $_FILES.
      * @retval array An array of one or more FileUpload Structs, or an
      *               empty array if no files have been uploaded.
      */
@@ -383,8 +383,25 @@ abstract class FileUpload extends Struct
 
         $Files = array();
 
+        // multiple files, each with a different name (none [] syntax)
+        if( empty($Name) )
+        {
+            foreach( $_FILES as $K => $V )
+            {
+                if( $V['error'] === UPLOAD_ERR_NO_FILE )
+                    continue;
+
+                $F = static::$Skel;
+                $F['Filename'] = $V['name'];
+                $F['ContentType'] = $V['type'];
+                $F['TmpPath'] = $V['tmp_name'];
+                $F['Error'] = $V['error'];
+                $F['FileSize'] = $V['size'];
+                $Files[$K] = $F;
+            }
+        }
         // Multiple file uploads
-        if( is_array($_FILES[$Name]['name']) )
+        else if( is_array($_FILES[$Name]['name']) )
         {
             foreach( $_FILES[$Name]['name'] as $K => $V )
             {
