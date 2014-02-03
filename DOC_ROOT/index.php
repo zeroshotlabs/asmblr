@@ -42,20 +42,23 @@ require('../core/Load.inc');
  */
 $InstanceApps = array
 (
-    'mc.centz'=>array('AppRoot'=>'/var/www/asmblr-apps/MC',
-                    'RoutingPS'=>'mc',
-                'CacheManifest'=>FALSE,
-                     'CacheApp'=>FALSE),
+    'srv.cnvyr.io'=>array('AppRoot'=>'/var/www/asmblr4/aapps/cnvyr.io',
+                        'RoutingPS'=>'srv',
+                      'ManifestURL'=>'https://docs.google.com/spreadsheet/ccc?key=0Ak-RWL2kyMQWdF9ibkJRQi1YbFJwd280d19CbnJQQUE',
+                    'CacheManifest'=>FALSE,
+                         'CacheApp'=>FALSE),
 
-    'mcm.centz'=>array('AppRoot'=>'/var/www/asmblr-apps/MC',
-                     'RoutingPS'=>'mcm',
-                 'CacheManifest'=>FALSE,
-                      'CacheApp'=>FALSE),
+        'cnvyr.io'=>array('AppRoot'=>'/var/www/asmblr4/aapps/cnvyr.io',
+                        'RoutingPS'=>'cnvyr',
+                      'ManifestURL'=>'https://docs.google.com/spreadsheet/ccc?key=0Ak-RWL2kyMQWdF9ibkJRQi1YbFJwd280d19CbnJQQUE',
+                    'CacheManifest'=>FALSE,
+                         'CacheApp'=>FALSE),
 
-    'swcom.centz'=>array('AppRoot'=>'/var/www/asmblr-apps/www.stackware.com',
-                       'RoutingPS'=>'sw',
-                   'CacheManifest'=>FALSE,
-                        'CacheApp'=>FALSE)
+    'www.cnvyr.io'=>array('AppRoot'=>'/var/www/asmblr4/aapps/cnvyr.io',
+                        'RoutingPS'=>'cnvyr',
+                      'ManifestURL'=>'https://docs.google.com/spreadsheet/ccc?key=0Ak-RWL2kyMQWdF9ibkJRQi1YbFJwd280d19CbnJQQUE',
+                    'CacheManifest'=>FALSE,
+                         'CacheApp'=>FALSE)
 );
 
 

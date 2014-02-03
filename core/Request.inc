@@ -81,10 +81,13 @@ abstract class Request extends Struct
             // If the hostname can't be determined, it's now silently left empty
             // SERVER_NAME is first to support GAE/etc when on non-standard port
             // the _ check is for nginx wildcard vhosting
-            if( !empty($_SERVER['SERVER_NAME']) && $_SERVER['SERVER_NAME'] !== '_' )
-                $Request['Hostname'] = Hostname::Init($_SERVER['SERVER_NAME']);
-            else if( !empty($_SERVER['HTTP_HOST']) )
+            // UPDATE TODO: this needs full testing across web servers/configurations as it's still a hack
+            // basically HTTP_HOST should be used first, then SERVER_NAME.  However in GAE, or when
+            // listening on a non-standard port in general (maybe), the port would then need to be parsed out
+            if( !empty($_SERVER['HTTP_HOST']) )
                 $Request['Hostname'] = Hostname::Init($_SERVER['HTTP_HOST']);
+            else if( !empty($_SERVER['SERVER_NAME']) )
+                $Request['Hostname'] = Hostname::Init($_SERVER['SERVER_NAME']);
 
             $Request['Username'] = (string)static::Get('PHP_AUTH_USER',$_SERVER);
             $Request['Password'] = (string)static::Get('PHP_AUTH_PW',$_SERVER);
