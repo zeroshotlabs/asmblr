@@ -237,6 +237,7 @@ abstract class App
 
             // note that this can lead to decoding errors in a browser if the request doesn't complete,
             // this includes var_dump()/exit debugging
+            // TODO: perhaps this should be moved/removed
             if( !empty($this->Config['zlib_output']) )
                 ini_set('zlib.output_compression',TRUE);
 

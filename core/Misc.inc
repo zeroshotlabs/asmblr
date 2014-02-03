@@ -425,8 +425,9 @@ class restr extends \asm\LinkSet
     {
         $D = array('http'=>array_merge($this->AuxOptions,array('method'=>'POST')));
 
+        // TODO: is this Content-Type correct?
         if( !empty($D['http']['header']) )
-            $D['http']['header'] =  trim($D['http']['header'])."\r\nContent-type: application/x-www-form-urlencoded";
+            $D['http']['header'] =  trim($D['http']['header'])."\r\nContent-Type: application/x-www-form-urlencoded";
         else
             $D['http']['header'] = 'Content-type: application/x-www-form-urlencoded';
 

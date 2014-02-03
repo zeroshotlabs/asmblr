@@ -207,20 +207,10 @@ abstract class cnvyr
 
 
 
-
-
-// includes minify
-class bundlr
-{
-}
-
-
-
-
-
-
 /**
  * Manipulate images from a buffer string.
+ *
+ * @note This is superseded by the cnvyr.io codebase, but left here temp. for compatibility with existing asmblr apps.
  *
  * @note This can make multiple copies of the same image so it'd be slow and memory hungary.  For larger images,
  *       set_time_limit(0) and/or increasing PHP's memory limit may be required.
