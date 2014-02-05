@@ -39,7 +39,8 @@ require(ASM_ROOT.'Page.inc');
 require(ASM_ROOT.'Template.inc');
 require(ASM_ROOT.'Link.inc');
 
-require(ASM_ROOT.'cnvyr.inc');
+require(ASM_ROOT.'restr.inc');
+require(ASM_ROOT.'cnvyrc.inc');
 
 require(ASM_ROOT.'Misc.inc');
 
