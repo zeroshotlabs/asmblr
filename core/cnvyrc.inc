@@ -84,11 +84,16 @@ abstract class cnvyrc extends restr
             exit;
         }
 
-        // TODO: probably need some error checking
         if( empty($Content) )
             $Response = $this->POSTFiles('v1',$Ops,array(),array('files0'=>$this->OriginDir.$Filename));
         else
             $Response = $this->POSTFiles('v1',$Ops,array(),array('@files0'=>$Content));
+
+        if( !empty($this->CURLError) )
+        {
+            echo $Response;
+            HTTP::_500();
+        }
 
         if( $this->CacheLocal === TRUE )
             file_put_contents($this->CacheDir.$OpToken.$Filename,$Response);
