@@ -221,10 +221,16 @@ class restr extends \asm\LinkSet
         foreach( $TFiles as $T )
             unlink($T);
 
+        // TODO: should add similar error handling in stream based methods
         if( curl_errno($CH) === 0 )
+        {
             $this->CurlError = '';
+        }
         else
+        {
             $this->CURLError = curl_error($CH);
+            return $this->CURLError;
+        }
 
         $this->CURLInfo = curl_getinfo($CH);
 
