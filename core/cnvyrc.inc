@@ -26,7 +26,7 @@ abstract class cnvyrc extends restr
     // configuration required by extending class
     protected $OriginDir = '';
     protected $CacheDir = '';
-    protected $CacheLocal = '';
+    protected $CacheLocal = FALSE;
     protected $BaseURL = '';
 
     protected $Methods = array('v1'=>'/v1');
@@ -68,8 +68,11 @@ abstract class cnvyrc extends restr
         ini_set('zlib.output_compression',FALSE);
         mb_http_output('pass');
 
+        if( !empty($OpToken) )
+            $OpToken = "{$OpToken}_";
+
         // first attempt a local cache hit if allowed and we're done
-        if( $this->CacheLocal === TRUE && static::CacheHit("{$OpToken}_{$Filename}",$this->CacheDir) )
+        if( $this->CacheLocal === TRUE && static::CacheHit($OpToken.$Filename,$this->CacheDir) )
         {
             exit;
         }
@@ -88,12 +91,7 @@ abstract class cnvyrc extends restr
         $Response = $this->POSTFiles('v1',array('opt'=>'1'),array(),array('files0'=>$this->OriginDir.$Filename));
 
         if( $this->CacheLocal === TRUE )
-        {
-            if( empty($OpToken) )
-                file_put_contents($this->CacheDir.$Filename,$Response);
-            else
-                file_put_contents($this->CacheDir.$OpToken.'_'.$Filename,$Response);
-        }
+            file_put_contents($this->CacheDir.$OpToken.$Filename,$Response);
 
         header('Content-Type: '.$this->Headers['content-type']);
         echo $Response;
