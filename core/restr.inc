@@ -162,7 +162,8 @@ class restr extends \asm\LinkSet
      * @param string $Method The name of the defined method.
      * @param array $QueryString Key/value pairs to use as a query string.
      * @param array $Payload Key/value pairs to use as POST data.
-     * @param array $Files Key/value pairs of field names and local file paths.
+     * @param array $Files Key/value pairs of field names and local file paths.  If a key starts with @,
+     *        the string is taken as the file contents.
      * @param string $Raw Prevent automatic JSON detection/decoding of the response.
      * @retval string Response string if non-json or $Raw is TRUE.
      * @retval array json_decode()'d data as associative array.
@@ -172,7 +173,6 @@ class restr extends \asm\LinkSet
      * @note This currently does not provide a way to change the URL's path or request headers.
      * @note CurlFile will be used if available.
      * @note The CURLError and CURLInfo arrays will be populated by curl_error()/curl_getinfo() respectively.
-     * @todo Add support for sending file content from a string blob.
      */
     public function POSTFiles( $Method,$QueryString = array(),$Payload = array(),$Files = array(),$Raw = FALSE )
     {
@@ -195,9 +195,17 @@ class restr extends \asm\LinkSet
         curl_setopt($CH,CURLOPT_POST,TRUE);
         curl_setopt($CH,CURLOPT_URL,$this($Method,$QueryString));
 
-        $F = array();
+        $F = $TFiles = array();
         foreach( $Files as $K => $V )
         {
+            // sort of cheesy
+            if( $K[0] === '@' )
+            {
+                $K = trim($K,'@');
+                $TFiles[$K] = tempnam(sys_get_temp_dir(),'POSTfiles');
+                file_put_contents($TFiles[$K],$V);
+            }
+
             if( class_exists('CurlFile',FALSE) )
                 $F[$K] = new \CurlFile($V);
             else
@@ -207,6 +215,9 @@ class restr extends \asm\LinkSet
         curl_setopt($CH,CURLOPT_POSTFIELDS,array_merge($Payload,$F));
 
         $Response = curl_exec($CH);
+
+        foreach( $TFiles as $T )
+            unlink($T);
 
         if( curl_errno($CH) === 0 )
             $this->CurlError = '';

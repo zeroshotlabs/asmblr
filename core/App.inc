@@ -361,7 +361,7 @@ abstract class App
 
         $Headers = \asm\restr::ParseHeaders($http_response_header);
 
-        if( empty($Headers['HTTP']) || strpos($Headers['HTTP'],'200') === FALSE )
+        if( empty($Headers['http']) || strpos($Headers['http'],'200') === FALSE )
             throw new Exception("manifest.gsheet doesn't appear published in $AppRoot");
 
         libxml_use_internal_errors(TRUE);
@@ -403,8 +403,8 @@ abstract class App
             $Headers = \asm\restr::ParseHeaders($http_response_header);
 
             // something isn't right so just skip (not 200 or not csv)
-            if( empty($Headers['HTTP']) || strpos($Headers['HTTP'],'200') === FALSE
-             || empty($Headers['Content-Type']) || strpos($Headers['Content-Type'],'text/csv') === FALSE )
+            if( empty($Headers['http']) || strpos($Headers['http'],'200') === FALSE
+             || empty($Headers['content-type']) || strpos($Headers['content-type'],'text/csv') === FALSE )
                 continue;
 
             // config tab - Key, Value

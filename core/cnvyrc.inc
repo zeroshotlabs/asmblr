@@ -24,10 +24,10 @@ namespace asm;
 abstract class cnvyrc extends restr
 {
     // configuration required by extending class
-    protected $OriginDir = '';
-    protected $CacheDir = '';
-    protected $CacheLocal = FALSE;
-    protected $BaseURL = '';
+    public $OriginDir = '';
+    public $CacheDir = '';
+    public $CacheLocal = FALSE;
+    public $BaseURL = '';
 
     protected $Methods = array('v1'=>'/v1');
 
@@ -54,7 +54,8 @@ abstract class cnvyrc extends restr
      *
      * @param string $OpToken Op-token for resource.  Must be unique for different variations of the same resource.
      * @param string $Filename Resource's filename.
-     * @param string $OriginBase Absolute origin path of resource.  Use forward slashes.
+     * @param array $Ops Associative array of ops.
+     * @param string $Content File content to send as $Filename.
      *
      * @note This could be executed in Load.inc to avoid the asmblr startup (with some config tweaks).
      * @note This exits.
@@ -62,14 +63,10 @@ abstract class cnvyrc extends restr
      *       cache collisions will occur.  This is not done automatically by this method.
      * @todo Needs some way to define image ops/etc
      */
-    public function srv( $OpToken,$Filename )
+    public function srv( $OpToken,$Filename,$Ops = array(),$Content = '' )
     {
-        // good?
-        ini_set('zlib.output_compression',FALSE);
-        mb_http_output('pass');
-
         if( !empty($OpToken) )
-            $OpToken = "{$OpToken}_";
+            $OpToken = $OpToken.'_';
 
         // first attempt a local cache hit if allowed and we're done
         if( $this->CacheLocal === TRUE && static::CacheHit($OpToken.$Filename,$this->CacheDir) )
@@ -87,8 +84,11 @@ abstract class cnvyrc extends restr
             exit;
         }
 
-        // TODO: probably need some error checking - need to add ability to add hooks
-        $Response = $this->POSTFiles('v1',array('opt'=>'1'),array(),array('files0'=>$this->OriginDir.$Filename));
+        // TODO: probably need some error checking
+        if( empty($Content) )
+            $Response = $this->POSTFiles('v1',$Ops,array(),array('files0'=>$this->OriginDir.$Filename));
+        else
+            $Response = $this->POSTFiles('v1',$Ops,array(),array('@files0'=>$this->OriginDir.$Filename));
 
         if( $this->CacheLocal === TRUE )
             file_put_contents($this->CacheDir.$OpToken.$Filename,$Response);
