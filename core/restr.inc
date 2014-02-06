@@ -202,14 +202,16 @@ class restr extends \asm\LinkSet
             if( $K[0] === '@' )
             {
                 $K = trim($K,'@');
-                $TFiles[$K] = tempnam(sys_get_temp_dir(),'POSTfiles');
+                $T = $TFiles[$K] = tempnam(sys_get_temp_dir(),'POSTfiles');
                 file_put_contents($TFiles[$K],$V);
             }
+            else
+                $T = $V;
 
             if( class_exists('CurlFile',FALSE) )
-                $F[$K] = new \CurlFile($V);
+                $F[$K] = new \CurlFile($T);
             else
-                $F[$K] = '@'.trim($V);
+                $F[$K] = '@'.trim($T);
         }
 
         curl_setopt($CH,CURLOPT_POSTFIELDS,array_merge($Payload,$F));

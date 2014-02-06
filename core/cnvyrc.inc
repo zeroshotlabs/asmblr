@@ -88,7 +88,7 @@ abstract class cnvyrc extends restr
         if( empty($Content) )
             $Response = $this->POSTFiles('v1',$Ops,array(),array('files0'=>$this->OriginDir.$Filename));
         else
-            $Response = $this->POSTFiles('v1',$Ops,array(),array('@files0'=>$this->OriginDir.$Filename));
+            $Response = $this->POSTFiles('v1',$Ops,array(),array('@files0'=>$Content));
 
         if( $this->CacheLocal === TRUE )
             file_put_contents($this->CacheDir.$OpToken.$Filename,$Response);
