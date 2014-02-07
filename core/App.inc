@@ -616,6 +616,7 @@ abstract class App
                 // this regex needs to be more robust, including handling empty frags, frags that don't
                 // start with whitespace, those that end with a comment, etc. - these are always set in the body
                 // and never have a path
+                // the naming scheme here is DirName_Filename or just Filename
                 $B = preg_split("/\s*@@@(\w+[a-zA-Z0-9\-]*)/m",$Buf,0,PREG_SPLIT_DELIM_CAPTURE|PREG_SPLIT_NO_EMPTY);
                 $CNT = count($B);
                 for( $i = 0; $i < $CNT; $i+=2 )
