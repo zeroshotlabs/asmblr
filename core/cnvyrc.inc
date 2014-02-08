@@ -293,6 +293,9 @@ class Linkcnvyr extends LinkPage
      * @param NULL $Buster No cache-buster will be used.
      *
      * @see LinkPage::__construct
+     *
+     * @todo Buster stuff needs work, including properly appending the path segment and perhaps a review
+     *       of URL::Set()/Path::Set() stuff.
      */
     public function __construct( \asm\PageSet $PageSet,\asm\App $App,$BaseURL = NULL,$Buster = NULL )
     {

@@ -1965,6 +1965,13 @@ abstract class Path extends Struct
     {
         $Needle = trim($Needle);
 
+        if( $Haystack['IsRoot'] === TRUE )
+        {
+            $Haystack['IsRoot'] = FALSE;
+            $Haystack['Segments'][0] = ltrim(ltrim($Needle,'<'),'>');
+            return count($Haystack['Segments']);
+        }
+
         if( $Needle[0] === '<' )
             return static::Prepend(ltrim($Needle,'<'),$Haystack);
         else if( $Needle[0] === '>' )
