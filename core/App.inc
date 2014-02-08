@@ -146,12 +146,11 @@ abstract class App
         $this->ps = new PageSet($this->Pages[$this->RoutingPS],$this->PageMaps[$this->RoutingPS]);
         $this->lp = new LinkPage($this->ps,$this,$this->Request['SiteURL']);
 
+        // links for cnvyr managed resources (images, css, js, fonts/etc)
+        $this->lc = new Linkcnvyr($this->ps,$this,$this->Request['SiteURL']);
+
         // TODO: needs to be configuration aware
         $this->html = new enUSHTMLSet($this);
-
-        // links for managed images (via cnvyr)
-        // TODO: need to include for CSS/JS/fonts/etc
-        $this->limg = new Linkcnvyr(\asm\URL::ToString($this->Request['SiteURL']).'/cnvyr/');
 
         // general purpose key/value store for in-template info (meta-tags, CSS classes, etc)
         $this->page = new KeyValueSet;
@@ -164,7 +163,7 @@ abstract class App
 
         // templates need access to some of these Connect() them in
         // if you later Connect() something using the same name it will overwrite the object here
-        $this->html->Connect(array('lp'=>$this->lp,'limg'=>$this->limg,'page'=>$this->page,'msg'=>$this->msg,'vr'=>$this->vr));
+        $this->html->Connect(array('lp'=>$this->lp,'lc'=>$this->lc,'page'=>$this->page,'msg'=>$this->msg,'vr'=>$this->vr));
 
 
         // reference code for loading/connecting to mongo

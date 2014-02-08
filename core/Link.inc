@@ -236,7 +236,7 @@ class LinkPage extends LinkSet
      *
      * @param string $Name The Name of a Page.
      * @param NULL $Name Use the request's currently executing Page.
-     * @param array $Set Array of change strings for persistent changes to BaseURL.
+     * @param array $Set Array of change strings for non-persistent changes to BaseURL.
      * @retval string A well-formed URL.
      *
      * @todo Most links created are of the current request with a change in query string

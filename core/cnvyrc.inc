@@ -17,13 +17,16 @@ namespace asm;
  *
  * All caching is done to a local filesystem path.
  *
- * @todo Possibly add helper methods for HTTP caching, storing cache files, etc.
+ * @todo Possibly add helper methods for HTTP caching, storing cache files, gzip, etc.
  * @todo Determine passthru/no-op behavior - i.e. just cache so it can be sent via x-sendfile.
- * @todo And passthru/proxy behavior to avoid CORS issues. perhaps this could even be a paid serrvicee.
+ * @todo And passthru/proxy behavior to avoid CORS issues. perhaps this could even be a paid serrvice.
+ * @todo If we have a gzip op, we shoul be caching the gzip'd version and then directly serving that
+ *       with the proper headers.
  */
 abstract class cnvyrc extends restr
 {
     // configuration required by extending class
+    // TODO: origin dir may be deprecated in favor of always using file content as strings
     public $OriginDir = '';
     public $CacheDir = '';
     public $CacheLocal = FALSE;
@@ -48,46 +51,85 @@ abstract class cnvyrc extends restr
     }
 
     /**
-     * Serve an asset.
+     * Serve an asset or a bundle of assets.
      *
-     * The op-token is prepended to the cached resource's filename.
+     * The handler is prepended to the cached resource's filename.
      *
-     * @param string $OpToken Op-token for resource.  Must be unique for different variations of the same resource.
-     * @param string $Filename Resource's filename.
+     * A bundle is one or more local files and/or string $Content.  If $Content is a string,
+     * it's taken as the content of a single file, $Filename.  If $Content is empty, $Filename
+     * is taken as a local file.
+     *
+     * If $Content is an array, it will be taken as a bundle of local files and/or file content
+     * where each non-numeric key is the filename of it's content as the value.  Numeric keys are
+     * treated as filenames.  The bundled resource will then be cached as $Filename.
+     *
+     * This does not send a Content-Type header.
+     *
+     * @param string $Handler Handler for resource.  Must be unique for different variations of the same resource.
+     * @param string $Filename Resource's filename or placeholder when using bundles.
      * @param array $Ops Associative array of ops.
      * @param string $Content File content to send as $Filename.
+     * @param array $Content Array of content and filenames.
      *
      * @note This could be executed in Load.inc to avoid the asmblr startup (with some config tweaks).
      * @note This exits.
-     * @note If dynamic ops are read from the query string, they need to be added to the op-token, otherwise
-     *       cache collisions will occur.  This is not done automatically by this method.
-     * @todo Needs some way to define image ops/etc
+     * @note A group of ops should have a unique OpToken otherwise cache collisions will occur.
+     * @note An empty Ops parameter will result only in caching/combining the asset(s).
      */
-    public function srv( $OpToken,$Filename,$Ops = array(),$Content = '' )
+    public function srv( $Handler,$Filename,$Ops = array(),$Content = '' )
     {
-        if( !empty($OpToken) )
-            $OpToken = $OpToken.'_';
-
-        // first attempt a local cache hit if allowed and we're done
-        if( $this->CacheLocal === TRUE && static::CacheHit($OpToken.$Filename,$this->CacheDir) )
-        {
-            exit;
-        }
-
         // pull the raw resource and cache if allowed
+        // NOTE: For a premium version, we'd allow a remote origin (URL)
 
-        // the requested URL is always lowercased thus origin assets (especially on-disk)
-        // must also be lowercased
-        if( is_readable($this->OriginDir.$Filename) === FALSE )
+        // treat as a bundle - if one file isn't found, a 404 is kicked out
+        if( is_array($Content) === TRUE )
         {
-            HTTP::_404();
-            exit;
-        }
+            $Bundle = array();
+            $i = 0;
+            foreach( $Content as $K => $V )
+            {
+                // local filename
+                if( is_int($K) === TRUE )
+                {
+                    if( is_readable($this->OriginDir.$V) === FALSE )
+                    {
+                        HTTP::_404();
+                        exit;
+                    }
 
-        if( empty($Content) )
-            $Response = $this->POSTFiles('v1',$Ops,array(),array('files0'=>$this->OriginDir.$Filename));
+                    $Bundle['files'.$i] = $this->OriginDir.$V;
+                }
+                // file content
+                else
+                {
+                    $Bundle['@files'.$i] = $V;
+                }
+
+                ++$i;
+            }
+
+            $Response = $this->POSTFiles('v1',$Ops,array(),$Bundle);
+        }
+        // single file, either from filesystem or buffer
         else
-            $Response = $this->POSTFiles('v1',$Ops,array(),array('@files0'=>$Content));
+        {
+            if( empty($Content) )
+            {
+                // check if local file exists - the requested URL is always lowercased
+                // thus origin assets must also be lowercased
+                if( is_readable($this->OriginDir.$Filename) === FALSE )
+                {
+                    HTTP::_404();
+                    exit;
+                }
+
+                $Response = $this->POSTFiles('v1',$Ops,array(),array('files0'=>$this->OriginDir.$Filename));
+            }
+            else
+            {
+                $Response = $this->POSTFiles('v1',$Ops,array(),array('@files0'=>$Content));
+            }
+        }
 
         if( !empty($this->CURLError) )
         {
@@ -95,10 +137,48 @@ abstract class cnvyrc extends restr
             HTTP::_500();
         }
 
+        // TODO: using gzencode() is hardwired; all cached resources will be compressed
+        // this probably should be configurable - in cache too
         if( $this->CacheLocal === TRUE )
-            file_put_contents($this->CacheDir.$OpToken.$Filename,$Response);
+            file_put_contents($this->CacheDir.$Handler.'_'.$Filename,gzencode($Response));
 
-        header('Content-Type: '.$this->Headers['content-type']);
+        echo $Response;
+        exit;
+    }
+
+    /**
+     * Cache and serve generic local files and buffers using optimized web server techniques.
+     *
+     * This includes x-senfile/x-acell/etc serving.
+     *
+     * This does not support any Ops and only a single file.
+     *
+     * @see cnvyrc::srv()
+     *
+     * @todo This may all need/should be refactored.
+     */
+    public function cache( $Handler,$Filename,$Content = '' )
+    {
+        if( empty($Content) )
+        {
+            // check if local file exists - the requested URL is always lowercased
+            // thus origin assets must also be lowercased
+            if( is_readable($this->OriginDir.$Filename) === FALSE )
+            {
+                HTTP::_404();
+                exit;
+            }
+
+            $Response = file_get_contents($this->OriginDir.$Filename);
+        }
+        else
+        {
+            $Response = $Content;
+        }
+
+        if( $this->CacheLocal === TRUE )
+            file_put_contents($this->CacheDir.$Handler.'_'.$Filename,gzencode($Response));
+
         echo $Response;
         exit;
     }
@@ -112,8 +192,7 @@ abstract class cnvyrc extends restr
      * @retval boolean TRUE if the cache hit was successfully served.
      *
      * @note With some special handling, this can be called from index.php, avoiding
-     *       the rest of asmblr execution.  However the caller typically depends on Config,
-     *       values, at this point anyway.
+     *       the rest of asmblr execution.
      * @note $Filename and $CacheDir are trusted - do checks elsewhere.
      * @todo Possible override to output directly without using xaccel/sendfile
      */
@@ -125,8 +204,9 @@ abstract class cnvyrc extends restr
         // nginx
         if( PHP_SAPI === 'fpm-fcgi' )
         {
-            // required so that nginx sets the correct header.
             // nginx generally also sets correct etag/last-modified headers based on the cache file.
+            // note that if the extension of the file isn't correct, nginx will fail to send the correct content type
+            // required so that nginx sets the correct header.
             header_remove('Content-Type');
             header('X-Accel-Redirect: '.static::$XAccelRedirectBase.$Filename);
         }
@@ -139,7 +219,7 @@ abstract class cnvyrc extends restr
             // TODO: need content length?
             header("X-SendFile: {$CacheDir}{$Filename}");
         }
-        // everything else IIS (cgi-fcgi)/GAE/etc
+        // everything else - IIS (cgi-fcgi)/GAE/etc
         else
         {
             // should support three and four letter extensions
@@ -154,49 +234,34 @@ abstract class cnvyrc extends restr
 
 
     /**
-     * Parse a path into filename and op-token components.
+     * Parse a path into cnvyr components.
      *
      * This requires a Path Struct, typically the request's MatchPath, and expects a path in the form:
-     *   /any-page-url/{optional-cache-buster}/{optional-op-token}/filename.ext
+     *   /handler-url/{optional-cache-buster}/filename.ext | bundle-token
      *
-     * A cache-buster must be all digits and is generally ignored.
+     * A cache-buster is generally otherwise ignored in serving the asset.
      *
-     * The resource filename and op-token are rawurldecode()'d and stripped of '..' and '/' characters.
+     * The resource filename/bundle-token is rawurldecode()'d and stripped of '..' and '/' characters.
      *
      * @param array $P Path Struct to parse.
-     * @retval array Numeric array with cache-buster, op-token and filename elements.
+     * @retval array Numeric array with handler, filename/bundle and cache buster elements.
      * @retval NULL The path could not be parsed.
      */
     public static function PathParse( $P )
     {
-        // /anything/cache-buster/op-token pattern
-        if( !empty($P['Segments'][3]) )
+        // /handler-url/cache-buster pattern
+        if( !empty($P['Segments'][2]) )
         {
             $CacheBuster = $P['Segments'][1];
-            $OpToken = str_replace(array('..','/'),'',rawurldecode($P['Segments'][2]));
-            $Filename = str_replace(array('..','/'),'',rawurldecode($P['Segments'][3]));
-        }
-        // a cache-buster or op-token depending on whether the segment is all digits.
-        else if( !empty($P['Segments'][2]) )
-        {
+            $Handler = str_replace(array('..','/'),'',rawurldecode($P['Segments'][0]));
             $Filename = str_replace(array('..','/'),'',rawurldecode($P['Segments'][2]));
-
-            if( ctype_digit($P['Segments'][1]) === FALSE )
-            {
-                $OpToken = str_replace(array('..','/'),'',rawurldecode($P['Segments'][1]));
-                $CacheBuster = '';
-            }
-            else
-            {
-                $OpToken = '';
-                $CacheBuster = $P['Segments'][1];
-            }
         }
-        // just a filename
+        // /handler/filename pattern
         else if( !empty($P['Segments'][1]) )
         {
             $Filename = str_replace(array('..','/'),'',rawurldecode($P['Segments'][1]));
-            $OpToken = $CacheBuster = '';
+            $Handler = str_replace(array('..','/'),'',rawurldecode($P['Segments'][0]));
+            $CacheBuster = '';
         }
         // nothing (probably a 404)
         else
@@ -204,46 +269,66 @@ abstract class cnvyrc extends restr
             return array();
         }
 
-        return array($CacheBuster,$OpToken,$Filename);
+        return array($Handler,$Filename,$CacheBuster);
     }
 }
 
 
 
-
-// handy for applying changes - may be good to extend to LinkSet related stuff
-// if( $K === 'CropWH' )
-// {
-//     $WH = explode('x',$V);
-
-//     if( count($WH) !== 2 || !ctype_digit($WH[0]) || !ctype_digit($WH[1]) )
-//         throw new Exception('Invalid CropWH parameters.');
-
-//     $this->CropWH((int)$WH[0],(int)$WH[1]);
-// }
-// else if( $K === 'MaxW' || $K === 'MaxH' )
-// {
-//     if( strpos($V,'&scale') !== FALSE )
-//         $this->{$K}((int)str_replace('&scale','',$V),TRUE);
-//     else
-//         $this->{$K}((int)$V,FALSE);
-// }
-
-// suited for prepending path segments to a filename
-// somehow add cache breaking URLs (would need prefix segment that cnvyr knows to strip out)
-class Linkcnvyr extends LinkSet
+/**
+ * Create URLs for cnvyr handler pages.
+ *
+ * @note Largely similar to LinkPage.  Modifications to __invoke().
+ */
+class Linkcnvyr extends LinkPage
 {
-    // call as $limg('Filename.jpg','semgnet1/segmentN');
-    public function __invoke( $Name = NULL,$Set = '' )
+    /**
+     * Linkcnvyr constructor.
+     *
+     * @param PageSet $PageSet PageSet containing Pages to create URLs for.
+     * @param array $BaseURL URL Struct to use as BaseURL.
+     * @param string $BaseURL URL string to use as BaseURL.
+     * @param NULL $BaseURL App::$SiteURL will be used.
+     * @param string $Buster Numeric string to use as a cache-buster path segment (first segment).
+     * @param NULL $Buster No cache-buster will be used.
+     *
+     * @see LinkPage::__construct
+     */
+    public function __construct( \asm\PageSet $PageSet,\asm\App $App,$BaseURL = NULL,$Buster = NULL )
+    {
+        $this->PageSet = $PageSet;
+        $this->App = $App;
+
+        if( !empty($Buster) )
+            $this->SetBaseURL($BaseURL,">$Buster");
+        else
+            $this->SetBaseURL($BaseURL);
+    }
+
+    /**
+     * cnvyr specific link creation.
+     *
+     * Bundle example: <?=$lc('css','css-all')?>
+     *   File example: <?=$lc('css','style.css')?>
+     *
+     * @param string $Handler The name of the handler page, typically one of css, img, js or bin.
+     * @param string $Filename The filename of the resource or bundle to serve.
+     * @retval string The absolute URL of the cnvyr served resource.
+     */
+    public function __invoke( $Handler = NULL,$Filename = '' )
     {
         $Base = $this->BaseURL;
-        if( !empty($Set) )
+
+        if( empty($Handler) || empty($this->PageSet->Pages[$Handler]) )
         {
-            foreach( explode('/',$Set) as $S )
-                $Base['Path']['Segments'][] = $S;
+            Path::Append("PAGE-{$Handler}-NOT-FOUND",$Base['Path']);
+            return URL::ToString($Base);
         }
 
-        $Base['Path']['Segments'][] = $Name;
+        Path::Merge($this->PageSet->Pages[$Handler]['PathStruct'],$Base['Path']);
+
+//        $Base['Path']['Segments'][] = $Handler;
+        $Base['Path']['Segments'][] = $Filename;
         $Base['Path']['IsDir'] = $Base['Path']['IsAbs'] = FALSE;
 
         return URL::ToString($Base);
