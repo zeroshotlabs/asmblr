@@ -140,7 +140,17 @@ abstract class cnvyrc extends restr
         // TODO: using gzencode() is hardwired; all cached resources will be compressed
         // this probably should be configurable - in cache too
         if( $this->CacheLocal === TRUE )
-            file_put_contents($this->CacheDir.$Handler.'_'.$Filename,gzencode($Response));
+        {
+            // we only support gzip for nginx - mod_xsendfile won't support Content-Encoding header
+            if( PHP_SAPI === 'fpm-fcgi' )
+            {
+                file_put_contents($this->CacheDir.$Handler.'_'.$Filename,gzencode($Response));
+            }
+            else
+            {
+                file_put_contents($this->CacheDir.$Handler.'_'.$Filename,$Response);
+            }
+        }
 
         echo $Response;
         exit;
@@ -177,7 +187,17 @@ abstract class cnvyrc extends restr
         }
 
         if( $this->CacheLocal === TRUE )
-            file_put_contents($this->CacheDir.$Handler.'_'.$Filename,gzencode($Response));
+        {
+            // we only support gzip for nginx - mod_xsendfile won't support Content-Encoding header
+            if( PHP_SAPI === 'fpm-fcgi' )
+            {
+                file_put_contents($this->CacheDir.$Handler.'_'.$Filename,gzencode($Response));
+            }
+            else
+            {
+                file_put_contents($this->CacheDir.$Handler.'_'.$Filename,$Response);
+            }
+        }
 
         echo $Response;
         exit;
@@ -211,6 +231,7 @@ abstract class cnvyrc extends restr
             header('X-Accel-Redirect: '.static::$XAccelRedirectBase.$Filename);
         }
         // apache2 - assumes mod_xsendfile has been configured
+        // mod_xsendfile won't support pre-gzipped cache files
         else if( PHP_SAPI === 'apache2handler' )
         {
             // should support three and four letter extensions
