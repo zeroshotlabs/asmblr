@@ -62,9 +62,9 @@ abstract class App
 
         $this->Request = $Request;
 
-        // seems to hold us for linux/windows/gae
+        // seems to hold us for linux/windows/gae - though the str_replace is annoying for windows
         if( empty($this->CacheDir) )
-            $this->CacheDir = sys_get_temp_dir();
+            $this->CacheDir = str_replace('\\','/',sys_get_temp_dir());
 
         // make this object global :)
         $GLOBALS['asmapp'] = $this;
@@ -116,9 +116,9 @@ abstract class App
         if( empty($this->Config['Status']) || $this->Config['Status'] !== 'Active' )
             HTTP::_400();
 
-        // set a base directory (this may cause problems is not properly set)
-        if( !empty($this->Config['open_basedir']) )
-            $this->OpenBaseDir($this->Config['open_basedir']);
+        // set a base directory for now this isn't supported (problematic on Windows)
+//        if( !empty($this->Config['open_basedir']) )
+//            $this->OpenBaseDir($this->Config['open_basedir']);
 
         // Activate the Framewire error handler
         if( empty($this->Config['error_handler']) )
