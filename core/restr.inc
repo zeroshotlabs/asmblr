@@ -224,11 +224,11 @@ class restr extends \asm\LinkSet
         // TODO: should add similar error handling in stream based methods
         if( curl_errno($CH) === 0 )
         {
-            $this->CurlError = '';
+            $this->CURLError = '';
         }
         else
         {
-            $this->CURLError = curl_error($CH);
+            $this->CURLError = curl_strerror(curl_errno($CH));
             return $this->CURLError;
         }
 
