@@ -313,17 +313,22 @@ class LinkPage extends LinkSet
      *
      * @param string $Name Page Name to test.
      * @param array $Name Page Names to test.
+     * @param null $Name Current page name will be returned.
      * @param mixed $True Value to return if Name is executing.
      * @param mixed $False Value to return if Name is not executing.
-     * @retval mixed Value of $True or $False parameter.
+     * @retval mixed Value of $True or $False parameter, or the name of the closest matched page.
      *
      * @note Matching multiple pages is slower if overused - use a hierarchal page like /admin/ instead.
      * @note When checking multiple pages, if any matches, $True is returned.
      * @todo This checks the most exact matched page.  We may add the option to specify an exact or ordered match.
      */
-    public function Current( $Name,$True = 'active',$False = NULL )
+    public function Current( $Name = '',$True = 'active',$False = NULL )
     {
-        if( is_string($Name) )
+        if( empty($Name) )
+        {
+            return $this->App->ClosestMatchName;
+        }
+        else if( is_string($Name) )
         {
             return $this->App->ClosestMatchName===$Name?$True:$False;
         }
