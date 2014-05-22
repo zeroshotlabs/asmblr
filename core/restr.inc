@@ -170,6 +170,8 @@ class restr extends \asm\LinkSet
      *
      * @note By default, an API's response with a Content-Type of application/json will
      *       be automatically json_decode()'d.
+     * @note On Windows, IUSR must be given full control permissions of c:\windows\temp otherwise CURL can't
+     *       properly read the temp. files create.
      * @note This currently does not provide a way to change the URL's path or request headers.
      * @note CurlFile will be used if available.
      * @note The CURLError and CURLInfo arrays will be populated by curl_error()/curl_getinfo() respectively.
