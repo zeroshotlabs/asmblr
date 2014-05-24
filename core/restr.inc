@@ -200,7 +200,7 @@ class restr extends \asm\LinkSet
         $F = $TFiles = array();
         foreach( $Files as $K => $V )
         {
-            // sort of cheesy
+            // sort of cheesy - indicates content itself as string, rather than a filename so write to a temp. location
             if( $K[0] === '@' )
             {
                 $K = trim($K,'@');

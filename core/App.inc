@@ -318,7 +318,7 @@ abstract class App
      * Build the application's manifest from a Google Spreadsheet.
      *
      * A manifest URL typically looks something like:
-     *   https://docs.google.com/spreadsheet/ccc?key=SOME_STRING_OF_CHARS&usp=docslist_api
+     *   https://docs.google.com/spreadsheet/ccc?key=SOME_STRING_OF_CHARS
      *
      * @param string $ManifestURL URL to load Google spreadsheet from.
      * @retval array The application's manifest.
@@ -329,27 +329,120 @@ abstract class App
         $AppRoot['IsDir'] = TRUE;
         $AppRoot = Path::ToString($AppRoot);
 
+        $ManifestURL = $ManifestURLOrig = URL::Init($ManifestURL);
+        $ManifestURLOrigStr = URL::ToString($ManifestURL);
+
+        // new google spreadsheets
+        if( strpos($ManifestURLOrigStr,'/d/') !== FALSE )
+            $Manifest = $this->Manifestd($ManifestURL,$ManifestURLOrig,$AppRoot);
+        // old google spreadsheets
+        else
+            $Manifest = $this->Manifestccc($ManifestURL,$ManifestURLOrig,$AppRoot);
+
+        return $Manifest;
+    }
+
+    // new spreadsheets
+    protected function Manifestd( $ManifestURL,$ManifestURLOrig,$AppRoot )
+    {
+        // read in the HTML version which we scrape for each of the tabs
+        $Buf = file_get_contents(URL::ToString($ManifestURL));
+
+        $Headers = \asm\restr::ParseHeaders($http_response_header);
+
+        if( empty($Headers['http']) || strpos($Headers['http'],'200') === FALSE )
+            throw new Exception("manifest doesn't appear published in $AppRoot");
+
+        libxml_use_internal_errors(TRUE);
+        $DOM = new \DOMDocument;
+        $DOM->strictErrorChecking = FALSE;
+        $DOM->preserveWhiteSpace = TRUE;
+        $DOM->formatOutput = TRUE;
+        $DOM->xmlStandalone = TRUE;
+        $DOM->recover = TRUE;
+        $DOM->resolveExternals = FALSE;
+        @$DOM->loadHTML($Buf);
+
+        $XPR = new \DOMXPath($DOM);
+
+        $Tabs = array();
+        $R = $XPR->query('//ul[@id="sheet-menu"]/li/a');
+
+        foreach( $R as $V )
+        {
+            // tabs must be uniquely named
+            $Tabs[$V->textContent] = str_replace(array('switchToSheet(\'','\')'),'',$V->getAttribute('onclick'));;
+        }
+
+        foreach( $Tabs as $Name => $ID )
+        {
+//            $TabCSVd = fopen('php://temp','rw');
+
+            $Tab = array();
+
+            $R = $XPR->query("//div[@id=\"{$ID}\"]//tbody//tr");
+            foreach( $R as $K => $V )
+            {
+                $Line = array();
+                foreach( $V->getElementsByTagName('td') as $K2 => $V2 )
+                {
+                    $Line[] = $V2->textContent;
+                }
+
+                // will break if value contains comma
+                $Tab[] = implode(',',$Line);
+
+//                fputcsv($TabCSVd,$Line);
+            }
+
+//            rewind($TabCSVd);
+//            $Tabs[$Name] = stream_get_contents($TabCSVd);
+//            fclose($TabCSVd);
+
+            $Tabs[$Name] = $Tab;
+        }
+
         // Pages/PageMaps are numeric arrays of one of more page sets
         // Directives are app-wide directives executed for every request.
         $Manifest = array('AppRoot'=>$AppRoot,'Config'=>array(),'Directives'=>array(),
-                'Pages'=>array(),'PageMaps'=>array(),'Templates'=>array());
+                            'Pages'=>array(),'PageMaps'=>array(),'Templates'=>array());
 
-        // TODO: filesystem manifest.gsheet will likely be deprecated
-        if( empty($ManifestURL) )
+        // now actually build the manifest from the CSV tabs - much copied from Manifestccc
+        foreach( $Tabs as $Label => $B )
         {
-            if( !is_readable($AppRoot.'manifest.gsheet') )
-                throw new Exception("Can't read {$AppRoot}manifest.gsheet and no ManifestURL provided.");
+            $Tab = $this->ParseTabCSV($B);
 
-            // pull the main URL from our local gsheet file
-            $ManifestURL = file_get_contents($AppRoot.'manifest.gsheet');
-            $ManifestURL = json_decode($ManifestURL,TRUE);
-            $ManifestURL = $ManifestURLOrig =  URL::Init($ManifestURL['url']);
-        }
-        else
-        {
-            $ManifestURL = $ManifestURLOrig = URL::Init($ManifestURL);
+            // some elements may be empty, but that's ok so use isset
+            if( isset($Tab['Config']) )
+            {
+                $Manifest['Config'] = $Tab['Config'];
+                $Manifest['Directives'] = $Tab['Directives'];
+            }
+            else if( isset($Tab['PageSetName']) )
+            {
+                $Manifest['Pages'][$Tab['PageSetName']] = $Tab['Pages'];
+                $Manifest['PageMaps'][$Tab['PageSetName']] = $Tab['PageMaps'];
+            }
+            else if( isset($Tab['Templates']) )
+            {
+                $Manifest['Templates'] = $Tab['Templates'];
+            }
+            else
+            {
+                trigger_error("Skipping unknown tab structure with name '{$Label}'");
+            }
         }
 
+        // if no config something isn't right
+        if( empty($Manifest['Config']) )
+            throw new Exception("Couldn't find a config tab at '".URL::ToString($ManifestURLOrig));
+
+        return $Manifest;
+    }
+
+    // old spreadsheets
+    protected function Manifestccc( $ManifestURL,$ManifestURLOrig,$AppRoot )
+    {
         // munge to be exportable as html
         $ManifestURL['Path']['Segments'][1] = 'pub';
         $ManifestURL['Query']['output'] = 'html';
@@ -361,7 +454,7 @@ abstract class App
         $Headers = \asm\restr::ParseHeaders($http_response_header);
 
         if( empty($Headers['http']) || strpos($Headers['http'],'200') === FALSE )
-            throw new Exception("manifest.gsheet doesn't appear published in $AppRoot");
+            throw new Exception("manifest doesn't appear published in $AppRoot");
 
         libxml_use_internal_errors(TRUE);
         $DOM = new \DOMDocument;
@@ -386,6 +479,11 @@ abstract class App
             $Tabs[$V->textContent] = $V->getAttribute('href');
         }
 
+        // Pages/PageMaps are numeric arrays of one of more page sets
+        // Directives are app-wide directives executed for every request.
+        $Manifest = array('AppRoot'=>$AppRoot,'Config'=>array(),'Directives'=>array(),
+                            'Pages'=>array(),'PageMaps'=>array(),'Templates'=>array());
+
         // go over each tab and pull as CSV and parse into our manifest
         foreach( $Tabs as $Label => $T )
         {
@@ -403,94 +501,29 @@ abstract class App
 
             // something isn't right so just skip (not 200 or not csv)
             if( empty($Headers['http']) || strpos($Headers['http'],'200') === FALSE
-             || empty($Headers['content-type']) || strpos($Headers['content-type'],'text/csv') === FALSE )
+            || empty($Headers['content-type']) || strpos($Headers['content-type'],'text/csv') === FALSE )
                 continue;
 
-            // config tab - Key, Value
-            if( strpos($B[0],'Key,Value') !== FALSE )
+            $Tab = $this->ParseTabCSV($B);
+
+            // some elements may be empty, but that's ok so use isset
+            if( isset($Tab['Config']) )
             {
-                array_shift($B);
-                foreach( $B as $L )
-                {
-                    $L = str_getcsv($L);
-
-                    if( empty($L[0]) )
-                        continue;
-                    else if( $L[0][0] === '$' )
-                        $Manifest['Directives'][] = array(str_replace('$','',$L[0]),$L[1],$L[2]);
-                    else if( $L[0] === 'AppFunction' )
-                        $Manifest['Config']['AppFunction'] = $this->ParseFunctionName($L[1]);
-                    else
-                    {
-                        // trim and normalize to boolean/NULL
-                        $Manifest['Config'][$L[0]] = trim($L[1]);
-                        $T = strtolower($Manifest['Config'][$L[0]]);
-
-                        if( $T === 'false' )
-                            $Manifest['Config'][$L[0]] = FALSE;
-                        else if( $T === 'true' )
-                            $Manifest['Config'][$L[0]] = TRUE;
-                        else if( $T === 'null' )
-                            $Manifest['Config'][$L[0]] = NULL;
-                    }
-                }
+                $Manifest['Config'] = $Tab['Config'];
+                $Manifest['Directives'] = $Tab['Directives'];
             }
-            // pages tab - Name, Path, Status, Function, Directives
-            // a 6th column in the header is required as a unique token for the page set (will clobber)
-            else if( strpos($B[0],'Name,Path,Status') !== FALSE )
+            else if( isset($Tab['PageSetName']) )
             {
-                $L = array_shift($B);
-                $L = str_getcsv($L);
-                if( empty($L[5]) )
-                {
-                    trigger_error('Skipping invalid Page header: '.implode(',',$L));
-                    continue;
-                }
-
-                $PageSetName = trim($L[5]);
-
-                $LastPage = '';
-                $Page = $PageMap = array();
-                foreach( $B as $L )
-                {
-                    $L = str_getcsv($L);
-                    if( !empty($L[0]) )
-                    {
-                        $P = Page::Init($L[0],$L[1],$L[2],$this->ParseFunctionName($L[3]));
-                        $Page[$P['Name']] = $P;
-                        $PageMap[$P['Path']] = $P['Name'];
-                        $LastPage = $P['Name'];
-                    }
-
-                    if( !empty($L[4]) )
-                    {
-                        if( !empty($L[5]) )
-                            $D = array($L[4],$L[5],$L[6]);
-                        else
-                            $D = explode(',',$L[4]);
-
-                        if( !empty($LastPage) )
-                            $Page[$LastPage]['Directives'][] = $D;
-                    }
-                }
-
-                // duplicate/empty PageSetNames will overwrite
-                $Manifest['Pages'][$PageSetName] = $Page;
-                $Manifest['PageMaps'][$PageSetName] = $PageMap;
+                $Manifest['Pages'][$Tab['PageSetName']] = $Tab['Pages'];
+                $Manifest['PageMaps'][$Tab['PageSetName']] = $Tab['PageMaps'];
             }
-            // templates tab - Name, Function - we just store the name/function mapping and the rest is init in the AppFile
-            // name must contain a prefix if the template file is in a sub-directory
-            else if( strpos($B[0],'Name,Function') !== FALSE )
+            else if( isset($Tab['Templates']) )
             {
-                array_shift($B);
-                foreach( $B as $L )
-                {
-                    $L = str_getcsv($L);
-                    if( empty($L[0]) )
-                        continue;
-                    else
-                        $Manifest['Templates'][$L[0]] = $this->ParseFunctionName($L[1]);
-                }
+                $Manifest['Templates'] = $Tab['Templates'];
+            }
+            else
+            {
+                trigger_error("Skipping unknown tab structure with name '{$Label}'");
             }
         }
 
@@ -500,6 +533,106 @@ abstract class App
 
         return $Manifest;
     }
+
+    // $B is an array of CSV lines
+    protected function ParseTabCSV( $B )
+    {
+        // config tab - Key, Value
+        if( strpos($B[0],'Key,Value') !== FALSE )
+        {
+            $Tab = array('Config'=>array(),'Directives'=>array());
+
+            array_shift($B);
+            foreach( $B as $L )
+            {
+                $L = str_getcsv($L);
+
+                if( empty($L[0]) )
+                    continue;
+                else if( $L[0][0] === '$' )
+                    $Tab['Directives'][] = array(str_replace('$','',$L[0]),$L[1],$L[2]);
+                else if( $L[0] === 'AppFunction' )
+                    $Tab['Config']['AppFunction'] = $this->ParseFunctionName($L[1]);
+                else
+                {
+                    // trim and normalize to boolean/NULL
+                    $Tab['Config'][$L[0]] = trim($L[1]);
+                    $T = strtolower($Tab['Config'][$L[0]]);
+
+                    if( $T === 'false' )
+                        $Tab['Config'][$L[0]] = FALSE;
+                    else if( $T === 'true' )
+                        $Tab['Config'][$L[0]] = TRUE;
+                    else if( $T === 'null' )
+                        $Tab['Config'][$L[0]] = NULL;
+                }
+            }
+
+            return $Tab;
+        }
+        // pages tab - Name, Path, Status, Function, Directives
+        // a 6th column in the header is required as a unique token for the page set (will clobber)
+        else if( strpos($B[0],'Name,Path,Status') !== FALSE )
+        {
+            $L = array_shift($B);
+            $L = str_getcsv($L);
+            if( empty($L[5]) )
+            {
+                trigger_error('Skipping invalid Page header - no PageSet Name: '.implode(',',$L));
+                return array();
+            }
+
+            $PageSetName = trim($L[5]);
+
+            $LastPage = '';
+            $Page = $PageMap = array();
+            foreach( $B as $L )
+            {
+                $L = str_getcsv($L);
+                if( !empty($L[0]) )
+                {
+                    $P = Page::Init($L[0],$L[1],$L[2],$this->ParseFunctionName($L[3]));
+                    $Page[$P['Name']] = $P;
+                    $PageMap[$P['Path']] = $P['Name'];
+                    $LastPage = $P['Name'];
+                }
+
+                if( !empty($L[4]) )
+                {
+                    if( !empty($L[5]) )
+                        $D = array($L[4],$L[5],$L[6]);
+                    else
+                        $D = explode(',',$L[4]);
+
+                    if( !empty($LastPage) )
+                        $Page[$LastPage]['Directives'][] = $D;
+                }
+            }
+
+            return array('PageSetName'=>$PageSetName,'Pages'=>$Page,'PageMaps'=>$PageMap);
+        }
+        // templates tab - Name, Function - we just store the name/function mapping and the rest is init in the AppFile
+        // name must contain a prefix if the template file is in a sub-directory
+        else if( strpos($B[0],'Name,Function') !== FALSE )
+        {
+            $Tab = array('Templates'=>array());
+
+            array_shift($B);
+            foreach( $B as $L )
+            {
+                $L = str_getcsv($L);
+                if( empty($L[0]) )
+                    continue;
+                else
+                    $Tab['Templates'][$L[0]] = $this->ParseFunctionName($L[1]);
+            }
+
+            return $Tab;
+        }
+
+        return array();
+    }
+
 
     // if CacheApp isn't TRUE, we leave templates on disk and will include them - this helps with debugging
     // since PHP's error messages directly point to a line and file - see also Template::__call()
