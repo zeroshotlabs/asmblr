@@ -140,7 +140,8 @@ abstract class App
         // as defined by $this->RoutingPS
         // the routing page set and it's linker are always available as ps and lp, respectively
         // other pagesets/linkers can be instantiated manually if needed
-        if( empty($this->RoutingPS) || empty($this->Pages[$this->RoutingPS]) )
+        // note that we use isset because an empty routing PS is ok, as long as it's been determined
+        if( empty($this->RoutingPS) || !isset($this->Pages[$this->RoutingPS]) )
             throw new Exception("Invalid routing page set for '{$this->Hostname}'");
 
         $this->ps = new PageSet($this->Pages[$this->RoutingPS],$this->PageMaps[$this->RoutingPS]);
@@ -176,13 +177,18 @@ abstract class App
 
     /**
      * Match pages and execute the application.
+     *
+     * @note If an ordered match is found and doesn't have a Status of Weak, no exact
+     * match will be attempted.
+     * @note If PreFunction returns FALSE, default page execution and rendering will not happen,
+     * including 404 and Page status checks.
      */
     public function Execute()
     {
         // match pages against the MatchPath to determine our executing page
         $this->OrderedMatch = $this->ExactMatch = NULL;
 
-        // first attempt a hierarchal ordered match/execute - most general to most specific URL path
+        // first determine hierarchal ordered match/execute - most general to most specific URL path
         if( $this->Request['MatchPath']['IsRoot'] === FALSE )
         {
             foreach( \asm\Path::Order($this->Request['MatchPath']) as $V )
@@ -195,7 +201,7 @@ abstract class App
             }
         }
 
-        // if an ordered match isn't found, attempt an exact match.  if the ordered match is
+        // if an ordered match isn't found, determine an exact match.  if the ordered match is
         // Weak, an exact match is also allowed
         // i.e.  default:  /admin/ matches then a page with /admin/something will NOT match
         //          Weak:  /admin/ matches then a page with /admin/something WILL match
@@ -205,15 +211,14 @@ abstract class App
             $this->ClosestMatchName = $this->ExactMatch['Name'];
         }
 
-        // if no pages, it's a 404
-        if( empty($this->OrderedMatch) && empty($this->ExactMatch) )
-            $this->NoPageHandler();
-
-        // or if one isn't active
-        if( (!empty($this->OrderedMatch['Status']) && (strpos($this->OrderedMatch['Status'],'Active') === FALSE))
-        || (!empty($this->ExactMatch['Status']) && ($this->ExactMatch['Status'] !== 'Active')) )
-            $this->NoPageHandler();
-
+        // apply any app-wide directives
+        foreach( $this->Manifest['Directives'] as $V )
+        {
+            if( empty($this->{$V[0]}) )
+                throw new Exception("Directive object {$V[0]}' doesn't exist while executing app for '{$this->Config['Hostname']}'.");
+            else
+                $this->{$V[0]}->ApplyDirective($V[1],$V[2]);
+        }
 
         // apply additional config parameters based on our environment/page
 
@@ -252,35 +257,24 @@ abstract class App
             header("Content-Type: {$this->Config['ContentType']}");
         }
 
-        // apply any app-wide directives
-        foreach( $this->Manifest['Directives'] as $V )
-        {
-            if( empty($this->{$V[0]}) )
-                throw new Exception("Directive object {$V[0]}' doesn't exist while executing app for '{$this->Config['Hostname']}'.");
-            else
-                $this->{$V[0]}->ApplyDirective($V[1],$V[2]);
-        }
-
-        // optionally execute a function just prior to the page and rendering
-        // if this function returns FALSE things are left to the function and nothing further is done
+        // now begin actually execution by execting PreFunction if set
         if( !empty($this->Config['PreFunction']) )
-        {
-            if( $this->Config['PreFunction']($this) !== FALSE )
-            {
-                // now execute the actual page(s)
-                if( !empty($this->OrderedMatch) )
-                    $this->ps->Execute($this->OrderedMatch);
-
-                if( !empty($this->ExactMatch) )
-                    $this->ps->Execute($this->ExactMatch);
-
-                // and finally begin rendering at the Base.tpl template
-                $this->html->Base();
-            }
-        }
-        // otherwise just execute the page and render
+            $PreContinue = $this->Config['PreFunction']($this);
         else
+            $PreContinue = TRUE;
+
+        // returning FALSE will bypass default page checking, execution and HTML rendering
+        if( $PreContinue !== FALSE )
         {
+            // if no pages, it's a 404
+            if( empty($this->OrderedMatch) && empty($this->ExactMatch) )
+                $this->NoPageHandler();
+
+            // or if one isn't active
+            if( (!empty($this->OrderedMatch['Status']) && (strpos($this->OrderedMatch['Status'],'Active') === FALSE))
+            || (!empty($this->ExactMatch['Status']) && ($this->ExactMatch['Status'] !== 'Active')) )
+                $this->NoPageHandler();
+
             // now execute the actual page(s)
             if( !empty($this->OrderedMatch) )
                 $this->ps->Execute($this->OrderedMatch);
