@@ -139,6 +139,7 @@ abstract class cnvyrc extends restr
 
         // TODO: using gzencode() is hardwired; all cached resources will be compressed
         // this probably should be configurable - in cache too
+        // this requires the add_header Content-Encoding... directive in nginx conf
         if( $this->CacheLocal === TRUE )
         {
             // we only support gzip for nginx - mod_xsendfile won't support Content-Encoding header

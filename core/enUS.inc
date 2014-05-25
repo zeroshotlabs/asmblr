@@ -337,18 +337,26 @@ abstract class enUS
      * @param boolean $Required Set to FALSE if the element is allowed to be empty (or not exist).
      * @retval boolean TRUE if the element exists and validates or is empty and not required, FALSE if required but empty.
      * @retval NULL Data did not validate.
+     *
+     * @note This is the base for most other validating methods, thus everything is cast to a string.
+     * @note An empty string or a non-isset() element are considered "empty".
+     * @todo We may want a Is::Empty() or Is::Exists() or similar method since the isset/is_scalar dance is used often.
      */
     public static function Text( $Label,&$Src,$Required = TRUE )
     {
-        if( empty($Src[$Label]) )
-            return !$Required;
+        if( isset($Src[$Label]) )
+        {
+            if( is_scalar($Src[$Label]) === FALSE )
+                return NULL;
 
-        if( is_scalar($Src[$Label]) === FALSE )
-            return NULL;
+            $Src[$Label] = (string) $Src[$Label];
+        }
+        else
+            return !$Required;
 
         $Src[$Label] = trim(self::SmartStrip($Src[$Label]));
 
-        if( empty($Src[$Label]) )
+        if( $Src[$Label] === '' )
             return !$Required;
 
         return ((strlen($Src[$Label])<512) && (ctype_print($Src[$Label])))?TRUE:NULL;
@@ -402,7 +410,8 @@ abstract class enUS
      * @retval boolean TRUE if the element exists and validates or is empty and not required, FALSE if required but empty.
      * @retval NULL Data did not validate.
      *
-     * @note This validates a string of digits - not an integer string or PHP integer type.  This means 0111 is valid.
+     * @note This validates a string of digits ONLY - not an integer string or PHP integer type.  This means 0111 is valid
+     * but 2.00 is NOT.
      */
     public static function Number( $Label,&$Src,$Required = TRUE )
     {
@@ -411,8 +420,8 @@ abstract class enUS
         if( $R !== TRUE )
             return $R;
 
-        if( empty($Src[$Label]) )
-            return !$Required;
+//         if( empty($Src[$Label])  )
+//             return !$Required;
 
         return ctype_digit($Src[$Label])?TRUE:NULL;
     }
@@ -436,15 +445,19 @@ abstract class enUS
      */
     public static function Textarea( $Label,&$Src,$Required = TRUE )
     {
-        if( empty($Src[$Label]) )
-            return !$Required;
+        if( isset($Src[$Label]) )
+        {
+            if( is_scalar($Src[$Label]) === FALSE )
+                return NULL;
 
-        if( is_scalar($Src[$Label]) === FALSE )
-            return NULL;
+            $Src[$Label] = (string) $Src[$Label];
+        }
+        else
+            return !$Required;
 
         $Src[$Label] = trim(self::SmartStrip($Src[$Label]));
 
-        if( empty($Src[$Label]) )
+        if( $Src[$Label] === '' )
             return !$Required;
 
         return ((bool)!preg_match('/[^\011\012\015\040-\176]/',$Src[$Label]))?TRUE:NULL;
@@ -472,11 +485,15 @@ abstract class enUS
      */
     public static function Single( $Label,&$Src,$Options,$Required = TRUE )
     {
-        if( empty($Src[$Label]) )
-            return !$Required;
+        if( isset($Src[$Label]) )
+        {
+            if( is_scalar($Src[$Label]) === FALSE )
+                return NULL;
 
-        if( is_scalar($Src[$Label]) === FALSE )
-            return NULL;
+            $Src[$Label] = (string) $Src[$Label];
+        }
+        else
+            return !$Required;
 
         if( Is::Numeric($Options) )
             return in_array($Src[$Label],$Options,TRUE)?TRUE:NULL;
@@ -507,7 +524,14 @@ abstract class enUS
      */
     public static function Multi( $Label,&$Src,$Options,$Required = TRUE )
     {
-        if( empty($Src[$Label]) )
+        if( isset($Src[$Label]) )
+        {
+            if( is_scalar($Src[$Label]) === FALSE )
+                return NULL;
+
+            $Src[$Label] = (string) $Src[$Label];
+        }
+        else
             return !$Required;
 
         if( Is::Numeric($Options) )
