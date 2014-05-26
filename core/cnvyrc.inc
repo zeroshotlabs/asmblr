@@ -78,13 +78,13 @@ abstract class cnvyrc extends restr
      * @note This exits.
      * @note A group of ops should have a unique OpToken otherwise cache collisions will occur.
      * @note An empty Ops parameter will result only in caching/combining the asset(s).
+     * @note All asset filenames must be lowercase on Linux.
      *
      * @todo Enable remote files via URL (perhaps premium version only)
      */
     public function srv( $Handler,$Filename,$Ops = array(),$Content = '' )
     {
         // pull the raw resource and cache if allowed
-        // NOTE: For a premium version, we'd allow a remote origin (URL)
 
         // treat as a bundle - if one file isn't found, a 404 is kicked out
         if( is_array($Content) === TRUE )
@@ -145,8 +145,13 @@ abstract class cnvyrc extends restr
         if( $this->CacheLocal === TRUE )
             file_put_contents($this->CacheDir.$this->HandlerPrefix.'_'.$Handler.'_'.$Filename,$Response);
 
-        // this is required
+        // these are required for proper handling by browser, but sort of hacky - when cached, x-sendfile
+        // should be setting these
+
         header('Content-Length: '.strlen($Response));
+        HTTP::ContentType(ltrim(substr($Filename,-4),'.'));
+        if( !empty($Ops['gzip']) )
+            header('Content-Encoding: gzip');
 
         echo $Response;
         exit;
