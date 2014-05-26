@@ -31,6 +31,8 @@ abstract class cnvyrc extends restr
     public $CacheDir = '';
     public $CacheLocal = FALSE;
     public $BaseURL = '';
+    // must be unique across sites when sharing a cache
+    public $HandlerPrefix = '';
 
     protected $Methods = array('v1'=>'/v1');
 
@@ -65,7 +67,8 @@ abstract class cnvyrc extends restr
      *
      * This does not send a Content-Type header.
      *
-     * @param string $Handler Handler for resource.  Must be unique for different variations of the same resource.
+     * @param string $Handler Handler for resource.  Must be unique for different variations of the same resource,
+     *               and unique across site when sharing a cache.  Merged with $HandlerPrefix
      * @param string $Filename Resource's filename or placeholder when using bundles.
      * @param array $Ops Associative array of ops.
      * @param string $Content File content to send as $Filename.
@@ -75,6 +78,8 @@ abstract class cnvyrc extends restr
      * @note This exits.
      * @note A group of ops should have a unique OpToken otherwise cache collisions will occur.
      * @note An empty Ops parameter will result only in caching/combining the asset(s).
+     *
+     * @todo Enable remote files via URL (perhaps premium version only)
      */
     public function srv( $Handler,$Filename,$Ops = array(),$Content = '' )
     {
@@ -137,21 +142,11 @@ abstract class cnvyrc extends restr
             HTTP::_500();
         }
 
-        // TODO: using gzencode() is hardwired; all cached resources will be compressed
-        // this probably should be configurable - in cache too
-        // this requires the add_header Content-Encoding... directive in nginx conf
         if( $this->CacheLocal === TRUE )
-        {
-            // we only support gzip for nginx - mod_xsendfile won't support Content-Encoding header
-            if( PHP_SAPI === 'fpm-fcgi' )
-            {
-                file_put_contents($this->CacheDir.$Handler.'_'.$Filename,gzencode($Response));
-            }
-            else
-            {
-                file_put_contents($this->CacheDir.$Handler.'_'.$Filename,$Response);
-            }
-        }
+            file_put_contents($this->CacheDir.$this->HandlerPrefix.'_'.$Handler.'_'.$Filename,$Response);
+
+        // this is required
+        header('Content-Length: '.strlen($Response));
 
         echo $Response;
         exit;
@@ -188,17 +183,7 @@ abstract class cnvyrc extends restr
         }
 
         if( $this->CacheLocal === TRUE )
-        {
-            // we only support gzip for nginx - mod_xsendfile won't support Content-Encoding header
-            if( PHP_SAPI === 'fpm-fcgi' )
-            {
-                file_put_contents($this->CacheDir.$Handler.'_'.$Filename,gzencode($Response));
-            }
-            else
-            {
-                file_put_contents($this->CacheDir.$Handler.'_'.$Filename,$Response);
-            }
-        }
+            file_put_contents($this->CacheDir.$Handler.'_'.$Filename,$Response);
 
         echo $Response;
         exit;
@@ -339,6 +324,8 @@ class Linkcnvyr extends LinkPage
      * @param string $Handler The name of the handler page, typically one of css, img, js or bin.
      * @param string $Filename The filename of the resource or bundle to serve.
      * @retval string The absolute URL of the cnvyr served resource.
+     *
+     * @note This is does not parse the Filename as a URL - it's taken only as a path.
      */
     public function __invoke( $Handler = NULL,$Filename = '' )
     {

@@ -236,8 +236,12 @@ abstract class App
 
             // start a session if appropriate
             // TODO: needs review/check
-            if( !empty($this->Config['StartSession']) && (strpos($this->Config['PageNoSession'],$this->OrderedMatch['Name']) === FALSE) && (strpos($this->Config['PageNoSession'],$this->ExactMatch['Name']) === FALSE))
+            if( !empty($this->Config['StartSession'])
+            && (strpos($this->Config['PageNoSession'],$this->OrderedMatch['Name']) === FALSE)
+            && (strpos($this->Config['PageNoSession'],$this->ExactMatch['Name']) === FALSE))
+            {
                 session_start();
+            }
 
             // note that this can lead to decoding errors in a browser if the request doesn't complete,
             // this includes var_dump()/exit debugging
