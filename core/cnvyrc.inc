@@ -33,6 +33,11 @@ abstract class cnvyrc extends restr
     public $BaseURL = '';
     // must be unique across sites when sharing a cache
     public $HandlerPrefix = '';
+    // whether to request gzip'd content from the cnvyr API
+    // default is TRUE, though must be set FALSE when using apache/mod_xsendfile
+    // note that this isn't implemented here - it's expected to be implemented by
+    // an extending class and a relevant page method
+    public $APIgzip = TRUE;
 
     protected $Methods = array('v1'=>'/v1');
 
@@ -222,7 +227,8 @@ abstract class cnvyrc extends restr
             header('X-Accel-Redirect: '.static::$XAccelRedirectBase.$Filename);
         }
         // apache2 - assumes mod_xsendfile has been configured
-        // mod_xsendfile won't support pre-gzipped cache files
+        // mod_xsendfile won't support pre-gzipped cache files because
+        // it always drops the Content-Encoding header
         else if( PHP_SAPI === 'apache2handler' )
         {
             // should support three and four letter extensions
