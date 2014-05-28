@@ -22,6 +22,7 @@ namespace asm;
  * @todo And passthru/proxy behavior to avoid CORS issues. perhaps this could even be a paid serrvice.
  * @todo If we have a gzip op, we shoul be caching the gzip'd version and then directly serving that
  *       with the proper headers.
+ * @note Pre-gzip'd assets and using x-sendfile will only work with nginx
  */
 abstract class cnvyrc extends restr
 {
@@ -33,11 +34,6 @@ abstract class cnvyrc extends restr
     public $BaseURL = '';
     // must be unique across sites when sharing a cache
     public $HandlerPrefix = '';
-    // whether to request gzip'd content from the cnvyr API
-    // default is TRUE, though must be set FALSE when using apache/mod_xsendfile
-    // note that this isn't implemented here - it's expected to be implemented by
-    // an extending class and a relevant page method
-    public $APIgzip = TRUE;
 
     protected $Methods = array('v1'=>'/v1');
 
@@ -222,7 +218,8 @@ abstract class cnvyrc extends restr
         {
             // nginx generally also sets correct etag/last-modified headers based on the cache file.
             // note that if the extension of the file isn't correct, nginx will fail to send the correct content type
-            // required so that nginx sets the correct header.
+
+            // required so that nginx sets the correct header even though it's probably redundant from our caller
             header_remove('Content-Type');
             header('X-Accel-Redirect: '.static::$XAccelRedirectBase.$Filename);
         }
@@ -234,7 +231,7 @@ abstract class cnvyrc extends restr
             // should support three and four letter extensions
             HTTP::ContentType(ltrim(substr($Filename,-4),'.'));
 
-            // TODO: need content length?
+            // this should automatically set correct content-length, etag, vary, etc.
             header("X-SendFile: {$CacheDir}{$Filename}");
         }
         // everything else - IIS (cgi-fcgi)/GAE/etc
