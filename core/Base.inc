@@ -649,7 +649,7 @@ abstract class HTTP
             'csv'=>'text/csv',
 
             'eot'=>'application/vnd.ms-fontobject','svg'=>'image/svg+xml',
-            'ttf'=>'application/x-font-ttf','woff'=>'application/octet-stream',
+            'ttf'=>'application/x-font-ttf','woff'=>'application/font-woff',
 
             'gif'=>'image/gif','jpeg'=>'image/jpeg','jpg'=>'image/jpeg','png'=>'image/png',
 

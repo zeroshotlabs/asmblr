@@ -190,7 +190,10 @@ abstract class cnvyrc extends restr
         }
 
         if( $this->CacheLocal === TRUE )
-            file_put_contents($this->CacheDir.$Handler.'_'.$Filename,$Response);
+            file_put_contents($this->CacheDir.$this->HandlerPrefix.'_'.$Handler.'_'.$Filename,$Response);
+
+        header('Content-Length: '.strlen($Response));
+        HTTP::ContentType(HTTP::Filename2ContentType($Filename));
 
         echo $Response;
         exit;
