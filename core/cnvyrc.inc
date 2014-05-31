@@ -147,10 +147,11 @@ abstract class cnvyrc extends restr
             file_put_contents($this->CacheDir.$this->HandlerPrefix.'_'.$Handler.'_'.$Filename,$Response);
 
         // these are required for proper handling by browser, but sort of hacky - when cached, x-sendfile
-        // should be setting these
+        // should be setting these but with apache this may not always be the case
 
         header('Content-Length: '.strlen($Response));
-        HTTP::ContentType(ltrim(substr($Filename,-4),'.'));
+        HTTP::ContentType(HTTP::Filename2ContentType($Filename));
+
         if( !empty($Ops['gzip']) )
             header('Content-Encoding: gzip');
 
@@ -228,8 +229,7 @@ abstract class cnvyrc extends restr
         // it always drops the Content-Encoding header
         else if( PHP_SAPI === 'apache2handler' )
         {
-            // should support three and four letter extensions
-            HTTP::ContentType(ltrim(substr($Filename,-4),'.'));
+            HTTP::ContentType(HTTP::Filename2ContentType($Filename));
 
             // this should automatically set correct content-length, etag, vary, etc.
             header("X-SendFile: {$CacheDir}{$Filename}");
@@ -237,8 +237,7 @@ abstract class cnvyrc extends restr
         // everything else - IIS (cgi-fcgi)/GAE/etc
         else
         {
-            // should support three and four letter extensions
-            HTTP::ContentType(ltrim(substr($Filename,-4),'.'));
+            HTTP::ContentType(HTTP::Filename2ContentType($Filename));
 
             // TODO: also sending content length a good idea?
             readfile($CacheDir.$Filename);
