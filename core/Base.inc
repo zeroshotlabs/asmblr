@@ -648,7 +648,7 @@ abstract class HTTP
             'vcard'=>'text/vcard',
             'csv'=>'text/csv',
 
-            'eot'=>'application/vnd.ms-fontobject','svg'=>'image/svg+xml',
+            'eot'=>'application/vnd.ms-fontobject','svg'=>'image/svg+xml','otf'=>'application/x-font-opentype',
             'ttf'=>'application/x-font-ttf','woff'=>'application/font-woff',
 
             'gif'=>'image/gif','jpeg'=>'image/jpeg','jpg'=>'image/jpeg','png'=>'image/png',
