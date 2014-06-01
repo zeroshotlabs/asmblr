@@ -224,6 +224,7 @@ abstract class App
 
         // asmblr supports CLI execution natively, though some config directives
         // only make sense when serving an HTTP request, or for certain pages
+        // TODO: may need to reconsider some of this stuff - like do we want PageNoUTF, PageNogzip, etc...? not really
         if( $this->Request['IsCLI'] === FALSE )
         {
             // IsBaseHostname indicates whether the request is using the full hostname
@@ -251,6 +252,7 @@ abstract class App
 
             // TODO: do we need this?  Does it do anything?  needs testing.
             // do we need mb_output_handler()?
+            // or mb_internal_encoding('UTF-8');
             if( !empty($this->Config['mb_http_output']) )
                 mb_http_output($this->Config['mb_http_output']);
 
@@ -603,7 +605,7 @@ abstract class App
                         $D = explode(',',$L[4]);
 
                     if( !empty($LastPage) )
-                        $Page[$LastPage]['Directives'][] = $D;
+                        $Page[$LastPage]['Directives'][] = array(str_replace('$','',$D[0]),$D[1],$D[2]);
                 }
             }
 
