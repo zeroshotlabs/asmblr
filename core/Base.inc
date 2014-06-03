@@ -56,12 +56,13 @@ trait Debugged
      *
      * @param NULL $Label Log messages will be labeled with the class name.
      * @param string $Label Custom label for log messages.
-     * @throws Exception
      */
     public function DebugOn( $Label = NULL )
     {
         if( empty($Label) )
             $this->DebugToken = get_class($this);
+        else
+            $this->DebugToken = $Label;
 
         $_SERVER[$this->DebugToken] = TRUE;
     }
