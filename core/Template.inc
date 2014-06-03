@@ -78,6 +78,12 @@ class TemplateSet implements Debuggable
 {
     use Debugged;
 
+    /**
+     * @var boolean Whether to display debug info to the browser.
+     * @see TemplateSet::DebugOn()
+     */
+    protected $DebugDisplay = FALSE;
+
     protected $App;
 
     /**
@@ -429,6 +435,22 @@ class TemplateSet implements Debuggable
     }
 
     /**
+     * Enable debugging, overridding default Label behavior.
+     *
+     * Log messages are always labeled with the class name.
+     *
+     * @param boolean $Label TRUE to display debug info into rendering templates.
+     */
+    public function DebugOn( $Label = NULL )
+    {
+        $this->DebugToken = get_class($this);
+        $_SERVER[$this->DebugToken] = TRUE;
+
+        if( $Label === TRUE )
+            $this->DebugDisplay = TRUE;
+    }
+
+    /**
      * Internal method for debugging template rendering.
      *
      * Debug info includes available variable within the scope of rendering.
@@ -462,6 +484,9 @@ class TemplateSet implements Debuggable
             $Buf = "\${$this->DebugToken}::{$Name} as NULL RENDER called from {$BT}";
         }
 
+        if( !empty($this->DebugDisplay) )
+            echo "<div style=\"padding: 0; margin: 0; font-weight: bold; font-size: 10px;\">$Buf</div>";
+
         Log::Log($Buf,'LOG',NULL,$Extracts);
     }
 
@@ -493,17 +518,23 @@ class TemplateSet implements Debuggable
         if( empty($DestName) )
         {
             $Buf = "\${$this->DebugToken}::ReMap('{$Name}') to NULL RENDER";
+            if( !empty($this->DebugDisplay) )
+                echo "<div style=\"padding: 0; margin: 0; color: orange; font-weight: bold; font-size: 10px;\">$Buf</div>";
             Log::Log($Buf,'WARN',NULL,NULL);
         }
         else if( isset($this->Templates[$DestName]) )
         {
             $T = $this->Templates[$DestName];
             $Buf = "\${$this->DebugToken}::ReMap('{$Name}') to '{$DestName}' called from $BT";
+            if( !empty($this->DebugDisplay) )
+                echo "<div style=\"padding: 0; margin: 0; color: green; font-weight: bold; font-size: 10px;\">$Buf</div>";
             Log::Log($Buf,'WARN',NULL,NULL);
         }
         else
         {
             $Buf = "\${$this->DebugToken}::ReMap('{$Name}') to UNKNOWN";
+            if( !empty($this->DebugDisplay) )
+                echo "<div style=\"padding: 0; margin: 0; color: red; font-weight: bold; font-size: 10px;\">$Buf</div>";
             Log::Log($Buf,'ERROR',NULL,NULL);
         }
     }

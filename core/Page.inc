@@ -72,6 +72,12 @@ class PageSet implements Debuggable
 {
     use Debugged;
 
+    /**
+     * @var boolean Whether to display debug info to the browser.
+     * @see PageSet::DebugOn()
+     */
+    protected $DebugDisplay = FALSE;
+
     public $Pages;
     public $PageMap;
 
@@ -152,6 +158,21 @@ class PageSet implements Debuggable
         }
     }
 
+    /**
+     * Enable debugging, overridding default Label behavior.
+     *
+     * Log messages are always labeled with the class name.
+     *
+     * @param boolean $Label TRUE to display debug info into rendering templates.
+     */
+    public function DebugOn( $Label = NULL )
+    {
+        $this->DebugToken = get_class($this);
+        $_SERVER[$this->DebugToken] = TRUE;
+
+        if( $Label === TRUE )
+            $this->DebugDisplay = TRUE;
+    }
 
     /**
      * Internal method for debugging matching a page.
@@ -172,6 +193,9 @@ class PageSet implements Debuggable
         {
             $Buf = "\${$this->DebugToken}::Match('{$Path}') to NO MATCH called from {$BT}";
         }
+
+        if( !empty($this->DebugDisplay) )
+            echo "<div style=\"padding: 0; color: blue; margin: 0; font-weight: bold; font-size: 10px;\">$Buf</div>";
 
         Log::Log($Buf,'LOG',NULL,NULL);
     }
