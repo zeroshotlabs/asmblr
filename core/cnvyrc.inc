@@ -164,7 +164,8 @@ abstract class cnvyrc extends restr
      *
      * This includes x-senfile/x-acell/etc serving.
      *
-     * This does not support any Ops and only a single file.
+     * This does not support any Ops and only a single file.  Used mostly for serving binary
+     * types of files except images (PDF, doc, audio/video, etc).
      *
      * @see cnvyrc::srv()
      *
