@@ -185,6 +185,28 @@ abstract class App
      */
     public function Execute()
     {
+        // note that this can lead to decoding errors in a browser if the request doesn't complete,
+        // this includes var_dump()/exit debugging
+        // TODO: this has to come before any output - we may rexamine how this is handled
+        if( $this->Request['IsCLI'] === FALSE && !empty($this->Config['zlib_output']) )
+            ini_set('zlib.output_compression',TRUE);
+
+        // apply any app-wide directives
+        foreach( $this->Manifest['Directives'] as $V )
+        {
+            if( empty($this->{$V[0]}) )
+                throw new Exception("Directive object {$V[0]}' doesn't exist while executing app for '{$this->Config['Hostname']}'.");
+            else
+                $this->{$V[0]}->ApplyDirective($V[1],$V[2]);
+        }
+
+        // execute PreFunction if present - returning FALSE will bypass default page checking, execution and HTML rendering, below
+        if( !empty($this->Config['PreFunction']) )
+            $PreContinue = $this->Config['PreFunction']($this);
+        else
+            $PreContinue = TRUE;
+
+
         // match pages against the MatchPath to determine our executing page
         $this->OrderedMatch = $this->ExactMatch = NULL;
 
@@ -211,15 +233,6 @@ abstract class App
             $this->ClosestMatchName = $this->ExactMatch['Name'];
         }
 
-        // apply any app-wide directives
-        foreach( $this->Manifest['Directives'] as $V )
-        {
-            if( empty($this->{$V[0]}) )
-                throw new Exception("Directive object {$V[0]}' doesn't exist while executing app for '{$this->Config['Hostname']}'.");
-            else
-                $this->{$V[0]}->ApplyDirective($V[1],$V[2]);
-        }
-
         // apply additional config parameters based on our environment/page
 
         // asmblr supports CLI execution natively, though some config directives
@@ -244,14 +257,8 @@ abstract class App
                 session_start();
             }
 
-            // note that this can lead to decoding errors in a browser if the request doesn't complete,
-            // this includes var_dump()/exit debugging
-            // TODO: perhaps this should be moved/removed
-            if( !empty($this->Config['zlib_output']) )
-                ini_set('zlib.output_compression',TRUE);
-
             // TODO: do we need this?  Does it do anything?  needs testing.
-            // do we need mb_output_handler()?
+            // do we need mb_output_handler()?  might also be best in enUSHTMLSet/etc
             // or mb_internal_encoding('UTF-8');
             if( !empty($this->Config['mb_http_output']) )
                 mb_http_output($this->Config['mb_http_output']);
@@ -263,13 +270,7 @@ abstract class App
             header("Content-Type: {$this->Config['ContentType']}");
         }
 
-        // now begin actually execution by execting PreFunction if set
-        if( !empty($this->Config['PreFunction']) )
-            $PreContinue = $this->Config['PreFunction']($this);
-        else
-            $PreContinue = TRUE;
-
-        // returning FALSE will bypass default page checking, execution and HTML rendering
+        // returning FALSE from PreFunction above will bypass default page checking, execution and HTML rendering
         if( $PreContinue !== FALSE )
         {
             // if no pages, it's a 404
