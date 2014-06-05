@@ -86,6 +86,15 @@ abstract class App
             $this->Manifest = $this->BuildManifest($App['ManifestURL']);
         }
 
+
+        // we allow config variables to be overriden by the local DOC_ROOT/index.php
+        // if a parameter exists in Config and in the $App, we use what's in $App
+        // this means that a variable has to be defined (even if empty) in the manifest
+        // note too that these results aren't cached (this whole thing could be considered "slow")
+        // so whatever index.php contains at execution time, is what's used
+        foreach( array_intersect_key($App,$this->Manifest['Config']) as $K => $V )
+            $this->Manifest['Config'][$K] = $V;
+
         // set local properties for the manifest - would like to streamline as it's wasteful
         // but we'd need to refactor how we pull from the cache
         $this->Config = $this->Manifest['Config'];
