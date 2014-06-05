@@ -68,12 +68,13 @@ abstract class cnvyrc extends restr
      *
      * This does not send a Content-Type header.
      *
-     * @param string $Handler Handler for resource.  Must be unique for different variations of the same resource,
-     *               and unique across site when sharing a cache.  Merged with $HandlerPrefix
-     * @param string $Filename Resource's filename or placeholder when using bundles.
+     * @param string $Handler Handler for resource.  Must be unique for different variations of
+     *               the same resource.  Merged with $HandlerPrefix
+     * @param string $Filename Resource's local filename relative to OriginDir, or placeholder when using bundles.
      * @param array $Ops Associative array of ops.
      * @param string $Content File content to send as $Filename.
      * @param array $Content Array of content and filenames.
+     * @param string $CacheAs Filename to cache resource as, or use $Filename if empty.
      *
      * @note This could be executed in Load.inc to avoid the asmblr startup (with some config tweaks).
      * @note This exits.
@@ -83,7 +84,7 @@ abstract class cnvyrc extends restr
      *
      * @todo Enable remote files via URL (perhaps premium version only)
      */
-    public function srv( $Handler,$Filename,$Ops = array(),$Content = '' )
+    public function srv( $Handler,$Filename,$Ops = array(),$Content = '',$CacheAs = '' )
     {
         // pull the raw resource and cache if allowed
 
@@ -143,8 +144,11 @@ abstract class cnvyrc extends restr
             HTTP::_500();
         }
 
+        if( empty($CacheAs) )
+            $CacheAs = $Filename;
+
         if( $this->CacheLocal === TRUE )
-            file_put_contents($this->CacheDir.$this->HandlerPrefix.'_'.$Handler.'_'.$Filename,$Response);
+            file_put_contents($this->CacheDir.$this->HandlerPrefix.'_'.$Handler.'_'.$CacheAs,$Response);
 
         // these are required for proper handling by browser, but sort of hacky - when cached, x-sendfile
         // should be setting these but with apache this may not always be the case
