@@ -197,6 +197,9 @@ abstract class App
         // note that this can lead to decoding errors in a browser if the request doesn't complete,
         // this includes var_dump()/exit debugging
         // TODO: this has to come before any output - we may rexamine how this is handled
+        // TODO: THIS IS ALL BROKEN because the PreFunction is executed before starting
+        // the session - this whole startup process/order has to be documented and tuned
+        // also with the NoSessionPages thing- for now in MC we start_session in MC.php
         if( $this->Request['IsCLI'] === FALSE && !empty($this->Config['zlib_output']) )
             ini_set('zlib.output_compression',TRUE);
 
