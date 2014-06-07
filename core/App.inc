@@ -70,7 +70,6 @@ abstract class App
         // make this object global :)
         $GLOBALS['asmapp'] = $this;
 
-
         // build/cache our manifest
         if( $this->CacheManifest === TRUE )
         {
@@ -86,7 +85,6 @@ abstract class App
             @unlink("{$this->CacheDir}/{$this->Hostname}.manifest.inc");
             $this->Manifest = $this->BuildManifest($App['ManifestURL']);
         }
-
 
         // we allow config variables to be overriden by the local DOC_ROOT/index.php
         // if a parameter exists in Config and in the $App, we use what's in $App
@@ -121,17 +119,10 @@ abstract class App
             eval('?>'.$T);
         }
 
-
-        // now proceed by applying general purpose config settings
-
         if( empty($this->Config['Status']) || $this->Config['Status'] !== 'Active' )
             HTTP::_400();
 
-        // set a base directory for now this isn't supported (problematic on Windows)
-//        if( !empty($this->Config['open_basedir']) )
-//            $this->OpenBaseDir($this->Config['open_basedir']);
-
-        // activate asmblr's stock error handler - customize in extending class
+        // activate asmblr's stock error handler - method can be customized in extending class
         set_error_handler(array($this,'ErrorHandler'));
 
         // Calculate app-wide URLs, modifying our Request array.  This creates
@@ -140,7 +131,7 @@ abstract class App
         Request::CalcURLs($this->Request,$this->Config['BaseURL']);
 
 
-        // instantiate system objects
+        // instantiate core system objects
         // this sets dynamic properties - know your names
 
         // one or more page sets are supported though there is always a single routing page set
@@ -153,33 +144,8 @@ abstract class App
 
         $this->ps = new PageSet($this->Pages[$this->RoutingPS],$this->PageMaps[$this->RoutingPS]);
         $this->lp = new LinkPage($this->ps,$this,$this->Request['SiteURL']);
-
         // links for cnvyr managed resources (images, css, js, fonts/etc)
         $this->lc = new Linkcnvyr($this->ps,$this,$this->Request['SiteURL']);
-
-        // TODO: needs to be configuration aware
-        $this->html = new enUSHTMLSet($this);
-
-        // general purpose key/value store for in-template info (meta-tags, CSS classes, etc)
-        $this->page = new KeyValueSet;
-
-        // session based UI messages/alerts
-        $this->msg = new Messager;
-
-        // track form/request validation using a default 'has-error' CSS class
-        $this->vr = new ValidationReport('has-error');
-
-        // templates need access to some of these Connect() them in
-        // if you later Connect() something using the same name it will overwrite the object here
-        $this->html->Connect(array('lp'=>$this->lp,'lc'=>$this->lc,'page'=>$this->page,'msg'=>$this->msg,'vr'=>$this->vr));
-
-
-        // reference code for loading/connecting to mongo
-        /*
-        \asm\Inc::Ext('Mongo.inc');
-        $mongo = new \asm\Mongo;
-        $this->mydb = $mongo->Alias('mydb','mydb');
-        */
     }
 
     /**
@@ -187,40 +153,26 @@ abstract class App
      *
      * @note If an ordered match is found and doesn't have a Status of Weak, no exact
      * match will be attempted.
-     * @note If PreFunction returns FALSE, default page execution and rendering will not happen,
+     * @note If SiteWideFunction returns FALSE, default page execution and rendering will not happen,
      * including 404 and Page status checks.
      */
     public function Execute()
     {
-        // note that this can lead to decoding errors in a browser if the request doesn't complete,
-        // this includes var_dump()/exit debugging
-        // TODO: this has to come before any output - we may rexamine how this is handled
-        // TODO: THIS IS ALL BROKEN because the PreFunction is executed before starting
-        // the session - this whole startup process/order has to be documented and tuned
-        // also with the NoSessionPages thing- for now in MC we start_session in MC.php
-        if( $this->Request['IsCLI'] === FALSE && !empty($this->Config['zlib_output']) )
-            ini_set('zlib.output_compression',TRUE);
-
-        // apply any app-wide directives
-        foreach( $this->Manifest['Directives'] as $V )
+        // if not running as a CLI, first honor our ForceBaseHostname setting
+        // IsBaseHostname indicates whether the request is using the full hostname
+        // configured by BaseURL.  If not, redirect to it.
+        if( $this->Request['IsCLI'] === FALSE && ($this->Config['ForceBaseHostname'] === TRUE && $this->Request['IsBaseHostname'] === FALSE) )
         {
-            if( empty($this->{$V[0]}) )
-                throw new Exception("Directive object {$V[0]}' doesn't exist while executing app for '{$this->Config['Hostname']}'.");
-            else
-                $this->{$V[0]}->ApplyDirective($V[1],$V[2]);
+            $this->Request['Hostname'] = $this->Request['BaseURL']['Hostname'];
+            HTTP::Location($this->Request);
         }
 
-        // execute PreFunction if present - returning FALSE will bypass default page checking, execution and HTML rendering, below
-        if( !empty($this->Config['PreFunction']) )
-            $PreContinue = $this->Config['PreFunction']($this);
-        else
-            $PreContinue = TRUE;
 
-
-        // match pages against the MatchPath to determine our executing page
+        // match pages against the MatchPath to determine our executing page(s)
         $this->OrderedMatch = $this->ExactMatch = NULL;
 
         // first determine hierarchal ordered match/execute - most general to most specific URL path
+        // only one page will match
         if( $this->Request['MatchPath']['IsRoot'] === FALSE )
         {
             foreach( \asm\Path::Order($this->Request['MatchPath']) as $V )
@@ -233,8 +185,8 @@ abstract class App
             }
         }
 
-        // if an ordered match isn't found, determine an exact match.  if the ordered match is
-        // Weak, an exact match is also allowed
+        // if an ordered match isn't found, determine an exact match.  only one page would match
+        // if the ordered match is Weak, an exact match is also allowed
         // i.e.  default:  /admin/ matches then a page with /admin/something will NOT match
         //          Weak:  /admin/ matches then a page with /admin/something WILL match
         if( $this->OrderedMatch === NULL || (strpos($this->OrderedMatch['Status'],'Weak') !== FALSE) )
@@ -243,49 +195,25 @@ abstract class App
             $this->ClosestMatchName = $this->ExactMatch['Name'];
         }
 
-        // apply additional config parameters based on our environment/page
-
-        // asmblr supports CLI execution natively, though some config directives
-        // only make sense when serving an HTTP request, or for certain pages
-        // TODO: may need to reconsider some of this stuff - like do we want PageNoUTF, PageNogzip, etc...? not really
-        if( $this->Request['IsCLI'] === FALSE )
+        // apply any app-wide directives
+        foreach( $this->Manifest['Directives'] as $V )
         {
-            // IsBaseHostname indicates whether the request is using the full hostname
-            // configured by BaseURL.  If not, redirect to it.
-            if( $this->Config['ForceBaseHostname'] === TRUE && $this->Request['IsBaseHostname'] === FALSE )
-            {
-                $this->Request['Hostname'] = $this->Request['BaseURL']['Hostname'];
-                HTTP::Location($this->Request);
-            }
-
-            // start a session if appropriate
-            // TODO: needs review/check
-            if( !empty($this->Config['StartSession'])
-            && (strpos($this->Config['PageNoSession'],$this->OrderedMatch['Name']) === FALSE)
-            && (strpos($this->Config['PageNoSession'],$this->ExactMatch['Name']) === FALSE))
-            {
-                session_start();
-            }
-/*
-    ContentType	text/html; charset=utf-8
-    mb_http_output	UTF-8
-    zlib_output	TRUE
-
-            // TODO: do we need this?  Does it do anything?  needs testing.
-            // do we need mb_output_handler()?  might also be best in enUSHTMLSet/etc
-            // or mb_internal_encoding('UTF-8');
-            if( !empty($this->Config['mb_http_output']) )
-                mb_http_output($this->Config['mb_http_output']);
-
-            // these can also be handled when creating the enUSHTMLSet template object
-            if( empty($this->Config['ContentType']) )
-                $this->Config['ContentType'] = 'text/html; charset=UTF-8';
-
-            header("Content-Type: {$this->Config['ContentType']}");
-*/
+            if( empty($this->{$V[0]}) )
+                throw new Exception("Directive object {$V[0]}' doesn't exist while executing app for '{$this->Config['Hostname']}'.");
+            else
+                $this->{$V[0]}->ApplyDirective($V[1],$V[2]);
         }
 
-        // returning FALSE from PreFunction above will bypass default page checking, execution and HTML rendering
+
+
+        // execute SitewideFunction - returning FALSE will bypass default page checking, execution and HTML rendering, below
+        if( !empty($this->Config['SitewideFunction']) )
+            $PreContinue = $this->Config['SitewideFunction']($this);
+        else
+            $PreContinue = TRUE;
+
+
+        // returning FALSE from SiteWideFunction above will bypass default page checking, execution and HTML rendering
         if( $PreContinue !== FALSE )
         {
             // if no pages, it's a 404
@@ -317,14 +245,20 @@ abstract class App
     {
         // if we're not caching the manifest we know we're not in production, so implement
         // some easy toggling of debugging pages and templates and tweak our links to persist
+        // by default we enable browser display, though this can be surpressed with display=0
         if( empty($this->Manifest['CacheManifest']) || !empty($_GET['or']) )
         {
             if( !empty($_GET['debug']) )
             {
                 $this->lp->SetBaseURL($this->Request['SiteURL'],$_GET);
 
-                $this->ps->DebugOn();
-                $this->html->DebugOn();
+                if( isset($_GET['display']) && $_GET['display'] === '0' )
+                    $Display = FALSE;
+                else
+                    $Display = TRUE;
+
+                $this->ps->DebugOn($Display);
+                $this->html->DebugOn($Display);
             }
         }
     }
