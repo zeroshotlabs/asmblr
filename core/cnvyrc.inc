@@ -222,14 +222,14 @@ abstract class cnvyrc extends restr
         if( is_readable($CacheDir.$Filename) === FALSE )
             return FALSE;
 
+        // we've decided to explicitly set the content-type for all SAPIs because it's otherwise
+        // too unpredictable
+        HTTP::ContentType(HTTP::Filename2ContentType($Filename));
+
         // nginx
         if( PHP_SAPI === 'fpm-fcgi' )
         {
             // nginx generally also sets correct etag/last-modified headers based on the cache file.
-            // note that if the extension of the file isn't correct, nginx will fail to send the correct content type
-
-            // required so that nginx sets the correct header even though it's probably redundant from our caller
-            header_remove('Content-Type');
             header('X-Accel-Redirect: '.static::$XAccelRedirectBase.$Filename);
         }
         // apache2 - assumes mod_xsendfile has been configured
@@ -237,16 +237,12 @@ abstract class cnvyrc extends restr
         // it always drops the Content-Encoding header
         else if( PHP_SAPI === 'apache2handler' )
         {
-            HTTP::ContentType(HTTP::Filename2ContentType($Filename));
-
             // this should automatically set correct content-length, etag, vary, etc.
             header("X-SendFile: {$CacheDir}{$Filename}");
         }
         // everything else - IIS (cgi-fcgi)/GAE/etc
         else
         {
-            HTTP::ContentType(HTTP::Filename2ContentType($Filename));
-
             // TODO: also sending content length a good idea?
             readfile($CacheDir.$Filename);
         }
