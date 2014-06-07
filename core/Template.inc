@@ -71,6 +71,9 @@ abstract class Template extends Struct
  *
  * This TemplateSet manages file-based templates.
  *
+ * TemplateSet is generally extended to provide locale specific functionality,
+ * for example enUSHTMLSet.
+ *
  * @todo Cacheable templates - Some templates, like subnav, can be
  *       expensive to create and don't change much - should be savable to disk/app file
  */
@@ -114,7 +117,6 @@ class TemplateSet implements Debuggable
      * @see Unstack();
      */
     protected $Stacks = array();
-
 
 
     public function __construct( \asm\App $App )

@@ -36,6 +36,7 @@ abstract class App
     public $OrderedMatch;
     public $ExactMatch;
 
+    // the closest matched page (either from Ordered or Exact match)
     public $ClosestMatchName;
 
     public $Request;
@@ -103,6 +104,7 @@ abstract class App
 
         // build/cache our app file
         // include/eval of this will set our $this->Templates property
+        // TODO: we should test that this works without issue
         if( $this->CacheApp === TRUE )
         {
             if( (@include "{$this->CacheDir}/{$this->Hostname}.app.inc") === FALSE )
@@ -129,12 +131,8 @@ abstract class App
 //        if( !empty($this->Config['open_basedir']) )
 //            $this->OpenBaseDir($this->Config['open_basedir']);
 
-        // Activate the Framewire error handler
-        if( empty($this->Config['error_handler']) )
-            set_error_handler(array($this,'ErrorHandler'));
-        else
-            set_error_handler(array($this,$this->Config['error_handler']));
-
+        // activate asmblr's stock error handler - customize in extending class
+        set_error_handler(array($this,'ErrorHandler'));
 
         // Calculate app-wide URLs, modifying our Request array.  This creates
         // $SiteURL and $MatchPath elements which are used for creating URLs (LinkSet) and
@@ -268,6 +266,10 @@ abstract class App
             {
                 session_start();
             }
+/*
+    ContentType	text/html; charset=utf-8
+    mb_http_output	UTF-8
+    zlib_output	TRUE
 
             // TODO: do we need this?  Does it do anything?  needs testing.
             // do we need mb_output_handler()?  might also be best in enUSHTMLSet/etc
@@ -280,6 +282,7 @@ abstract class App
                 $this->Config['ContentType'] = 'text/html; charset=UTF-8';
 
             header("Content-Type: {$this->Config['ContentType']}");
+*/
         }
 
         // returning FALSE from PreFunction above will bypass default page checking, execution and HTML rendering
