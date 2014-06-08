@@ -323,7 +323,7 @@ abstract class Request extends Struct
      *
      * @note ChromePHP doesn't currently announce itself so this has little use and isn't supported anymore.
      *       https://github.com/ccampbell/chromelogger/issues/8
-     * @note Set fwApp::$LogPublic to TRUE/FALSE until they fix this.
+     * @note Set LogPublic config variable to TRUE/FALSE until they fix this.
      */
     public static function IsChromePHP()
     {

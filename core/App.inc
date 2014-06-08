@@ -495,8 +495,13 @@ abstract class App
             array_shift($B);
             foreach( $B as $L )
             {
+                // skip comments
+                if( substr(trim($L,', '),0,2) === '//' )
+                    continue;
+
                 $L = str_getcsv($L);
 
+                // skip blank lines
                 if( empty($L[0]) )
                     continue;
                 else if( $L[0][0] === '$' )
@@ -538,6 +543,10 @@ abstract class App
             $Page = $PageMap = array();
             foreach( $B as $L )
             {
+                // skip comments
+                if( substr(trim($L,', '),0,2) === '//' )
+                    continue;
+
                 $L = str_getcsv($L);
                 if( !empty($L[0]) )
                 {
@@ -570,7 +579,13 @@ abstract class App
             array_shift($B);
             foreach( $B as $L )
             {
+                // skip comments
+                if( substr(trim($L,', '),0,2) === '//' )
+                    continue;
+
                 $L = str_getcsv($L);
+
+                // skip blank lines
                 if( empty($L[0]) )
                     continue;
                 else
