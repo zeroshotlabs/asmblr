@@ -685,6 +685,18 @@ abstract class HTTP
     }
 
     /**
+     * Send a 204 No Content header (typically for OPTIONS responses).
+     *
+     * @param boolean $Exit FALSE to not kill execution after sending the header.
+     */
+    public static function _204( $Exit = TRUE )
+    {
+        header('HTTP/1.1 204 No Content');
+        if( $Exit === TRUE )
+            exit;
+    }
+
+    /**
      * Send a 301 Moved Permanently header.
      */
     public static function _301()
