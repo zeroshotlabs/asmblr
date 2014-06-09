@@ -292,7 +292,7 @@ abstract class App
         return $Manifest;
     }
 
-    // new spreadsheets
+    // new spreadsheets - supports data sheets
     protected function Manifestd( $ManifestURL,$ManifestURLOrig,$AppRoot )
     {
         // read in the HTML version which we scrape for each of the tabs
@@ -321,7 +321,7 @@ abstract class App
         foreach( $R as $V )
         {
             // tabs must be uniquely named
-            $Tabs[$V->textContent] = str_replace(array('switchToSheet(\'','\')'),'',$V->getAttribute('onclick'));;
+            $Tabs[$V->textContent] = str_replace(array('switchToSheet(\'','\')'),'',$V->getAttribute('onclick'));
         }
 
         foreach( $Tabs as $Name => $ID )
@@ -336,7 +336,7 @@ abstract class App
                 $Line = array();
                 foreach( $V->getElementsByTagName('td') as $K2 => $V2 )
                 {
-                    $Line[] = $V2->textContent;
+                    $Line[] = "\"{$V2->textContent}\"";
                 }
 
                 // will break if value contains comma
@@ -354,8 +354,9 @@ abstract class App
 
         // Pages/PageMaps are numeric arrays of one of more page sets
         // Directives are app-wide directives executed for every request.
+        // DataSheets are an associative array - by sheet name - of general purpose data (key/value)
         $Manifest = array('AppRoot'=>$AppRoot,'Config'=>array(),'Directives'=>array(),
-                            'Pages'=>array(),'PageMaps'=>array(),'Templates'=>array());
+                            'Pages'=>array(),'PageMaps'=>array(),'Templates'=>array(),'DataSheets'=>array());
 
         // now actually build the manifest from the CSV tabs - much copied from Manifestccc
         foreach( $Tabs as $Label => $B )
@@ -377,6 +378,10 @@ abstract class App
             {
                 $Manifest['Templates'] = $Tab['Templates'];
             }
+            else if( isset($Tab['DataSheet']) )
+            {
+                $Manifest['DataSheets'][$Label] = $Tab['DataSheet'];
+            }
             else
             {
                 trigger_error("Skipping unknown tab structure with name '{$Label}'");
@@ -390,7 +395,7 @@ abstract class App
         return $Manifest;
     }
 
-    // old spreadsheets
+    // old spreadsheets - does not support data sheets
     protected function Manifestccc( $ManifestURL,$ManifestURLOrig,$AppRoot )
     {
         // munge to be exportable as html
@@ -487,8 +492,11 @@ abstract class App
     // $B is an array of CSV lines
     protected function ParseTabCSV( $B )
     {
+        // not needed since we put the double quotes in the strpos()'s below
+        // $Header = str_getcsv($B[0]);
+
         // config tab - Key, Value
-        if( strpos($B[0],'Key,Value') !== FALSE )
+        if( strpos($B[0],'"Key","Value"') !== FALSE )
         {
             $Tab = array('Config'=>array(),'Directives'=>array());
 
@@ -496,7 +504,7 @@ abstract class App
             foreach( $B as $L )
             {
                 // skip comments
-                if( substr(trim($L,', '),0,2) === '//' )
+                if( substr(trim($L,', "'),0,2) === '//' )
                     continue;
 
                 $L = str_getcsv($L);
@@ -505,9 +513,10 @@ abstract class App
                 if( empty($L[0]) )
                     continue;
                 else if( $L[0][0] === '$' )
+                // TODO: this is probably broken since on Page we don't require a $
                     $Tab['Directives'][] = array(str_replace('$','',$L[0]),$L[1],$L[2]);
-                else if( $L[0] === 'AppFunction' )
-                    $Tab['Config']['AppFunction'] = $this->ParseFunctionName($L[1]);
+                else if( $L[0] === 'SitewideFunction' )
+                    $Tab['Config']['SitewideFunction'] = $this->ParseFunctionName($L[1]);
                 else
                 {
                     // trim and normalize to boolean/NULL
@@ -527,7 +536,7 @@ abstract class App
         }
         // pages tab - Name, Path, Status, Function, Directives
         // a 6th column in the header is required as a unique token for the page set (will clobber)
-        else if( strpos($B[0],'Name,Path,Status') !== FALSE )
+        else if( strpos($B[0],'"Name","Path","Status"') !== FALSE )
         {
             $L = array_shift($B);
             $L = str_getcsv($L);
@@ -544,7 +553,7 @@ abstract class App
             foreach( $B as $L )
             {
                 // skip comments
-                if( substr(trim($L,', '),0,2) === '//' )
+                if( substr(trim($L,', "'),0,2) === '//' )
                     continue;
 
                 $L = str_getcsv($L);
@@ -572,7 +581,7 @@ abstract class App
         }
         // templates tab - Name, Function - we just store the name/function mapping and the rest is init in the AppFile
         // name must contain a prefix if the template file is in a sub-directory
-        else if( strpos($B[0],'Name,Function') !== FALSE )
+        else if( strpos($B[0],'"Name","Function"') !== FALSE )
         {
             $Tab = array('Templates'=>array());
 
@@ -580,7 +589,7 @@ abstract class App
             foreach( $B as $L )
             {
                 // skip comments
-                if( substr(trim($L,', '),0,2) === '//' )
+                if( substr(trim($L,', "'),0,2) === '//' )
                     continue;
 
                 $L = str_getcsv($L);
@@ -590,6 +599,43 @@ abstract class App
                     continue;
                 else
                     $Tab['Templates'][$L[0]] = $this->ParseFunctionName($L[1]);
+            }
+
+            return $Tab;
+        }
+        // data sheet tab - must have ID as first column - simply a set of key (column headers) and values (rows/cells)
+        // ID is used if provided for each row, or the row number is used
+        else if( strpos($B[0],'"ID"') === 0 )
+        {
+            $Tab = array('DataSheet'=>array());
+
+            $Keys = str_getcsv($B[0]);
+
+            array_shift($B);
+            foreach( $B as $RowID => $L )
+            {
+                // skip comments
+                if( substr(trim($L,', "'),0,2) === '//' )
+                    continue;
+
+                $L = str_getcsv($L);
+
+                // skip blank lines - this is a bit tricky/different for data sheets
+                if( trim(implode('',$L)) === '' )
+                    continue;
+
+                if( trim($L[0]) === '' )
+                    $ID = $RowID;
+                else
+                    $ID = trim($L[0]);
+
+                foreach( $Keys as $I => $V )
+                {
+                    if( $I === 0 )
+                        continue;
+
+                    $Tab['DataSheet'][$ID][$V] = $L[$I];
+                }
             }
 
             return $Tab;
