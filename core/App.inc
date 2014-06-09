@@ -509,26 +509,51 @@ abstract class App
 
                 $L = str_getcsv($L);
 
+                // remove empty columns so our column count is accurate - a bit hacky but works for now
+                $L2 = array();
+                foreach( $L as $K )
+                {
+                    if( trim($K) === '' )
+                        continue;
+                    else
+                        $L2[] = trim($K);
+                }
+
+                $L = $L2;
+
                 // skip blank lines
                 if( empty($L[0]) )
                     continue;
-                else if( $L[0][0] === '$' )
-                // TODO: this is probably broken since on Page we don't require a $
+
+                // a directive in the config tab is recognized by being three columns
+                if( count($L) === 3 )
+                {
                     $Tab['Directives'][] = array(str_replace('$','',$L[0]),$L[1],$L[2]);
-                else if( $L[0] === 'SitewideFunction' )
-                    $Tab['Config']['SitewideFunction'] = $this->ParseFunctionName($L[1]);
+                }
+                // otherwise taken as a key/value config parameter and trim/normalize
                 else
                 {
-                    // trim and normalize to boolean/NULL
-                    $Tab['Config'][$L[0]] = trim($L[1]);
-                    $T = strtolower($Tab['Config'][$L[0]]);
+                    if( $L[0] === 'SitewideFunction' )
+                        $Tab['Config']['SitewideFunction'] = $this->ParseFunctionName($L[1]);
+                    else
+                    {
+                        $Tab['Config'][$L[0]] = '';
 
-                    if( $T === 'false' )
-                        $Tab['Config'][$L[0]] = FALSE;
-                    else if( $T === 'true' )
-                        $Tab['Config'][$L[0]] = TRUE;
-                    else if( $T === 'null' )
-                        $Tab['Config'][$L[0]] = NULL;
+                        // trim and normalize to boolean/NULL if a value was set.
+                        if( isset($L[1]) )
+                        {
+                            $Tab['Config'][$L[0]] = trim($L[1]);
+
+                            $T = strtolower($Tab['Config'][$L[0]]);
+
+                            if( $T === 'false' )
+                                $Tab['Config'][$L[0]] = FALSE;
+                            else if( $T === 'true' )
+                                $Tab['Config'][$L[0]] = TRUE;
+                            else if( $T === 'null' )
+                                $Tab['Config'][$L[0]] = NULL;
+                        }
+                    }
                 }
             }
 
@@ -557,6 +582,8 @@ abstract class App
                     continue;
 
                 $L = str_getcsv($L);
+
+                // have a full page entry
                 if( !empty($L[0]) )
                 {
                     $P = Page::Init($L[0],$L[1],$L[2],$this->ParseFunctionName($L[3]));
@@ -565,6 +592,7 @@ abstract class App
                     $LastPage = $P['Name'];
                 }
 
+                // have directives - if starts at column 4, then append to previous page
                 if( !empty($L[4]) )
                 {
                     if( !empty($L[5]) )
@@ -612,6 +640,7 @@ abstract class App
             $Keys = str_getcsv($B[0]);
 
             array_shift($B);
+            $LastID = '';
             foreach( $B as $RowID => $L )
             {
                 // skip comments
