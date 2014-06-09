@@ -509,14 +509,18 @@ abstract class App
 
                 $L = str_getcsv($L);
 
+                // always trim whitespace
+                foreach( $L as $K => $V )
+                    $L[$K] = trim($V);
+
                 // remove empty columns so our column count is accurate - a bit hacky but works for now
                 $L2 = array();
-                foreach( $L as $K )
+                foreach( $L as $V )
                 {
-                    if( trim($K) === '' )
+                    if( $V === '' )
                         continue;
                     else
-                        $L2[] = trim($K);
+                        $L2[] = trim($V);
                 }
 
                 $L = $L2;
@@ -564,7 +568,9 @@ abstract class App
         else if( strpos($B[0],'"Name","Path","Status"') !== FALSE )
         {
             $L = array_shift($B);
+
             $L = str_getcsv($L);
+
             if( empty($L[5]) )
             {
                 trigger_error('Skipping invalid Page header - no PageSet Name: '.implode(',',$L));
@@ -582,6 +588,10 @@ abstract class App
                     continue;
 
                 $L = str_getcsv($L);
+
+                // always trim whitespace
+                foreach( $L as $K => $V )
+                    $L[$K] = trim($V);
 
                 // have a full page entry
                 if( !empty($L[0]) )
@@ -622,6 +632,10 @@ abstract class App
 
                 $L = str_getcsv($L);
 
+                // always trim whitespace
+                foreach( $L as $K => $V )
+                    $L[$K] = trim($V);
+
                 // skip blank lines
                 if( empty($L[0]) )
                     continue;
@@ -649,21 +663,50 @@ abstract class App
 
                 $L = str_getcsv($L);
 
+                // always trim whitespace
+                foreach( $L as $K => $V )
+                    $L[$K] = trim($V);
+
                 // skip blank lines - this is a bit tricky/different for data sheets
                 if( trim(implode('',$L)) === '' )
                     continue;
 
-                if( trim($L[0]) === '' )
-                    $ID = $RowID;
-                else
-                    $ID = trim($L[0]);
-
-                foreach( $Keys as $I => $V )
+                // if both the first and second columns are empty, we'll fold the remaining columns
+                // into the previous row's respective keys
+                if( isset($L[0]) && isset($L[1]) && $L[0] === '' && $L[1] === '' )
                 {
-                    if( $I === 0 )
-                        continue;
+                    foreach( $Keys as $I => $V )
+                    {
+                        if( $I < 2 )
+                            continue;
 
-                    $Tab['DataSheet'][$ID][$V] = $L[$I];
+                        if( isset($Tab['DataSheet'][$LastID][$V]) )
+                        {
+                            if( is_array($Tab['DataSheet'][$LastID][$V]) === FALSE )
+                                $Tab['DataSheet'][$LastID][$V] = array($Tab['DataSheet'][$LastID][$V]);
+                        }
+                        // this probably never happens
+                        else
+                            $Tab['DataSheet'][$LastID][$V] = array();
+
+                        $Tab['DataSheet'][$LastID][$V][] = $L[$I];
+                    }
+                }
+                // new full row
+                else
+                {
+                    if( $L[0] === '' )
+                        $LastID = $ID = $RowID;
+                    else
+                        $LastID = $ID = $L[0];
+
+                    foreach( $Keys as $I => $V )
+                    {
+                        if( $I === 0 )
+                            continue;
+
+                        $Tab['DataSheet'][$ID][$V] = $L[$I];
+                    }
                 }
             }
 
