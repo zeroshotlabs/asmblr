@@ -19,7 +19,8 @@ namespace asm;
  *
  * The name of the defined methods is then used for link creation.
  *
- * @note This uses PHP's native streams except for POSTFiles().
+ * @note This all uses curl - PHP's streams are unreliable, especially with HTTPS (tlsv1 alert decode error).
+ * @note This does not enforce a valid HTTPS certificate at the destination.
  * @todo Potentially add PUT and other support.
  * @todo GET/POST may not gracefully handle redirects and the headers from each.
  * @todo Enable setting of timeouts and other connection preferences, including client SSL.
@@ -47,6 +48,11 @@ class restr extends \asm\LinkSet
     */
     public $CURLError = '';
     public $CURLInfo = array();
+
+    /**
+     * Raw response from the curl request.
+     */
+    public $CURLResponse = '';
 
 
     /**
@@ -101,6 +107,7 @@ class restr extends \asm\LinkSet
      * @param string $Method The name of the defined method.
      * @param array $QueryString Key/value pairs to use as a query string.
      * @param string $Raw Prevent automatic JSON detection/decoding of the response.
+     * @retval null Request failed.
      * @retval string Response string if non-json or $Raw is TRUE.
      * @retval array json_decode()'d data as associative array.
      *
@@ -110,16 +117,15 @@ class restr extends \asm\LinkSet
      */
     public function GET( $Method,$QueryString = array(),$Raw = FALSE )
     {
-        $D = array('http'=>array('method'=>'GET','follow_location'=>'5','user_agent'=>'asmblr.org restr v1'));
-
-        $Response = file_get_contents($this($Method,$QueryString),FALSE,stream_context_create($D));
-
-        $this->Headers = static::ParseHeaders($http_response_header);
-
-        if( isset($this->Headers['content-type']) && strtolower($this->Headers['content-type']) === 'application/json' && $Raw === FALSE )
-            return json_decode($Response,TRUE);
+        if( $this->curlr($this($Method,$QueryString),FALSE) )
+        {
+            if( isset($this->Headers['content-type']) && strtolower($this->Headers['content-type']) === 'application/json' && $Raw === FALSE )
+                return json_decode($this->CURLResponse,TRUE);
+            else
+                return $this->CURLResponse;
+        }
         else
-            return $Response;
+            return NULL;
     }
 
     /**
@@ -131,6 +137,7 @@ class restr extends \asm\LinkSet
      * @param array $Payload Key/value pairs to use as POST data.
      * @param array $QueryString Key/value pairs to use as a query string.
      * @param string $Raw Prevent automatic JSON detection/decoding of the response.
+     * @retval null Request failed.
      * @retval string Response string if non-json or $Raw is TRUE.
      * @retval array json_decode()'d data as associative array.
      *
@@ -140,18 +147,15 @@ class restr extends \asm\LinkSet
      */
     public function POST( $Method,$Payload = array(),$QueryString = array(),$Raw = FALSE )
     {
-        $D = array('http'=>array('method'=>'POST','user_agent'=>'asmblr.org restr v1',
-                'header'=>'Content-type: application/x-www-form-urlencoded',
-                'content'=>http_build_query($Payload)));
-
-        $Response = file_get_contents($this($Method,$QueryString),FALSE,stream_context_create($D));
-
-        $this->Headers = static::ParseHeaders($http_response_header);
-
-        if( isset($this->Headers['content-type']) && strtolower($this->Headers['content-type']) === 'application/json' && $Raw === FALSE )
-            return json_decode($Response,TRUE);
+        if( $this->curlr($this($Method,$QueryString),TRUE,$Payload) )
+        {
+            if( isset($this->Headers['content-type']) && strtolower($this->Headers['content-type']) === 'application/json' && $Raw === FALSE )
+                return json_decode($this->CURLResponse,TRUE);
+            else
+                return $this->CURLResponse;
+        }
         else
-            return $Response;
+            return NULL;
     }
 
     /**
@@ -178,25 +182,6 @@ class restr extends \asm\LinkSet
      */
     public function POSTFiles( $Method,$QueryString = array(),$Payload = array(),$Files = array(),$Raw = FALSE )
     {
-        $CH = curl_init();
-
-        curl_setopt($CH,CURLOPT_RETURNTRANSFER,TRUE);
-        curl_setopt($CH,CURLOPT_HEADER,TRUE);
-        curl_setopt($CH,CURLINFO_HEADER_OUT,TRUE);
-
-        curl_setopt($CH,CURLOPT_SSL_VERIFYPEER,FALSE);
-        curl_setopt($CH,CURLOPT_SSL_VERIFYHOST,FALSE);
-
-        // curl_setopt($this->CH,CURLOPT_SSLCERT,fw('page')->Cert);
-        // curl_setopt($this->CH,CURLOPT_SSLCERTPASSWD,fw('page')->Passwd);
-        // curl_setopt($this->CH,CURLOPT_CERTINFO,TRUE);
-
-        curl_setopt($CH,CURLOPT_HTTPHEADER,array('Expect:'));
-        curl_setopt($CH,CURLOPT_USERAGENT,'asmblr.org restr v1');
-
-        curl_setopt($CH,CURLOPT_POST,TRUE);
-        curl_setopt($CH,CURLOPT_URL,$this($Method,$QueryString));
-
         $F = $TFiles = array();
         foreach( $Files as $K => $V )
         {
@@ -216,14 +201,61 @@ class restr extends \asm\LinkSet
                 $F[$K] = '@'.trim($T);
         }
 
-        curl_setopt($CH,CURLOPT_POSTFIELDS,array_merge($Payload,$F));
+        if( $this->curlr($this($Method,$QueryString),TRUE,array_merge($Payload,$F)) )
+        {
+            foreach( $TFiles as $T )
+                unlink($T);
+
+            if( isset($this->Headers['content-type']) && strtolower($this->Headers['content-type']) === 'application/json' && $Raw === FALSE )
+                return json_decode($this->CURLResponse,TRUE);
+            else
+                return $this->CURLResponse;
+        }
+        else
+        {
+            foreach( $TFiles as $T )
+                unlink($T);
+
+            return NULL;
+        }
+    }
+
+    /**
+     * Make request using curl.
+     *
+     * @param string $URL The URL to make the request to.
+     * @param boolean $IsPOST TRUE to make a POST request.
+     * @param array $POSTPayload Key/value pairs of POST data.
+     * @return boolean TRUE upon successful request.
+     */
+    protected function curlr( $URL,$IsPOST = FALSE,$POSTPayload = array() )
+    {
+        $CH = curl_init();
+
+        curl_setopt($CH,CURLOPT_RETURNTRANSFER,TRUE);
+        curl_setopt($CH,CURLOPT_HEADER,TRUE);
+        curl_setopt($CH,CURLINFO_HEADER_OUT,TRUE);
+
+        curl_setopt($CH,CURLOPT_SSL_VERIFYPEER,FALSE);
+        curl_setopt($CH,CURLOPT_SSL_VERIFYHOST,FALSE);
+
+        // curl_setopt($this->CH,CURLOPT_SSLCERT,fw('page')->Cert);
+        // curl_setopt($this->CH,CURLOPT_SSLCERTPASSWD,fw('page')->Passwd);
+        // curl_setopt($this->CH,CURLOPT_CERTINFO,TRUE);
+
+        curl_setopt($CH,CURLOPT_HTTPHEADER,array('Expect:'));
+        curl_setopt($CH,CURLOPT_USERAGENT,'asmblr.org restr v1');
+
+        curl_setopt($CH,CURLOPT_URL,$URL);
+
+        if( $IsPOST === TRUE )
+        {
+            curl_setopt($CH,CURLOPT_POST,TRUE);
+            curl_setopt($CH,CURLOPT_POSTFIELDS,$POSTPayload);
+        }
 
         $Response = curl_exec($CH);
 
-        foreach( $TFiles as $T )
-            unlink($T);
-
-        // TODO: should add similar error handling in stream based methods
         if( curl_errno($CH) === 0 )
         {
             $this->CURLError = '';
@@ -231,7 +263,7 @@ class restr extends \asm\LinkSet
         else
         {
             $this->CURLError = curl_strerror(curl_errno($CH));
-            return $this->CURLError;
+            return FALSE;
         }
 
         $this->CURLInfo = curl_getinfo($CH);
@@ -240,15 +272,12 @@ class restr extends \asm\LinkSet
         if( isset($this->CURLInfo['header_size']) )
         {
             $this->Headers = static::ParseHeaders(substr($Response,0,$this->CURLInfo['header_size']));
-            $Response = substr($Response,$this->CURLInfo['header_size']);
+            $this->CURLResponse = substr($Response,$this->CURLInfo['header_size']);
         }
         else
             $this->Headers = array();
 
-        if( isset($this->Headers['content-type']) && strtolower($this->Headers['content-type']) === 'application/json' && $Raw === FALSE )
-            return json_decode($Response,TRUE);
-        else
-            return $Response;
+        return TRUE;
     }
 
     /**
