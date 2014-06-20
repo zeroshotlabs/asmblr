@@ -240,6 +240,8 @@ abstract class App
 
     /**
      * Generic debug toggler for pages and templates.
+     *
+     * @todo Needs review and documented where this is called... below logic may also be incorrect.
      */
     public function Debugger()
     {
