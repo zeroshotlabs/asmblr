@@ -450,7 +450,17 @@ abstract class App
             // munge to get CSV
             $ManifestURL['Query']['output'] = 'csv';
 
-            $B = @file(URL::ToString($ManifestURL));
+            // nasty clean-up since google likes to play games
+            $Tmp = @file(URL::ToString($ManifestURL));
+            $B = array();
+            foreach( $Tmp as $K => $V )
+            {
+                $Tmp2 = str_getcsv($V);
+                foreach( $Tmp2 as $K2 => $V2 )
+                    $Tmp2[$K2] = "\"{$V2}\"";
+
+                $B[$K] = implode(',',$Tmp2);
+            }
 
             $Headers = \asm\restr::ParseHeaders($http_response_header);
 
