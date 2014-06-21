@@ -19,7 +19,7 @@ namespace asm;
  *
  * The name of the defined methods is then used for link creation.
  *
- * @note This all uses curl - PHP's streams are unreliable, especially with HTTPS (tlsv1 alert decode error).
+ * @note This all uses curl - PHP's streams are unreliable, especially with HTTPS (tlsv1 alert decode error + variations between versions of openssl).
  * @note This does not enforce a valid HTTPS certificate at the destination.
  * @todo Potentially add PUT and other support.
  * @todo GET/POST may not gracefully handle redirects and the headers from each.
@@ -107,17 +107,19 @@ class restr extends \asm\LinkSet
      * @param string $Method The name of the defined method.
      * @param array $QueryString Key/value pairs to use as a query string.
      * @param string $Raw Prevent automatic JSON detection/decoding of the response.
+     * @param array $Headers Headers to use in the request (key/value pairs).
      * @retval null Request failed.
      * @retval string Response string if non-json or $Raw is TRUE.
      * @retval array json_decode()'d data as associative array.
      *
+     * @todo Check that setting $Headers will make them the only headers sent in the request.  Same in the other methods.
      * @note By default, an API's response with a Content-Type of application/json will
      *       be automatically json_decode()'d.
-     * @note This currently does not provide a way to change the URL's path or request headers.
+     * @note This currently does not provide a way to change the URL's path.
      */
-    public function GET( $Method,$QueryString = array(),$Raw = FALSE )
+    public function GET( $Method,$QueryString = array(),$Raw = FALSE,$Headers = array() )
     {
-        if( $this->curlr($this($Method,$QueryString),FALSE) )
+        if( $this->curlr($this($Method,$QueryString),'',$Headers) )
         {
             if( isset($this->Headers['content-type']) && strtolower($this->Headers['content-type']) === 'application/json' && $Raw === FALSE )
                 return json_decode($this->CURLResponse,TRUE);
@@ -137,6 +139,7 @@ class restr extends \asm\LinkSet
      * @param array $Payload Key/value pairs to use as POST data.
      * @param array $QueryString Key/value pairs to use as a query string.
      * @param string $Raw Prevent automatic JSON detection/decoding of the response.
+     * @param array $Headers Headers to use in the request (key/value pairs).
      * @retval null Request failed.
      * @retval string Response string if non-json or $Raw is TRUE.
      * @retval array json_decode()'d data as associative array.
@@ -145,9 +148,9 @@ class restr extends \asm\LinkSet
      *       be automatically json_decode()'d.
      * @note This currently does not provide a way to change the URL's path or request headers.
      */
-    public function POST( $Method,$Payload = array(),$QueryString = array(),$Raw = FALSE )
+    public function POST( $Method,$Payload = array(),$QueryString = array(),$Raw = FALSE,$Headers = array() )
     {
-        if( $this->curlr($this($Method,$QueryString),TRUE,$Payload) )
+        if( $this->curlr($this($Method,$QueryString),$Payload,$Headers) )
         {
             if( isset($this->Headers['content-type']) && strtolower($this->Headers['content-type']) === 'application/json' && $Raw === FALSE )
                 return json_decode($this->CURLResponse,TRUE);
@@ -172,6 +175,7 @@ class restr extends \asm\LinkSet
      * @retval string Response string if non-json or $Raw is TRUE.
      * @retval array json_decode()'d data as associative array.
      *
+     * @todo Add request header overrides per the other methods.
      * @note By default, an API's response with a Content-Type of application/json will
      *       be automatically json_decode()'d.
      * @note On Windows, IUSR must be given full control permissions of c:\windows\temp otherwise CURL can't
@@ -201,7 +205,7 @@ class restr extends \asm\LinkSet
                 $F[$K] = '@'.trim($T);
         }
 
-        if( $this->curlr($this($Method,$QueryString),TRUE,array_merge($Payload,$F)) )
+        if( $this->curlr($this($Method,$QueryString),array_merge($Payload,$F)) )
         {
             foreach( $TFiles as $T )
                 unlink($T);
@@ -224,34 +228,58 @@ class restr extends \asm\LinkSet
      * Make request using curl.
      *
      * @param string $URL The URL to make the request to.
-     * @param boolean $IsPOST TRUE to make a POST request.
-     * @param array $POSTPayload Key/value pairs of POST data.
+     * @param array $POSTPayload Key/value pairs of POST data; will be multipart encoded.
+     * @param string $POSTPayload Encoded string of POST data; will be form-urlencoded.
+     * @param array $Headers Headers to use in the request (key/value pairs).
      * @return boolean TRUE upon successful request.
+     * 
+     * @note If POSTPayload is empty, a GET will be performed.
+     * @note If POSTPayload is a string, form-urlencoded; array = multipart  (unless overriden by a header)
+     * @todo Determine behavior of $Headers per comments in GET - right now things seem
+     *       to be correct and overwritten as needed.
      */
-    protected function curlr( $URL,$IsPOST = FALSE,$POSTPayload = array() )
+    protected function curlr( $URL,$POSTPayload = array(),$Headers = array() )
     {
+        // :)  should be using DebugOn/etc
+        $Debug = TRUE;
+        
         $CH = curl_init();
 
         curl_setopt($CH,CURLOPT_RETURNTRANSFER,TRUE);
         curl_setopt($CH,CURLOPT_HEADER,TRUE);
-        curl_setopt($CH,CURLINFO_HEADER_OUT,TRUE);
+        curl_setopt($CH,CURLOPT_FOLLOWLOCATION,TRUE);
 
         curl_setopt($CH,CURLOPT_SSL_VERIFYPEER,FALSE);
         curl_setopt($CH,CURLOPT_SSL_VERIFYHOST,FALSE);
 
-        // curl_setopt($this->CH,CURLOPT_SSLCERT,fw('page')->Cert);
-        // curl_setopt($this->CH,CURLOPT_SSLCERTPASSWD,fw('page')->Passwd);
+        // curl_setopt($this->CH,CURLOPT_SSLCERT,$Cert);
+        // curl_setopt($this->CH,CURLOPT_SSLCERTPASSWD,$Passwd);
         // curl_setopt($this->CH,CURLOPT_CERTINFO,TRUE);
 
-        curl_setopt($CH,CURLOPT_HTTPHEADER,array('Expect:'));
+        // may get overwritten per headers
         curl_setopt($CH,CURLOPT_USERAGENT,'asmblr.org restr v1');
+
+        // automatically sets correct content-type unless override below
+        if( !empty($POSTPayload) )
+            curl_setopt($CH,CURLOPT_POSTFIELDS,$POSTPayload);
+
+        // for now we always remove Expect:
+        $CURLHeaders = array('Expect:');
+
+        foreach( $Headers as $K => $V )
+        {
+            // encoding?
+            $CURLHeaders[] = "{$K}: {$V}";
+        }
+
+        curl_setopt($CH,CURLOPT_HTTPHEADER,$CURLHeaders);
 
         curl_setopt($CH,CURLOPT_URL,$URL);
 
-        if( $IsPOST === TRUE )
+        if( $Debug )
         {
-            curl_setopt($CH,CURLOPT_POST,TRUE);
-            curl_setopt($CH,CURLOPT_POSTFIELDS,$POSTPayload);
+            curl_setopt($CH,CURLINFO_HEADER_OUT,TRUE);
+            curl_setopt($CH,CURLOPT_VERBOSE,TRUE);  // doesn't seem to actually do anything
         }
 
         $Response = curl_exec($CH);
@@ -277,6 +305,13 @@ class restr extends \asm\LinkSet
         else
             $this->Headers = array();
 
+        if( $Debug )
+        {
+            llog(\asm\Debug::Dump(curl_getinfo($CH)));
+            llog('RESPONSE HEADERS');
+            llog(\asm\Debug::Dump($this->Headers));
+        }
+        
         return TRUE;
     }
 
