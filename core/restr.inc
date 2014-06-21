@@ -241,7 +241,7 @@ class restr extends \asm\LinkSet
     protected function curlr( $URL,$POSTPayload = array(),$Headers = array() )
     {
         // :)  should be using DebugOn/etc
-        $Debug = TRUE;
+        $Debug = FALSE;
         
         $CH = curl_init();
 
