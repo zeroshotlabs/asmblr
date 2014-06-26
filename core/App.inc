@@ -53,7 +53,7 @@ abstract class App
      *
      * @todo Implement locking/flock() for manifest/app cache file creation.
      */
-    public function __construct( $App,$Request )
+    public function __construct( $App,$Request,$ConfigOverride = array() )
     {
         $this->Hostname = $App['Hostname'];
         $this->AppRoot = $App['AppRoot'];
@@ -92,6 +92,12 @@ abstract class App
         // note too that these results aren't cached (this whole thing could be considered "slow")
         // so whatever index.php contains at execution time, is what's used
         foreach( array_intersect_key($App,$this->Manifest['Config']) as $K => $V )
+            $this->Manifest['Config'][$K] = $V;
+
+        // finally apply hard-overrides or our own config variables - sort of hacky but
+        // we need a way to set internally what we want regardless of the manifest for
+        // asmblrbp-micro/etc
+        foreach( $ConfigOverride as $K => $V )
             $this->Manifest['Config'][$K] = $V;
 
         // set local properties for the manifest - would like to streamline as it's wasteful
@@ -746,55 +752,61 @@ abstract class App
         // PHP Bug - can't use FilesystemIterator::CURRENT_AS_PATHNAME |  FilesystemIterator::KEY_AS_FILENAME with recursive dirs
         $Flags = \FilesystemIterator::SKIP_DOTS | \FilesystemIterator::UNIX_PATHS;
 
-        // subdirectories are NOT prefixed
-        $dir = new \RecursiveDirectoryIterator("{$AppRoot}lib",$Flags);
-        $fs = new \RecursiveIteratorIterator($dir);
-        foreach( $fs as $K => $V )
+        // subdirectories are NOT prefixed - lib may or may not exist (MICRO doesn't have it)
+        if( is_dir("{$AppRoot}lib") )
         {
-            $PI = pathinfo($K);
-            if( in_array(strtolower($PI['extension']),array('php','inc')) === FALSE )
-                continue;
-
-            // if we're not caching, just include the file
-            // this helps tremendously with useful error messages - ditto below as well
-            if( empty($this->CacheApp) )
+            $dir = new \RecursiveDirectoryIterator("{$AppRoot}lib",$Flags);
+            $fs = new \RecursiveIteratorIterator($dir);
+            foreach( $fs as $K => $V )
             {
-                include $K;
-            }
-            else
-            {
-                $AppFile .= "\n\n\n/*** {$K} ***/";
+                $PI = pathinfo($K);
+                if( in_array(strtolower($PI['extension']),array('php','inc')) === FALSE )
+                    continue;
 
-                $T = php_strip_whitespace($K);
-                if( strpos($T,'<?php') === 0 )
-                    $AppFile .= "\n".substr($T,5);
+                // if we're not caching, just include the file
+                // this helps tremendously with useful error messages - ditto below as well
+                if( empty($this->CacheApp) )
+                {
+                    include $K;
+                }
                 else
-                    $AppFile .= $T;
+                {
+                    $AppFile .= "\n\n\n/*** {$K} ***/";
+
+                    $T = php_strip_whitespace($K);
+                    if( strpos($T,'<?php') === 0 )
+                        $AppFile .= "\n".substr($T,5);
+                    else
+                        $AppFile .= $T;
+                }
             }
         }
 
-        // subdirectories are NOT prefixed
-        $dir = new \RecursiveDirectoryIterator("{$AppRoot}functions",$Flags);
-        $fs = new \RecursiveIteratorIterator($dir);
-        foreach( $fs as $K => $K )
+        // subdirectories are NOT prefixed - may not exist per lib above
+        if( is_dir("{$AppRoot}functions") )
         {
-            $PI = pathinfo($K);
-            if( in_array(strtolower($PI['extension']),array('php','inc')) === FALSE )
-                continue;
-
-            if( empty($this->CacheApp) )
+            $dir = new \RecursiveDirectoryIterator("{$AppRoot}functions",$Flags);
+            $fs = new \RecursiveIteratorIterator($dir);
+            foreach( $fs as $K => $K )
             {
-                include $K;
-            }
-            else
-            {
-                $AppFile .= "\n\n\n/*** {$K} ***/";
+                $PI = pathinfo($K);
+                if( in_array(strtolower($PI['extension']),array('php','inc')) === FALSE )
+                    continue;
 
-                $T = php_strip_whitespace($K);
-                if( strpos($T,'<?php') === 0 )
-                    $AppFile .= "\n".substr($T,5);
+                if( empty($this->CacheApp) )
+                {
+                    include $K;
+                }
                 else
-                    $AppFile .= $T;
+                {
+                    $AppFile .= "\n\n\n/*** {$K} ***/";
+
+                    $T = php_strip_whitespace($K);
+                    if( strpos($T,'<?php') === 0 )
+                        $AppFile .= "\n".substr($T,5);
+                    else
+                        $AppFile .= $T;
+                }
             }
         }
 
