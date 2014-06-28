@@ -153,6 +153,27 @@ class TemplateSet implements Debuggable
     }
 
     /**
+     * Retrieve the un-rendered body of a Template.
+     *
+     * @param string $Name The name of the template.
+     * @retval string The body of the template.
+     * @retval NULL The template was not found.
+     */
+    public function __get( $Name )
+    {
+        if( isset($this->Templates[$Name]) )
+        {
+            if( empty($this->Templates[$Name]['Path']) )
+                return $this->Templates[$Name]['Body'];
+            else
+                return file_get_contents($this->Templates[$Name]['Path']);
+        }
+        else
+            return NULL;
+    }
+
+
+    /**
      * Render and output a Template that exists in this TemplateSet.
      *
      * The rendered Template is outputted directly.
