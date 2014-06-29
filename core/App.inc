@@ -53,6 +53,7 @@ abstract class App
      *
      * @todo Implement locking/flock() for manifest/app cache file creation.
      * @todo Do we want to create a DataSheets property?
+     * @note If $App contains a Dirs element, it's used by BuildFile rather than the default directory structure.
      */
     public function __construct( $App,$Request,$ConfigOverride = array() )
     {
@@ -110,11 +111,17 @@ abstract class App
         // build/cache our app file
         // include/eval of this will set our $this->Templates property
         // TODO: we should test that this works without issue
+
+        if( !empty($App['Dirs']) )
+            $Dirs = $App['Dirs'];
+        else
+            $Dirs = array();
+
         if( $this->CacheApp === TRUE )
         {
             if( (@include "{$this->CacheDir}/{$this->Hostname}.app.inc") === FALSE )
             {
-                file_put_contents("{$this->CacheDir}/{$this->Hostname}.app.inc",$this->BuildFile());
+                file_put_contents("{$this->CacheDir}/{$this->Hostname}.app.inc",$this->BuildFile($Dirs));
                 include "{$this->CacheDir}/{$this->Hostname}.app.inc";
             }
         }
@@ -122,7 +129,7 @@ abstract class App
         {
             // clear an existing cache
             @unlink("{$this->CacheDir}/{$this->Hostname}.app.inc");
-            $T = $this->BuildFile();
+            $T = $this->BuildFile($Dirs);
             eval('?>'.$T);
         }
 
@@ -206,7 +213,7 @@ abstract class App
         foreach( $this->Manifest['Directives'] as $V )
         {
             if( empty($this->{$V[0]}) )
-                throw new Exception("Directive object {$V[0]}' doesn't exist while executing app for '{$this->Config['Hostname']}'.");
+                throw new Exception("Directive object '{$V[0]}' doesn't exist while executing app for '{$this->Config['Hostname']}'.");
             else
                 $this->{$V[0]}->ApplyDirective($V[1],$V[2]);
         }
@@ -739,12 +746,22 @@ abstract class App
     // if CacheApp isn't TRUE, we leave templates on disk and will include them - this helps with debugging
     // since PHP's error messages directly point to a line and file - see also Template::__call()
     // only .php and .inc files are pulled in - .tpl and .html and .js and .css for templates
-    protected function BuildFile()
+    // if $Dirs is non-empty array, it's taken as array('lib'=>array(),'functions'=>array(),'templates'=>array())
+    // and each directory is loaded appropriately - otherwise, the default lib/functions/templates dirs are loaded
+    // directories specified must exist - they will not be gracefully skipped
+    protected function BuildFile( $Dirs = array() )
     {
-        $AppRoot = $this->Manifest['AppRoot'];
+        if( empty($Dirs) )
+        {
+            $AppRoot = $this->Manifest['AppRoot'];
 
-        if( !is_dir($AppRoot) || !is_readable($AppRoot) )
-            throw new Exception("Unreadable AppRoot '{$AppRoot}'");
+            if( !is_dir($AppRoot) || !is_readable($AppRoot) )
+                throw new Exception("Unreadable AppRoot '{$AppRoot}'");
+
+            $Dirs = array('lib'=>array("{$AppRoot}lib"),
+                          'functions'=>array("{$AppRoot}functions"),
+                          'templates'=>array("{$AppRoot}templates"));
+        }
 
         $Hostname = $this->Hostname;
 
@@ -753,10 +770,10 @@ abstract class App
         // PHP Bug - can't use FilesystemIterator::CURRENT_AS_PATHNAME |  FilesystemIterator::KEY_AS_FILENAME with recursive dirs
         $Flags = \FilesystemIterator::SKIP_DOTS | \FilesystemIterator::UNIX_PATHS;
 
-        // subdirectories are NOT prefixed - lib may or may not exist (MICRO doesn't have it)
-        if( is_dir("{$AppRoot}lib") )
+        // subdirectories are NOT prefixed
+        foreach( $Dirs['lib'] as $D )
         {
-            $dir = new \RecursiveDirectoryIterator("{$AppRoot}lib",$Flags);
+            $dir = new \RecursiveDirectoryIterator($D,$Flags);
             $fs = new \RecursiveIteratorIterator($dir);
             foreach( $fs as $K => $V )
             {
@@ -783,10 +800,10 @@ abstract class App
             }
         }
 
-        // subdirectories are NOT prefixed - may not exist per lib above
-        if( is_dir("{$AppRoot}functions") )
+        // subdirectories are NOT prefixed
+        foreach( $Dirs['functions'] as $D )
         {
-            $dir = new \RecursiveDirectoryIterator("{$AppRoot}functions",$Flags);
+            $dir = new \RecursiveDirectoryIterator($D,$Flags);
             $fs = new \RecursiveIteratorIterator($dir);
             foreach( $fs as $K => $K )
             {
@@ -812,61 +829,64 @@ abstract class App
         }
 
         // subdirectories ARE prefixed and merge any Function definition from the manifest
-        $AppFile .= "\n\n\n/*** {$AppRoot}templates ***/";
-        $dir = new \RecursiveDirectoryIterator("{$AppRoot}templates",$Flags);
-        $fs = new \RecursiveIteratorIterator($dir);
         $Templates = array();
-        foreach( $fs as $K => $V )
+        foreach( $Dirs['templates'] as $D )
         {
-            $PI = pathinfo($K);
-            if( in_array(strtolower($PI['extension']),array('php','inc','tpl','html','css','js')) === FALSE )
-                continue;
-
-            $P = Path::Init($K);
-            $P = Path::Bottom($P,2);
-
-            if( $P['Segments'][0] !== 'templates' )
-                $Prefix = $P['Segments'][0].'_';
-            else
-                $Prefix = '';
-
-            $Buf = file_get_contents($K);
-
-            if( strpos(substr($Buf,0),"\n@@@") === FALSE )
+            $AppFile .= "\n\n\n/*** {$D} ***/";
+            $dir = new \RecursiveDirectoryIterator($D,$Flags);
+            $fs = new \RecursiveIteratorIterator($dir);
+            foreach( $fs as $K => $V )
             {
-                $P['Segments'][1] = pathinfo($P['Segments'][1],PATHINFO_FILENAME);
+                $PI = pathinfo($K);
+                if( in_array(strtolower($PI['extension']),array('php','inc','tpl','html','css','js')) === FALSE )
+                    continue;
 
-                if( !empty($this->Manifest['Templates'][$Prefix.$P['Segments'][1]]) )
-                    $F = $this->Manifest['Templates'][$Prefix.$P['Segments'][1]];
+                $P = Path::Init($K);
+                $P = Path::Bottom($P,2);
+
+                if( $P['Segments'][0] !== 'templates' )
+                    $Prefix = $P['Segments'][0].'_';
                 else
-                    $F = array();
+                    $Prefix = '';
 
-                // if we're not caching, don't store the body - it'll be include()'d in TemplateSet::__call()
-                // if we are, prepend the start tag so that it can be eval()'d without string munging
-                // same for below
-                if( empty($this->CacheApp) )
-                    $Buf = '';
-                else
-                    $Buf = "?>{$Buf}";
+                $Buf = file_get_contents($K);
 
-                $Templates[$Prefix.$P['Segments'][1]] = Template::Init($Prefix.$P['Segments'][1],$K,$F,$Buf);
-            }
-            else
-            {
-                // this regex needs to be more robust, including handling empty frags, frags that don't
-                // start with whitespace, those that end with a comment, etc. - these are always set in the body
-                // and never have a path
-                // the naming scheme here is DirName_Filename or just Filename
-                $B = preg_split("/\s*@@@(\w+[a-zA-Z0-9\-]*)/m",$Buf,0,PREG_SPLIT_DELIM_CAPTURE|PREG_SPLIT_NO_EMPTY);
-                $CNT = count($B);
-                for( $i = 0; $i < $CNT; $i+=2 )
+                if( strpos(substr($Buf,0),"\n@@@") === FALSE )
                 {
-                    if( !empty($this->Manifest['Templates'][$Prefix.$B[$i]]) )
-                        $F = $this->Manifest['Templates'][$Prefix.$B[$i]];
+                    $P['Segments'][1] = pathinfo($P['Segments'][1],PATHINFO_FILENAME);
+
+                    if( !empty($this->Manifest['Templates'][$Prefix.$P['Segments'][1]]) )
+                        $F = $this->Manifest['Templates'][$Prefix.$P['Segments'][1]];
                     else
                         $F = array();
 
-                    $Templates[$Prefix.$B[$i]] = Template::Init($Prefix.$B[$i],'',$F,"?>{$B[$i+1]}");
+                    // if we're not caching, don't store the body - it'll be include()'d in TemplateSet::__call()
+                    // if we are, prepend the start tag so that it can be eval()'d without string munging
+                    // same for below
+                    if( empty($this->CacheApp) )
+                        $Buf = '';
+                    else
+                        $Buf = "?>{$Buf}";
+
+                    $Templates[$Prefix.$P['Segments'][1]] = Template::Init($Prefix.$P['Segments'][1],$K,$F,$Buf);
+                }
+                else
+                {
+                    // this regex needs to be more robust, including handling empty frags, frags that don't
+                    // start with whitespace, those that end with a comment, etc. - these are always set in the body
+                    // and never have a path
+                    // the naming scheme here is DirName_Filename or just Filename
+                    $B = preg_split("/\s*@@@(\w+[a-zA-Z0-9\-]*)/m",$Buf,0,PREG_SPLIT_DELIM_CAPTURE|PREG_SPLIT_NO_EMPTY);
+                    $CNT = count($B);
+                    for( $i = 0; $i < $CNT; $i+=2 )
+                    {
+                        if( !empty($this->Manifest['Templates'][$Prefix.$B[$i]]) )
+                            $F = $this->Manifest['Templates'][$Prefix.$B[$i]];
+                        else
+                            $F = array();
+
+                        $Templates[$Prefix.$B[$i]] = Template::Init($Prefix.$B[$i],'',$F,"?>{$B[$i+1]}");
+                    }
                 }
             }
         }
