@@ -285,6 +285,23 @@ class TemplateSet implements Debuggable
     }
 
     /**
+     * Retrieve a template Struct by name.
+     *
+     * This may not include the body - see __get().
+     *
+     * @param string $Name
+     * @retval array The Template Struct.
+     * @retval NULL Template not found.
+     */
+    public function Read( $Name )
+    {
+        if( empty($this->Templates[$Name]) )
+            return NULL;
+        else
+            return $this->Templates[$Name];
+    }
+
+    /**
      * Render a Template, returning it's output by default.
      *
      * Helper function for rendering Templates.
