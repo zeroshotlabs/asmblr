@@ -357,13 +357,17 @@ class MySQLSet extends TemplateSet
      * Create a MySQLSet object.
      *
      * @param MySQL $MySQL The MySQL object that will be used for executing statements.
+     * @param string $Path The file containing the SQL statements.
      *
      * @note The MySQL object is Connect()'d as $DB.
      */
-    public function __construct( \fw\MySQL $MySQL )
+    public function __construct( \asm\MySQL $MySQL,$Path = '' )
     {
+        if( !empty($Path) )
+            $this->LoadFile($Path,$GLOBALS['asmapp']);
+
         $this->DB = $MySQL;
-        $this->Connect($this->DB,'DB');
+        $this->Connect(array('DB'=>$this->DB));
     }
 
     /**
