@@ -829,6 +829,7 @@ abstract class App
         }
 
         // subdirectories ARE prefixed and merge any Function definition from the manifest
+        // see also TemplateSet::Load()
         $Templates = array();
         foreach( $Dirs['templates'] as $D )
         {
@@ -870,6 +871,8 @@ abstract class App
 
                     $Templates[$Prefix.$P['Segments'][1]] = Template::Init($Prefix.$P['Segments'][1],$K,$F,$Buf);
                 }
+                // we'd like to retire this (or at least only have in TemplateSet::LoadFile)
+                //  but MC currently depends on it
                 else
                 {
                     // this regex needs to be more robust, including handling empty frags, frags that don't

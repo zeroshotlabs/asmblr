@@ -284,6 +284,53 @@ class TemplateSet implements Debuggable
         }
     }
 
+    // this needs to be cleaned up/organized with App including @@@ handling and merging with functions
+    public function LoadFile( $Path,\asm\App $App,$Return = FALSE )
+    {
+        $P = Path::Init($Path);
+        $P = Path::Bottom($P,2);
+
+        if( $P['Segments'][0] !== 'templates' )
+            $Prefix = $P['Segments'][0].'_';
+        else
+            $Prefix = '';
+
+        $Buf = file_get_contents($Path);
+
+        if( strpos(substr($Buf,0),"\n@@@") === FALSE )
+        {
+            $P['Segments'][1] = pathinfo($P['Segments'][1],PATHINFO_FILENAME);
+
+            if( !empty($app->Manifest['Templates'][$Prefix.$P['Segments'][1]]) )
+                $F = $app->Manifest['Templates'][$Prefix.$P['Segments'][1]];
+            else
+                $F = array();
+
+            if( $Return )
+                return Template::Init($Prefix.$P['Segments'][1],$K,$F,"?>{$Buf}");
+            else
+                $this->Templates[$Prefix.$P['Segments'][1]] = Template::Init($Prefix.$P['Segments'][1],$Path,$F,"?>{$Buf}");
+
+        }
+        /*
+        else
+        {
+            $B = preg_split("/\s*@@@(\w+[a-zA-Z0-9\-]*)/m",$Buf,0,PREG_SPLIT_DELIM_CAPTURE|PREG_SPLIT_NO_EMPTY);
+            $CNT = count($B);
+            $Templates = array();
+            for( $i = 0; $i < $CNT; $i+=2 )
+            {
+                if( !empty($this->Manifest['Templates'][$Prefix.$B[$i]]) )
+                    $F = $this->Manifest['Templates'][$Prefix.$B[$i]];
+                else
+                    $F = array();
+
+                $Templates[$Prefix.$B[$i]] = Template::Init($Prefix.$B[$i],'',$F,"?>{$B[$i+1]}");
+            }
+        }
+        */
+    }
+
     /**
      * Retrieve a template Struct by name.
      *
@@ -378,7 +425,7 @@ class TemplateSet implements Debuggable
     public function Connect( $Vars )
     {
         if( !is_array($Vars) )
-            throw new Exception("Vars not an array for '$Name'");
+            throw new Exception('Vars not an array for Connect()');
 
         foreach( $Vars as $K => $V )
             $this->Connected[$K] = $V;
