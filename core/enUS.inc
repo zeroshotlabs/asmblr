@@ -309,6 +309,23 @@ abstract class enUS
     }
 
     /**
+     * Create an SEO-friendly URL from a string.
+     *
+     * Returned URL will contain only words, with other characters and stopwords removed.
+     * If provided, Token will be prefixed with an underscore.
+     *
+     * @param string $T String to create URL from.
+     * @param string $Token Optional token prefix.
+     * @retval string Cleaned URL encoded string..
+     */
+    public static function ToURL( $T,$Token = '' )
+    {
+        $Tmp = implode('-',self::ToWords($T));
+
+        return urlencode(empty($Token)?$Tmp:"{$Token}_{$Tmp}");
+    }
+
+    /**
      * Validate whether a text element is of a certain value.
      *
      * @param string $Label The name of the element to check.
