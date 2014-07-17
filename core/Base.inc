@@ -413,9 +413,14 @@ abstract class Debug
 
             $T['Type'] = isset($V['type'])?$V['type']:'';
 
-            $T['Args'] = isset($V['args'])?$V['args']:array();
-            foreach( $T['Args'] as $K2 => &$V2 )
-                $V2 = is_object($V2)?get_class($V2).' object':$V2;
+            // this has to be done like this otherwise we reference the actual object
+//            $T['Args'] = isset($V['args'])?$V['args']:array();            
+            $T['Args'] = array();
+            if( isset($V['args']) )
+            {
+                foreach( $V['args'] as $K2 => $V2 )
+                    $T['Args'][$K2] = is_object($V2)?get_class($V2).' object':$V2;
+            }
 
             $T['File'] = Struct::Get('file',$V);
             $T['Line'] = Struct::Get('line',$V);
