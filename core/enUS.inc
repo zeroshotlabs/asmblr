@@ -127,15 +127,17 @@ abstract class enUS
      * By default, the following is performed:
      *  - Stop words are replaced with dashes.
      *  - Non-alphanumeric characters are removed.
-     *  - The string is split on dashes and those characters contained in $Delims.
+     *  - The string is split on dashes, spaces, and those characters contained in $Delims.
      *  - Duplicate words are filtered.
      *
      * @param string $Str A string to convert.
      * @param boolean $RemoveStopWords TRUE to remove stop words.
      * @param boolean $DeDupe TRUE to remove duplicate words.
-     * @param string $Delims A string of characters, in addition to the dash, to use as delimiters.
+     * @param string $Delims A string of characters, in addition to the dash and space, to use as delimiters.
+     *
+     * @note Each character in $Delims should be escaped with a backslash.
      */
-    public static function ToWords( $Str,$RemoveStopWords = TRUE,$DeDupe = TRUE,$Delims = ',;:|' )
+    public static function ToWords( $Str,$RemoveStopWords = TRUE,$DeDupe = TRUE,$Delims = '\,\;\:\|' )
     {
         if( $RemoveStopWords === TRUE )
             $Str = preg_replace(array(static::$UseStopWords,static::$NoAlphaNum),array('-','-'),$Str);
@@ -143,7 +145,7 @@ abstract class enUS
             $Str = preg_replace(array(static::$NoUseStopWords,static::$NoAlphaNum),array('-','-'),$Str);
 
         // do we want a space as a delim? do we need to trim each word?
-        $Words = preg_split("/[ -{$Delims}]+/",$Str,PREG_SPLIT_NO_EMPTY);
+        $Words = preg_split("/[\ \-{$Delims}]+/",$Str,NULL,PREG_SPLIT_NO_EMPTY);
 
         if( $DeDupe === TRUE )
             return array_unique($Words);
