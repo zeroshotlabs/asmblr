@@ -360,6 +360,7 @@ class MySQLSet extends TemplateSet
      * @param string $Path The file containing the SQL statements.
      *
      * @note The MySQL object is Connect()'d as $DB.
+     * @todo If we get rid of @@@ we'd need $Path to be treated recursively
      */
     public function __construct( \asm\MySQL $MySQL,$Path = '' )
     {
@@ -446,7 +447,7 @@ class MySQLSet extends TemplateSet
             }
 
             ob_start();
-            eval("?>{$RenderingTemplate['Body']}");
+            eval($RenderingTemplate['Body']);
             $R = $this->DB->query(ob_get_clean());
 
             if( $R === FALSE )
@@ -557,12 +558,15 @@ class MySQLSet extends TemplateSet
         $Buf = "\${$this->DebugToken}::{$Name} called from {$BT}";
 
         ob_start();
-        eval("?>{$RenderingTemplate['Body']}");
+        eval($RenderingTemplate['Body']);
         $DebugSQL = trim(ob_get_clean());
 
         return $DebugSQL;
     }
 
+    /**
+     * @todo Doesn't fully support logging functionality because Log::Sys() doesn't
+     */
     protected function Debug__call2( $R,$DebugSQL,$Args )
     {
         $Buf2 = array();
@@ -584,7 +588,7 @@ class MySQLSet extends TemplateSet
         $Buf2['Query'] = $DebugSQL;
         $Buf2['Scope'] = Is::Arr(0,$Args)?$this->Connected+$Args[0]:$this->Connected;
 
-        Log::Log($Buf,'LOG',NULL,$Buf2);
+        Log::Log($DebugSQL,'LOG',NULL,$Buf2);
     }
 }
 
