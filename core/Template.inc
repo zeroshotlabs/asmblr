@@ -285,7 +285,10 @@ class TemplateSet implements Debuggable
     }
 
     // this needs to be cleaned up/organized with App including @@@ handling and merging with functions
-    public function LoadFile( $Path,\asm\App $App,$Return = FALSE )
+    // currently if a file contains @@@ an array of template structs will be returned - this is currently
+    // only used by MySQL extension - existing templates are overwrittenw with the same name
+    // unlike @@@ parsing in App the directory name of Path isn't prefixed
+    public function LoadFile( $Path,\asm\App $app,$Return = FALSE )
     {
         $P = Path::Init($Path);
         $P = Path::Bottom($P,2);
@@ -312,7 +315,6 @@ class TemplateSet implements Debuggable
                 $this->Templates[$Prefix.$P['Segments'][1]] = Template::Init($Prefix.$P['Segments'][1],$Path,$F,"?>{$Buf}");
 
         }
-        /*
         else
         {
             $B = preg_split("/\s*@@@(\w+[a-zA-Z0-9\-]*)/m",$Buf,0,PREG_SPLIT_DELIM_CAPTURE|PREG_SPLIT_NO_EMPTY);
@@ -320,15 +322,26 @@ class TemplateSet implements Debuggable
             $Templates = array();
             for( $i = 0; $i < $CNT; $i+=2 )
             {
-                if( !empty($this->Manifest['Templates'][$Prefix.$B[$i]]) )
-                    $F = $this->Manifest['Templates'][$Prefix.$B[$i]];
+                if( !empty($app->Manifest['Templates'][$B[$i]]) )
+                    $F = $app->Manifest['Templates'][$B[$i]];
                 else
                     $F = array();
 
-                $Templates[$Prefix.$B[$i]] = Template::Init($Prefix.$B[$i],'',$F,"?>{$B[$i+1]}");
+                $Templates[$B[$i]] = Template::Init($B[$i],'',$F,"?>{$B[$i+1]}");
+            }
+
+            if( $Return )
+            {
+                return $Templates;
+            }
+            else
+            {
+                foreach( $Templates as $K => $V )
+                {
+                    $this->Templates[$K] = $V;
+                }
             }
         }
-        */
     }
 
     /**
