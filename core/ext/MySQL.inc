@@ -313,7 +313,7 @@ class MySQL extends \mysqli implements Debuggable,CRUDC
         $BT = Debug::Backtrace();
         $BT = current(Debug::BT2Str($BT));
 
-        Log::Log("\${$this->DebugToken}::{$Type}('{$Table}') at {$BT}",'LOG',NULL,$SQL);
+        Log::Log("\${$this->DebugToken}::{$Type}('{$Table}') at {$BT}: {$SQL}",'LOG',NULL);
     }
 
     /**
@@ -337,10 +337,12 @@ class MySQL extends \mysqli implements Debuggable,CRUDC
 
 
 /**
- *  A set of MySQL SQL templates and tools for executing statements.
+ * A set of MySQL SQL templates and tools for executing statements.
  *
- *  MySQLSet manages and renders a set of SQL templates into statements
- *  which are executed using a MySQL object.
+ * MySQLSet manages and renders a set of SQL templates into statements
+ * which are executed using a MySQL object.
+ *
+ * @note CRUDC operations must be performed using a \asm\MySQL object, rather than this one.
  *
  * @see TemplateSet
  * @see MySQL
