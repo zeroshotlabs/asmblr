@@ -38,6 +38,11 @@ class restr extends \asm\LinkSet
     protected $Methods = array();
 
     /**
+     * Username/password - use SetBasicAuth()
+     */
+    protected $BasicAuth = array();
+    
+    /**
      * Key/value pairs of the response headers of the last request.
     */
     public $Headers = array();
@@ -113,16 +118,21 @@ class restr extends \asm\LinkSet
      * @retval array json_decode()'d data as associative array.
      *
      * @todo Check that setting $Headers will make them the only headers sent in the request.  Same in the other methods.
-     * @note By default, an API's response with a Content-Type of application/json will
+     * @note By default, an API's response with a Content-Type of application/json or +json will
      *       be automatically json_decode()'d.
-     * @note This currently does not provide a way to change the URL's path.
+     * @note $QueryString can be used to manipulate both the path and query string using URL::Set() syntax.
+     * @see URL::Set()
      */
     public function GET( $Method,$QueryString = array(),$Raw = FALSE,$Headers = array() )
     {
         if( $this->curlr($this($Method,$QueryString),'',$Headers) )
         {
-            if( isset($this->Headers['content-type']) && strtolower($this->Headers['content-type']) === 'application/json' && $Raw === FALSE )
-                return json_decode($this->CURLResponse,TRUE);
+            if( isset($this->Headers['content-type']) && $Raw === FALSE )
+            {
+                if( stripos($this->Headers['content-type'],'application/json') !== FALSE
+                 || stripos($this->Headers['content-type'],'+json') !== FALSE )
+                    return json_decode($this->CURLResponse,TRUE);
+            }
             else
                 return $this->CURLResponse;
         }
@@ -144,16 +154,21 @@ class restr extends \asm\LinkSet
      * @retval string Response string if non-json or $Raw is TRUE.
      * @retval array json_decode()'d data as associative array.
      *
-     * @note By default, an API's response with a Content-Type of application/json will
+     * @note By default, an API's response with a Content-Type of application/json or +json will
      *       be automatically json_decode()'d.
-     * @note This currently does not provide a way to change the URL's path or request headers.
+     * @note $QueryString can be used to manipulate both the path and query string using URL::Set() syntax.
+     * @see URL::Set()
      */
     public function POST( $Method,$Payload = array(),$QueryString = array(),$Raw = FALSE,$Headers = array() )
     {
         if( $this->curlr($this($Method,$QueryString),$Payload,$Headers) )
         {
-            if( isset($this->Headers['content-type']) && strtolower($this->Headers['content-type']) === 'application/json' && $Raw === FALSE )
-                return json_decode($this->CURLResponse,TRUE);
+            if( isset($this->Headers['content-type']) && $Raw === FALSE )
+            {
+                if( stripos($this->Headers['content-type'],'application/json') !== FALSE
+                 || stripos($this->Headers['content-type'],'+json') !== FALSE )
+                    return json_decode($this->CURLResponse,TRUE);
+            }
             else
                 return $this->CURLResponse;
         }
@@ -223,6 +238,12 @@ class restr extends \asm\LinkSet
             return NULL;
         }
     }
+    
+    public function SetBasicAuth( $Username,$Password )
+    {
+        $this->BasicAuth = array($Username,$Password);
+    }
+    
 
     /**
      * Make request using curl.
@@ -251,6 +272,12 @@ class restr extends \asm\LinkSet
 
         curl_setopt($CH,CURLOPT_SSL_VERIFYPEER,FALSE);
         curl_setopt($CH,CURLOPT_SSL_VERIFYHOST,FALSE);
+
+        if( !empty($this->BasicAuth) )
+        {
+            curl_setopt($CH,CURLOPT_HTTPAUTH,CURLAUTH_BASIC);
+            curl_setopt($CH,CURLOPT_USERPWD,"{$this->BasicAuth[0]}:{$this->BasicAuth[1]}");
+        }
 
         // curl_setopt($this->CH,CURLOPT_SSLCERT,$Cert);
         // curl_setopt($this->CH,CURLOPT_SSLCERTPASSWD,$Passwd);
