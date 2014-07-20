@@ -371,7 +371,7 @@ abstract class Log
      */
     public static function ChromePHP( $Msg,$Level = 'LOG',$Backtrace = NULL,$Context = NULL )
     {
-        static $H = array('version'=>'3.0.1','columns'=>array('label','log','backtrace','type'),'rows'=>array());
+        static $H = array('version'=>'0.2','columns'=>array('label','log','backtrace','type'),'rows'=>array());
 
         // context can contain a lot of strange data so we kill it
         $Context = $Context['Request'];
