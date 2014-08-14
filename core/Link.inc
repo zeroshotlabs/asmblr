@@ -293,7 +293,7 @@ class LinkPage extends LinkSet
         {
             // this currently will break other change strings at the same time
             // see URL::Set() - this all could use some optimization
-            if( strpos($Set,'/') )
+            if( is_string($Set) && strpos($Set,'/') )
             {
                 $Set = explode('/',$Set);
                 foreach( $Set as &$V )

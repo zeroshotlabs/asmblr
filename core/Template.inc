@@ -226,6 +226,9 @@ class TemplateSet implements Debuggable
      *
      * @todo Test the behavior of multiple keys/vales in $Args.
      * @todo Test AllowRender behavior for both Pointer/Inline routines.
+     * @todo Some of the above is outdated.
+     * @todo We'd really like to have the render function do a ReMap() to change the template that
+     *       ends up getting rendered.
      */
     public function __call( $Name,$Args )
     {
