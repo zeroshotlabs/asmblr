@@ -336,7 +336,7 @@ class LinkPage extends LinkSet
         {
             foreach( $Name as $N )
             {
-                if( $this->App->ClosestMatchName === $Name )
+                if( $this->App->ClosestMatchName === $N )
                     return $True;
             }
 
