@@ -153,6 +153,18 @@ class TemplateSet implements Debuggable
     }
 
     /**
+     * Removes a mapping.
+     *
+     * This is a shorthand for ReMap()'ing to NULL.
+     *
+     * @param string $Name The Name to unset.
+     */
+    public function __unset( $Name )
+    {
+        $this->ReMap($Name,NULL);
+    }
+
+    /**
      * Retrieve the un-rendered body of a Template.
      *
      * @param string $Name The name of the template.
