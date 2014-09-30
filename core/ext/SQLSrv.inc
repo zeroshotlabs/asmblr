@@ -10,12 +10,10 @@
 namespace asm;
 
 
-// NEEDS UPGRADE AND THEN TESTING
-
 /**
  * This extension is comprised of two classes:
  *  - The SQLSrv class which wraps PHP's sqlsrv_* functions and implements both
- *    Wireable and CRUDC, and includes debugging, error handling, data mapping
+ *    Debuggable and CRUDC, and includes debugging, error handling, data mapping
  *    and binding, and SQL generation.
  *
  *  - The SQLSrvSet class which extends TemplateSet for custom SQL statements.
@@ -32,11 +30,12 @@ namespace asm;
  * Both classes use sqlsrv_query() for executing statements and assist in
  * correctly binding parameters.  However, not all functionality of the sqlsrv
  * PHP extension is supported.
+ *
+ * @todo Thorough testing of all functionality and debugging.
  */
-class SQLSrv extends WireableBase implements CRUDC
+class SQLSrv implements Debuggable,CRUDC
 {
-    protected $WiredAs = 'NOT-WIRED';
-    protected $DebugToken;
+    use Debugged;
 
     /**
      * Cache of table column info (name, type and length).
@@ -143,11 +142,11 @@ class SQLSrv extends WireableBase implements CRUDC
         if( ($R = sqlsrv_query($this->DB,$SQL,$CP[0])) === FALSE )
         {
             $E = $this->LastErrors(TRUE);
-            throw new Exception("\${$this->WiredAs}::CREATE Error: ".implode("\r\n",$E),key($E));
+            throw new Exception("CREATE Error: ".implode("\r\n",$E),key($E));
         }
         else if( ($E = sqlsrv_errors()) !== NULL )
         {
-            Log::Log("\${$this->WiredAs}::CREATE Warning: ".print_r($E,TRUE),'WARN');
+            Log::Log('CREATE Warning: '.print_r($E,TRUE),'WARN');
         }
 
         sqlsrv_next_result($R);
@@ -189,7 +188,7 @@ class SQLSrv extends WireableBase implements CRUDC
 
         if( ($R = sqlsrv_query($this->DB,$SQL,empty($Constraint[0])?array():$Constraint,array('Scrollable'=>'buffered'))) === FALSE )
         {
-            throw new Exception("\${$this->WiredAs}::READ Error: ".$this->LastErrors());
+            throw new Exception('READ Error: '.$this->LastErrors());
         }
         else
         {
@@ -217,7 +216,7 @@ class SQLSrv extends WireableBase implements CRUDC
     {
         $Constraint = $this->ToPrepared($Table,$Constraint,'AND');
         if( empty($Constraint[0]) )
-            throw new Exception('\${$this->WiredAs}::UPDATE Empty constraint not allowed.');
+            throw new Exception('UPDATE Empty constraint not allowed.');
 
         $Values = $this->ToPrepared($Table,$Values);
         $SQL = "UPDATE $Table SET {$Values[1]} WHERE {$Constraint[1]}";
@@ -226,7 +225,7 @@ class SQLSrv extends WireableBase implements CRUDC
             $this->DebugCRUDC('UPDATE',$Table,$SQL);
 
         if( ($R = sqlsrv_query($this->DB,$SQL,array_merge($Values[0],$Constraint[0]))) === FALSE )
-            throw new Exception("\${$this->WiredAs}::UPDATE Error: ".$this->LastErrors());
+            throw new Exception('UPDATE Error: '.$this->LastErrors());
         else
             return sqlsrv_rows_affected($R);
     }
@@ -246,7 +245,7 @@ class SQLSrv extends WireableBase implements CRUDC
     {
         $Constraint = $this->ToPrepared($Table,$Constraint,'AND');
         if( empty($Constraint[0]) )
-            throw new Exception('\${$this->WiredAs}::DELETE Empty constraint not allowed.');
+            throw new Exception('DELETE Empty constraint not allowed.');
 
         $SQL = "DELETE FROM $Table WHERE {$Constraint[1]}";
 
@@ -254,7 +253,7 @@ class SQLSrv extends WireableBase implements CRUDC
             $this->DebugCRUDC('DELETE',$Table,$SQL);
 
         if( ($R = sqlsrv_query($this->DB,$SQL,$Constraint[0])) === FALSE )
-            throw new Exception("\${$this->WiredAs}::DELETE Error: ".$this->LastErrors());
+            throw new Exception('DELETE Error: '.$this->LastErrors());
         else
             return sqlsrv_rows_affected($R);
     }
@@ -285,7 +284,7 @@ class SQLSrv extends WireableBase implements CRUDC
 
         if( ($R = sqlsrv_query($this->DB,$SQL,empty($Constraint[0])?array():$Constraint,array('Scrollable'=>'buffered'))) === FALSE )
         {
-            throw new Exception("\${$this->WiredAs}::COUNT Error: ".$this->LastErrors());
+            throw new Exception('COUNT Error: '.$this->LastErrors());
         }
         else
         {
@@ -314,7 +313,7 @@ class SQLSrv extends WireableBase implements CRUDC
 
         if( $R === FALSE )
         {
-            throw new Exception("\${$this->WiredAs}::ColumnInfo Error: ".$this->LastErrors());
+            throw new Exception('ColumnInfo Error: '.$this->LastErrors());
         }
         else
         {
@@ -487,7 +486,7 @@ class SQLSrv extends WireableBase implements CRUDC
         $BT = Debug::Backtrace();
         $BT = current(Debug::BT2Str($BT));
 
-        Log::Log("\${$this->WiredAs}::{$Type}('{$Table}') at {$BT}",'LOG',NULL,$SQL);
+        Log::Log("{$Type}('{$Table}') at {$BT}",'LOG',NULL,$SQL);
     }
 }
 
@@ -593,7 +592,7 @@ class SQLSrvSet extends TemplateSet
         if( isset($_SERVER[$this->DebugToken]) )
         {
             if( empty($this->Templates[$Name]) )
-                throw new Exception("{$this->WiredAs}::{$Name} not found.");
+                throw new Exception("{$Name} not found.");
 
             $this->Params = array();
 
@@ -624,7 +623,7 @@ class SQLSrvSet extends TemplateSet
             $BT = Debug::Backtrace();
             $BT = current(Debug::BT2Str($BT,'__call'));
 
-            $Buf = "\${$this->WiredAs}::{$Name} called from {$BT}";
+            $Buf = "{$Name} called from {$BT}";
 
             ob_start();
             eval("?>".trim($RenderingTemplate['Body']));
@@ -647,7 +646,7 @@ class SQLSrvSet extends TemplateSet
                 if( isset($_SERVER[$this->DebugToken]) )
                     Log::Log("{$Buf}\r\n{$DebugSQL}");
 
-                throw new Exception("{$this->WiredAs}::{$Name} Failed: ".$this->DB->LastErrors());
+                throw new Exception("{$Name} Failed: ".$this->DB->LastErrors());
             }
 
             // sqlsrv bug - if sqlsrv_has_rows() called twice, first row of result set disappears
@@ -693,7 +692,7 @@ class SQLSrvSet extends TemplateSet
             }
         }
         else
-            throw new Exception("{$this->WiredAs}::{$Name} not found.");
+            throw new Exception("{$Name} not found.");
     }
 
     /**
@@ -722,7 +721,7 @@ class SQLSrvSet extends TemplateSet
                 echo ob_get_clean();
         }
         else
-            throw new Exception("{$this->WiredAs}::{$Name} not found.");
+            throw new Exception("{$Name} not found.");
     }
 
     /**

@@ -55,7 +55,7 @@ class Mongo extends \MongoClient implements Debuggable
                 $BT = Debug::Backtrace();
                 $BT = current(Debug::BT2Str($BT));
 
-                Log::Log("\${$this->WiredAs}::{$DBAlias} as database {$this->Aliases[$DBAlias]} at {$BT}");
+                Log::Log("{$DBAlias} as database {$this->Aliases[$DBAlias]} at {$BT}");
             }
 
             return new \asm\MongoDB($this,$this->Aliases[$DBAlias]);
