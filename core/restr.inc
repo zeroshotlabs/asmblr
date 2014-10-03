@@ -41,16 +41,16 @@ class restr extends \asm\LinkSet
      * Username/password - use SetBasicAuth()
      */
     protected $BasicAuth = array();
-    
+
     /**
      * Key/value pairs of the response headers of the last request.
-    */
+     */
     public $Headers = array();
 
     /**
      * Info from curl_error()/curl_getinfo(), respectively, populated by
      * POSTFiles().
-    */
+     */
     public $CURLError = '';
     public $CURLInfo = array();
 
@@ -67,7 +67,8 @@ class restr extends \asm\LinkSet
      * @param array $Methods Key/value pairs of methods and their path.
      *
      * @throws Exception No restr BaseURL defined.
-     * @throws Exception No restr Methods defined.
+     *
+     * @note If no methods end up being defined, creating a link will return the BaseURL.
     */
     public function __construct( $BaseURL = '',$Methods = array() )
     {
@@ -80,30 +81,35 @@ class restr extends \asm\LinkSet
 
         if( !empty($Methods) )
             $this->Methods = $Methods;
-        else if( empty($this->Methods) )
-            throw new Exception('No restr Methods defined.');
     }
 
     /**
-     * Create URLs for defined API methods.
+     * Create URLs for defined API methods or return the BaseURL if there's no methods.
      *
      * @param string $Name Name of the defined method.
      * @see \asm\LinkSet::__invoke() for details.
      */
     public function __invoke( $Name = NULL,$Set = array() )
     {
+        $Base = $this->BaseURL;
+
         if( isset($this->Methods[$Name]) )
-        {
-            $Base = $this->BaseURL;
             Path::Merge(Path::Init($this->Methods[$Name]),$Base['Path']);
 
-            if( !empty($Set) )
-                URL::Set($Set,$Base);
+        if( !empty($Set) )
+            URL::Set($Set,$Base);
 
-            return URL::ToString($Base);
-        }
-        else
-            return 'not-found';
+        return URL::ToString($Base);
+    }
+
+    /**
+     * Set the methods available for calls.
+     *
+     * @param array $Methods Key/value pairs of methods and their path.
+     */
+    public function SetMethods( $Methods )
+    {
+        $this->Methods = $Methods;
     }
 
     /**
@@ -238,12 +244,12 @@ class restr extends \asm\LinkSet
             return NULL;
         }
     }
-    
+
     public function SetBasicAuth( $Username,$Password )
     {
         $this->BasicAuth = array($Username,$Password);
     }
-    
+
 
     /**
      * Make request using curl.
@@ -253,7 +259,7 @@ class restr extends \asm\LinkSet
      * @param string $POSTPayload Encoded string of POST data; will be form-urlencoded.
      * @param array $Headers Headers to use in the request (key/value pairs).
      * @return boolean TRUE upon successful request.
-     * 
+     *
      * @note If POSTPayload is empty, a GET will be performed.
      * @note If POSTPayload is a string, form-urlencoded; array = multipart  (unless overriden by a header)
      * @todo Determine behavior of $Headers per comments in GET - right now things seem
@@ -263,7 +269,7 @@ class restr extends \asm\LinkSet
     {
         // :)  should be using DebugOn/etc
         $Debug = FALSE;
-        
+
         $CH = curl_init();
 
         curl_setopt($CH,CURLOPT_RETURNTRANSFER,TRUE);
@@ -338,7 +344,7 @@ class restr extends \asm\LinkSet
             llog('RESPONSE HEADERS');
             llog(\asm\Debug::Dump($this->Headers));
         }
-        
+
         return TRUE;
     }
 
