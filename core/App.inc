@@ -304,7 +304,7 @@ abstract class App
         return $Manifest;
     }
 
-    // new spreadsheets - supports data sheets
+    // new spreadsheets - supports data sheets and multi-column config values (arrays)
     protected function Manifestd( $ManifestURL,$ManifestURLOrig,$AppRoot )
     {
         // read in the HTML version which we scrape for each of the tabs

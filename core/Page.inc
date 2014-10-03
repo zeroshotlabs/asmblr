@@ -153,7 +153,7 @@ class PageSet implements Debuggable
 
         if( !empty($Page['Function']) )
         {
-            // this automatically executes class::func when an array..??? sweet
+            // this automatically executes class::func when an array... sweet
             $Page['Function']($asmapp);
         }
     }
