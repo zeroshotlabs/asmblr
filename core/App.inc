@@ -298,12 +298,8 @@ abstract class App
         $ManifestURL = $ManifestURLOrig = URL::Init($ManifestURL);
         $ManifestURLOrigStr = URL::ToString($ManifestURL);
 
-        // new google spreadsheets
-        if( strpos($ManifestURLOrigStr,'/d/') !== FALSE )
-            $Manifest = $this->Manifestd($ManifestURL,$ManifestURLOrig,$AppRoot);
-        // old google spreadsheets
-        else
-            $Manifest = $this->Manifestccc($ManifestURL,$ManifestURLOrig,$AppRoot);
+        // only new google spreadsheets in 4.1
+        $Manifest = $this->Manifestd($ManifestURL,$ManifestURLOrig,$AppRoot);
 
         return $Manifest;
     }
@@ -374,7 +370,7 @@ abstract class App
         $Manifest = array('AppRoot'=>$AppRoot,'Config'=>array(),'Directives'=>array(),
                             'Pages'=>array(),'PageMaps'=>array(),'Templates'=>array(),'DataSheets'=>array());
 
-        // now actually build the manifest from the CSV tabs - much copied from Manifestccc
+        // now actually build the manifest from the CSV tabs
         foreach( $Tabs as $Label => $B )
         {
             $Tab = $this->ParseTabCSV($B);
@@ -411,110 +407,6 @@ abstract class App
         return $Manifest;
     }
 
-    // old spreadsheets - does not support data sheets
-    protected function Manifestccc( $ManifestURL,$ManifestURLOrig,$AppRoot )
-    {
-        // munge to be exportable as html
-        $ManifestURL['Path']['Segments'][1] = 'pub';
-        $ManifestURL['Query']['output'] = 'html';
-        $ManifestURL['Query']['usp'] = NULL;
-
-        // read in the HTML version which we scrape for each of the tabs
-        $Buf = file_get_contents(URL::ToString($ManifestURL));
-
-        $Headers = \asm\restr::ParseHeaders($http_response_header);
-
-        if( empty($Headers['http']) || strpos($Headers['http'],'200') === FALSE )
-            throw new Exception("manifest doesn't appear published in $AppRoot");
-
-        libxml_use_internal_errors(TRUE);
-        $DOM = new \DOMDocument;
-        $DOM->strictErrorChecking = FALSE;
-        $DOM->preserveWhiteSpace = TRUE;
-        $DOM->formatOutput = TRUE;
-        $DOM->xmlStandalone = TRUE;
-        $DOM->recover = TRUE;
-        $DOM->resolveExternals = FALSE;
-        @$DOM->loadHTML($Buf);
-
-        $XPR = new \DOMXPath($DOM);
-
-        // hack because of google: the first tab is the original URL which has no gid
-        $Tabs = array('FIRST'=>URL::ToString($ManifestURL));
-
-        $R = $XPR->query('//ul[@id="sheettabs"]/li/a');
-
-        foreach( $R as $V )
-        {
-            // tabs must be uniquely named
-            $Tabs[$V->textContent] = $V->getAttribute('href');
-        }
-
-        // Pages/PageMaps are numeric arrays of one of more page sets
-        // Directives are app-wide directives executed for every request.
-        $Manifest = array('AppRoot'=>$AppRoot,'Config'=>array(),'Directives'=>array(),
-                            'Pages'=>array(),'PageMaps'=>array(),'Templates'=>array());
-
-        // go over each tab and pull as CSV and parse into our manifest
-        foreach( $Tabs as $Label => $T )
-        {
-            // skip documentation tab
-            if( strtolower($Label) === 'reference' )
-                continue;
-
-            $ManifestURL = URL::Init($T);
-            // munge to get CSV
-            $ManifestURL['Query']['output'] = 'csv';
-
-            // nasty clean-up since google likes to play games
-            $Tmp = @file(URL::ToString($ManifestURL));
-            $B = array();
-            foreach( $Tmp as $K => $V )
-            {
-                $Tmp2 = str_getcsv($V);
-                foreach( $Tmp2 as $K2 => $V2 )
-                    $Tmp2[$K2] = "\"{$V2}\"";
-
-                $B[$K] = implode(',',$Tmp2);
-            }
-
-            $Headers = \asm\restr::ParseHeaders($http_response_header);
-
-            // something isn't right so just skip (not 200 or not csv)
-            if( empty($Headers['http']) || strpos($Headers['http'],'200') === FALSE
-            || empty($Headers['content-type']) || strpos($Headers['content-type'],'text/csv') === FALSE )
-                continue;
-
-            $Tab = $this->ParseTabCSV($B);
-
-            // some elements may be empty, but that's ok so use isset
-            if( isset($Tab['Config']) )
-            {
-                $Manifest['Config'] = $Tab['Config'];
-                $Manifest['Directives'] = $Tab['Directives'];
-            }
-            else if( isset($Tab['PageSetName']) )
-            {
-                $Manifest['Pages'][$Tab['PageSetName']] = $Tab['Pages'];
-                $Manifest['PageMaps'][$Tab['PageSetName']] = $Tab['PageMaps'];
-            }
-            else if( isset($Tab['Templates']) )
-            {
-                $Manifest['Templates'] = $Tab['Templates'];
-            }
-            else
-            {
-                trigger_error("Skipping unknown tab structure with name '{$Label}'");
-            }
-        }
-
-        // if no config something isn't right
-        if( empty($Manifest['Config']) )
-            throw new Exception("Couldn't find a config tab at '".URL::ToString($ManifestURLOrig));
-
-        return $Manifest;
-    }
-
     // $B is an array of CSV lines
     protected function ParseTabCSV( $B )
     {
@@ -522,6 +414,8 @@ abstract class App
         // $Header = str_getcsv($B[0]);
 
         // config tab - Key, Value
+        // directives must have a $ in the key column (column 0) - comma notation isn't currently supported
+        // multiple columns for a single key will cause the key to be an array containing all values
         if( strpos($B[0],'"Key","Value"') !== FALSE )
         {
             $Tab = array('Config'=>array(),'Directives'=>array());
@@ -552,36 +446,50 @@ abstract class App
                 $L = $L2;
 
                 // skip blank lines
-                if( empty($L[0]) )
+                if( implode('',$L) === '' )
                     continue;
 
-                // a directive in the config tab is recognized by being three columns
-                if( count($L) === 3 )
+                // a directive in the config tab is recognized by having a $ as the first char of the key
+                // comma notation isn't currently supported in the config tab
+                if( $L[0][0] === '$' )
                 {
                     $Tab['Directives'][] = array(str_replace('$','',$L[0]),$L[1],$L[2]);
                 }
                 // otherwise taken as a key/value config parameter and trim/normalize
+                // a blank column 0 rolls the value into the previous key which is converted to an array
                 else
                 {
                     if( $L[0] === 'SitewideFunction' )
+                    {
                         $Tab['Config']['SitewideFunction'] = $this->ParseFunctionName($L[1]);
+                    }
                     else
                     {
                         $Tab['Config'][$L[0]] = '';
 
-                        // trim and normalize to boolean/NULL if a value was set.
-                        if( isset($L[1]) )
+                        // support multiple values as multiple columns
+                        for( $i = 1; $i < 20; ++$i )
                         {
-                            $Tab['Config'][$L[0]] = trim($L[1]);
+                            // trim and normalize to boolean/NULL if a value was set.
+                            if( isset($L[$i]) )
+                            {
+                                $V = trim($L[$i]);
+                                $V2 = strtolower($V);
 
-                            $T = strtolower($Tab['Config'][$L[0]]);
+                                if( $V2 === 'false' )
+                                    $V = FALSE;
+                                else if( $V2 === 'true' )
+                                    $V = TRUE;
+                                else if( $V2 === 'null' )
+                                    $V = NULL;
 
-                            if( $T === 'false' )
-                                $Tab['Config'][$L[0]] = FALSE;
-                            else if( $T === 'true' )
-                                $Tab['Config'][$L[0]] = TRUE;
-                            else if( $T === 'null' )
-                                $Tab['Config'][$L[0]] = NULL;
+                                if( $i > 1 && is_array($Tab['Config'][$L[0]]) === FALSE )
+                                    $Tab['Config'][$L[0]] = array($Tab['Config'][$L[0]],$V);
+                                else if( $i > 1 )
+                                    $Tab['Config'][$L[0]][] = $V;
+                                else
+                                    $Tab['Config'][$L[0]] = $V;
+                            }
                         }
                     }
                 }
