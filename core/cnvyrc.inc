@@ -215,23 +215,6 @@ abstract class cnvyrc extends restr
         return TRUE;
     }
 
-/*
-     * The handler is prepended to the cached resource's filename.
-     *
-     * A bundle is one or more local files and/or string $Content.  If $Content is a string,
-     * it's taken as the content of a single file, $Filename.  If $Content is empty, $Filename
-     * is taken as a local file.
-     *
-     * If $Content is an array, it will be taken as a bundle of local files and/or file content
-     * where each non-numeric key is the filename of it's content as the value.  Numeric keys are
-     * treated as filenames.  The bundled resource will then be cached as $Filename.
-     *
-     * This does not send a Content-Type header.
-     *
-     * @note All asset filenames must be lowercase on Linux.
-     *
-*/
-
     /**
      * Default Page Function for handling cnvyr.io based asset delivery.
      *
@@ -249,18 +232,23 @@ abstract class cnvyrc extends restr
      *
      * For different handling of the path, you'll need to override this method.
      *
+     * This enforces the cnvyrOpOverrides config parameter and sets the cnvyrHTTPCacheTime
+	 * parameter from the manifest.
+     *
      * @note In apps that use cnvyrc::FromCache() in Load.inc and a cache entry exists, execution never
      * reaches this method - the serve happens directly in FromCache().
      *
      * @param \asm\App $app
      * @param int $HTTPCacheTime How long to set HTTP cache in seconds, or 0 for no cache.
+     *
+     * @see The comments of this class for maintaining the case of the requested URL.
      */
-    public static function srv( \asm\App $app,$HTTPCacheTime = 100 )
+    public static function srv( \asm\App $app )
     {
         header_remove();
 
-        if( !empty($HTTPCacheTime) )
-            HTTP::Cache($HTTPCacheTime);
+        if( !empty($app->Config['cnvyrHTTPCacheTime']) )
+            HTTP::Cache($app->Config['cnvyrHTTPCacheTime']);
 
         $Path = $app->Request['MatchPath']['Segments'];
 
@@ -362,6 +350,19 @@ abstract class cnvyrc extends restr
         }
         else
         {
+            $app->Config['cnvyrOpOverrides'] = (array) $app->Config['cnvyrOpOverrides'];
+
+            // apply op overrides
+            if( !empty($app->Config['cnvyrOpOverrides']) )
+            {
+                foreach( $app->Config['cnvyrOpOverrides'] as $K => $V )
+                {
+                    list($L,$L2) = explode('=',$V);
+                    $Ops[trim($L)] = trim($L2);
+                }
+            }
+
+            // make the call
             $Payload = $cc->ToAPI($Payload,$Ops);
 
             if( !empty($app->Config['cnvyrCacheLocal']) )
