@@ -28,6 +28,9 @@ namespace asm;
  *                        unique per server.
  *  - cnvyrOrigins: An array (multiple columns) of handler=directory/ entries that map
  *                  a URL's first segment to a local directory.
+ *  - cnvyrOpOverrides: A key/value array of ops/values that will get explicitly set.
+ *  - cnvyrHTTPCacheTime: Number of seconds to set HTTP value.
+                 
  *
  * All caching is done to a local filesystem path.
  *
@@ -184,6 +187,10 @@ abstract class cnvyrc extends restr
         if( is_readable($CacheDir.$Filename) === FALSE )
             return FALSE;
 
+        // Is this proper?
+        if( !empty($GLOBALS['asmapp']->Config['cnvyrHTTPCacheTime']) )
+            HTTP::Cache($GLOBALS['asmapp']->Config['cnvyrHTTPCacheTime']);
+
         // we've decided to explicitly set the content-type for all SAPIs because it's otherwise
         // too unpredictable
         HTTP::ContentType(HTTP::Filename2ContentType($Filename));
@@ -239,7 +246,6 @@ abstract class cnvyrc extends restr
      * reaches this method - the serve happens directly in FromCache().
      *
      * @param \asm\App $app
-     * @param int $HTTPCacheTime How long to set HTTP cache in seconds, or 0 for no cache.
      *
      * @see The comments of this class for maintaining the case of the requested URL.
      */
