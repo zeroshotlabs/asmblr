@@ -28,7 +28,7 @@ namespace asm;
  *                        unique per server.
  *  - cnvyrOrigins: An array (multiple columns) of handler=directory/ entries that map
  *                  a URL's first segment to a local directory.
- *  - cnvyrOpOverrides: A key/value array of ops/values that will get explicitly set.
+ *  - cnvyrOpOverrides: A key/value array of ops/values that will get explicitly set for all API calls.
  *  - cnvyrHTTPCacheTime: Number of seconds to set HTTP value.
                  
  *
@@ -356,15 +356,18 @@ abstract class cnvyrc extends restr
         }
         else
         {
-            $app->Config['cnvyrOpOverrides'] = (array) $app->Config['cnvyrOpOverrides'];
-
-            // apply op overrides
-            if( !empty($app->Config['cnvyrOpOverrides']) )
+            if( !empty( $app->Config['cnvyrOpOverrides']) )
             {
-                foreach( $app->Config['cnvyrOpOverrides'] as $K => $V )
+                $app->Config['cnvyrOpOverrides'] = (array) $app->Config['cnvyrOpOverrides'];
+
+                // apply op overrides
+                if( !empty($app->Config['cnvyrOpOverrides']) )
                 {
-                    list($L,$L2) = explode('=',$V);
-                    $Ops[trim($L)] = trim($L2);
+                    foreach( $app->Config['cnvyrOpOverrides'] as $K => $V )
+                    {
+                        list($L,$L2) = explode('=',$V);
+                        $Ops[trim($L)] = trim($L2);
+                    }
                 }
             }
 

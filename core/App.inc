@@ -2,7 +2,7 @@
 /**
  * @file App.inc asmblr application controller.
  * @author Stackware, LLC
- * @version 4.0
+ * @version 4.2
  * @copyright Copyright (c) 2012-2014 Stackware, LLC. All Rights Reserved.
  * @copyright Licensed under the GNU General Public License
  * @copyright See COPYRIGHT.txt and LICENSE.txt.
@@ -11,49 +11,181 @@ namespace asm;
 
 
 /**
- * Base configuration, controller and runtime container for an application.
+ * Base configuration, controller and runtime container for an application.  The App class
+ * contains key system start-up logic and methods, including handling 404 and server errors.
  *
- * It can be extended and customized in an application's Load.inc.
+ * It must be extended and customized in an application's @c Load.inc.
  *
- * @note This is your GOD anti-pattern, including dynamic properties.  The
+ * @note This is your GOD anti-pattern and includes dynamic properties.  The
  *       mess goes here, so the rest is clean.
  */
 abstract class App
 {
-    // gs://asmblr-mc-tmp/
-    // array('gs'=>array('Content-Type'=>'text/plain'))
-    // TODO: may need a cnvyr specific cache dir
+    /**
+     * @var string $CacheDir
+     * Absolute path to the asmblr local cache.
+     *
+     * @note This must be set explicitly in the extending class.
+     *
+     * @todo For future GAE integration:
+     *      @c gs://asmblr-mc-tmp/
+     *      @c array('gs'=>array('Content-Type'=>'text/plain'))
+     */
     public $CacheDir = '';
 
-    public $Hostname;
-    public $AppRoot;
+    /**
+     * @var string $Hostname
+     * The hostname of the application that has matched the request.
+     *
+     * @note This is the requested hostname as matched from @c index.php
+     */
+    public $Hostname = '';
 
-    public $CacheManifest;
-    public $CacheApp;
+    /**
+     * @var string $AppRoot
+     * The absolute path of the application's root directory, for example:
+     * \c /var/www/aapps/example.com
+     *
+     * Many other paths are relative to this path.
+     *
+     * @note This is configured in the application array in @c index.php
+     */
+    public $AppRoot = '';
 
-    public $RoutingPS;
+    /**
+     * @var boolean $CacheManifest
+     * TRUE to cache the manifest to the local disk.
+     *
+     * @note This is configured in the application array in @c index.php
+     */
+    public $CacheManifest = FALSE;
 
+    /**
+     * @var boolean $CacheApp
+     * TRUE to cache the app into a local app-file.
+     *
+     * @note This is configured in the application array in @c index.php
+     */
+    public $CacheApp = FALSE;
+
+    /**
+     * @var string $RoutingPS
+     * The PageSet token (cell @c F1) of the manifest page tab that will be used for processing the current request.
+     *
+     * @note This is configured in the application array in @c index.php
+     * @note Read-only.
+     */
+    public $RoutingPS = '';
+
+    /**
+     * @var Page $OrderedMatch
+     * The Page Struct that that matched a hierarchal path (those with a trailing @c / in the URL) ie., an ordered match.
+     *
+     * @note Read-only.  May be empty.
+     */
     public $OrderedMatch;
+
+    /**
+     * @var Page $ExactMatch
+     * The Page Struct that was an exact match (those withot a trailing @c / in the URL) that matched the request.
+     *
+     * @note Read-only.  May be empty.
+     */
     public $ExactMatch;
 
-    // the closest matched page (either from Ordered or Exact match)
+    /**
+     * @var string $ClosestMatchName
+     * The Page name of the page that most closely matches the request.
+     *
+     * If there is an exact match, this will be the same as App::$ExactMatch, otherwise it will
+     * be App::$OrderedMatch.
+     *
+     * @note Read-only.  May be empty only if there's no matches (404).
+     */
     public $ClosestMatchName;
 
+    /**
+     * @var asm::Request $Request
+     * The Request Struct which contains normalized details about the current HTTP or CLI request.
+     *
+     * @note Read-only.
+     */
     public $Request;
+
+    /**
+     * @var array $Manifest
+     * The application's manifest built from it's Google Spreadsheet.
+     *
+     * The manifest contains application configuration, including pages/routes, templates and misc.
+     * configuration settings.
+     *
+     * @note Read-only.
+     */
     public $Manifest;
 
+    /**
+     * @var array $Pages
+     * A listing page Pages by name.
+     *
+     * This contains pages for each PageSet tab defined by the manifest.
+     *
+     * @note Read-only.
+     */
     public $Pages;
+
+    /**
+     * @var array $PageMaps
+     * A mapping of Page paths (URL) to their Page Name.
+     *
+     * This contains all page mappings; one for each PageSet tab defined by the manifest.
+     *
+     * @note Read-only.
+     */
     public $PageMaps;
+
+    /**
+     * @var array $Config
+     * Key/value config directives defined by the Config tab in the manifest.
+     *
+     * A key with two or more values (each it's own column) will have an array value.
+     *
+     * @note Read-only.
+     */
     public $Config;
+
+    /**
+     * @var array $Templates
+     * A listing of Templates as found in the @c templates directory and defined by the manifest.
+     *
+     * @note Read-only.
+     */
     public $Templates;
 
 
     /**
-     * Default app build/execute.
+     * Application build and boot.
+     *
+     * Here the manifest and application is built, loaded, and optionally cached.  This method must be
+     * called explicitly by the extending class if not fully re-implemented.
+     *
+     * Key system objects are also instantiated as properties of the object:
+     *  - $this->ps = PageSet
+     *  - $this->lp = LinkPage
+     *  - $this->lc = Linkcnvyr
+     *
+     * @param array $App Application array defined in @c index.php.
+     * @param asm::Request $Request Request Struct to use as the current request.
+     * @param array $ConfigOverride Key/value array of custom application config variables.
+     *
+     * @throws Exception CacheDir not set.
+     *
+     * @note $Request can be @em spoofed if needed.
+     * @note If $App contains a Dirs element (defined by the application array in @c index.php),
+     *       it's used by BuildFile, rather than the default directory structure.
      *
      * @todo Implement locking/flock() for manifest/app cache file creation.
-     * @todo Do we want to create a DataSheets property?
-     * @note If $App contains a Dirs element, it's used by BuildFile rather than the default directory structure.
+     * @todo Do we want a DataSheets property?
+     * @todo Fully test that app-file caching works properly with complex apps/manifests/datasheets/etc.
      */
     public function __construct( $App,$Request,$ConfigOverride = array() )
     {
@@ -65,9 +197,8 @@ abstract class App
 
         $this->Request = $Request;
 
-        // seems to hold us for linux/windows/gae - though the str_replace is annoying for windows
         if( empty($this->CacheDir) )
-            $this->CacheDir = str_replace('\\','/',sys_get_temp_dir());
+            throw new Exception('CacheDir not set.');
 
         // make this object global :)
         $GLOBALS['asmapp'] = $this;
@@ -75,30 +206,26 @@ abstract class App
         // build/cache our manifest
         if( $this->CacheManifest === TRUE )
         {
-            if( (@include "{$this->CacheDir}/{$this->Hostname}.manifest.inc") === FALSE )
+            if( (@include "{$this->CacheDir}{$this->Hostname}.manifest.inc") === FALSE )
             {
                 $this->Manifest = $this->BuildManifest($App['ManifestURL']);
-                file_put_contents("{$this->CacheDir}/{$this->Hostname}.manifest.inc",'<?php $this->Manifest = '.var_export($this->Manifest,TRUE).';');
+                file_put_contents("{$this->CacheDir}{$this->Hostname}.manifest.inc",'<?php $this->Manifest = '.var_export($this->Manifest,TRUE).';');
             }
         }
         else
         {
             // clear an existing cache
-            @unlink("{$this->CacheDir}/{$this->Hostname}.manifest.inc");
+            @unlink("{$this->CacheDir}{$this->Hostname}.manifest.inc");
             $this->Manifest = $this->BuildManifest($App['ManifestURL']);
         }
 
-        // we allow config variables to be overriden by the local DOC_ROOT/index.php
-        // if a parameter exists in Config and in the $App, we use what's in $App
-        // this means that a variable has to be defined (even if empty) in the manifest
-        // note too that these results aren't cached (this whole thing could be considered "slow")
-        // so whatever index.php contains at execution time, is what's used
+        // config variables defined in the manifest's Config tab (even if empty) can be
+        // overridden in the application array
+        // note that these values aren't cached (is this slow?)
         foreach( array_intersect_key($App,$this->Manifest['Config']) as $K => $V )
             $this->Manifest['Config'][$K] = $V;
 
-        // finally apply hard-overrides or our own config variables - sort of hacky but
-        // we need a way to set internally what we want regardless of the manifest for
-        // asmblrbp-micro/etc
+        // finally apply hard-overrides or custom config variables not present in the manifest
         foreach( $ConfigOverride as $K => $V )
             $this->Manifest['Config'][$K] = $V;
 
@@ -108,27 +235,25 @@ abstract class App
         $this->Pages = $this->Manifest['Pages'];
         $this->PageMaps = $this->Manifest['PageMaps'];
 
-        // build/cache our app file
-        // include/eval of this will set our $this->Templates property
-        // TODO: we should test that this works without issue
-
         if( !empty($App['Dirs']) )
             $Dirs = $App['Dirs'];
         else
             $Dirs = array();
 
+        // build/cache our app file
         if( $this->CacheApp === TRUE )
         {
-            if( (@include "{$this->CacheDir}/{$this->Hostname}.app.inc") === FALSE )
+            // this will set $this->Templates if already cached
+            if( (@include "{$this->CacheDir}{$this->Hostname}.app.inc") === FALSE )
             {
-                file_put_contents("{$this->CacheDir}/{$this->Hostname}.app.inc",$this->BuildFile($Dirs));
-                include "{$this->CacheDir}/{$this->Hostname}.app.inc";
+                file_put_contents("{$this->CacheDir}{$this->Hostname}.app.inc",$this->BuildFile($Dirs));
+                include "{$this->CacheDir}{$this->Hostname}.app.inc";
             }
         }
         else
         {
             // clear an existing cache
-            @unlink("{$this->CacheDir}/{$this->Hostname}.app.inc");
+            @unlink("{$this->CacheDir}{$this->Hostname}.app.inc");
             $T = $this->BuildFile($Dirs);
             eval('?>'.$T);
         }
@@ -139,53 +264,52 @@ abstract class App
         // activate asmblr's stock error handler - method can be customized in extending class
         set_error_handler(array($this,'ErrorHandler'));
 
-        // Calculate app-wide URLs, modifying our Request array.  This creates
-        // $SiteURL and $MatchPath elements which are used for creating URLs (LinkSet) and
-        // matching pages (PageSet), respectively.
+        // Calculate app-wide URLs and request info based on the current request
         Request::CalcURLs($this->Request,$this->Config['BaseURL']);
 
 
         // instantiate core system objects
         // this sets dynamic properties - know your names
 
-        // one or more page sets are supported though there is always a single routing page set
-        // as defined by $this->RoutingPS
-        // the routing page set and it's linker are always available as ps and lp, respectively
+        // multiple PageSets are supported though only a single PageSet will be the RoutingPS
+        // this PageSet will be used for routing and link creation
         // other pagesets/linkers can be instantiated manually if needed
-        // note that we use isset because an empty routing PS is ok, as long as it's been determined
+        // note that we use isset because an empty routing PS is ok
         if( empty($this->RoutingPS) || !isset($this->Pages[$this->RoutingPS]) )
             throw new Exception("Invalid routing page set for '{$this->Hostname}'");
 
         $this->ps = new PageSet($this->Pages[$this->RoutingPS],$this->PageMaps[$this->RoutingPS]);
         $this->lp = new LinkPage($this->ps,$this,$this->Request['SiteURL']);
+
         // links for cnvyr managed resources (images, css, js, fonts/etc)
         $this->lc = new Linkcnvyr($this->ps,$this,$this->Request['SiteURL']);
     }
 
     /**
-     * Match pages and execute the application.
+     * Match pages, apply app directives, execute SitewideFunction, execute pages, and render templates.
      *
-     * @note If an ordered match is found and doesn't have a Status of Weak, no exact
-     * match will be attempted.
-     * @note If SiteWideFunction returns FALSE, default page execution and rendering will not happen,
-     * including 404 and Page status checks.
+     * This enforces the @c ForceBaseHostname config setting if not running as a CLI.
+     *
+     * @throws Exception Directive object doesn't exist.
+     *
+     * @note If an ordered match is found and doesn't have a Status of Weak, no exact match will be attempted.
+     * @note If @c SitewideFunction returns FALSE, default page execution and rendering will not happen,
+     *       including 404 and Page status checks.
      */
     public function Execute()
     {
         // if not running as a CLI, first honor our ForceBaseHostname setting
-        // IsBaseHostname indicates whether the request is using the full hostname
-        // configured by BaseURL.  If not, redirect to it.
         if( $this->Request['IsCLI'] === FALSE && ($this->Config['ForceBaseHostname'] === TRUE && $this->Request['IsBaseHostname'] === FALSE) )
         {
             $this->Request['Hostname'] = $this->Request['BaseURL']['Hostname'];
             HTTP::Location($this->Request);
         }
 
-
         // match pages against the MatchPath to determine our executing page(s)
-        $this->OrderedMatch = $this->ExactMatch = NULL;
+        $this->OrderedMatch = $this->ExactMatch = array();
+        $this->ClosestMatchName = '';
 
-        // first determine hierarchal ordered match/execute - most general to most specific URL path
+        // first determine hierarchal ordered matches - most general to most specific URL path
         // only one page will match
         if( $this->Request['MatchPath']['IsRoot'] === FALSE )
         {
@@ -203,13 +327,13 @@ abstract class App
         // if the ordered match is Weak, an exact match is also allowed
         // i.e.  default:  /admin/ matches then a page with /admin/something will NOT match
         //          Weak:  /admin/ matches then a page with /admin/something WILL match
-        if( $this->OrderedMatch === NULL || (strpos($this->OrderedMatch['Status'],'Weak') !== FALSE) )
+        if( empty($this->OrderedMatch) || (strpos($this->OrderedMatch['Status'],'Weak') !== FALSE) )
         {
-            $this->ExactMatch = $this->ps->Match(\asm\Path::ToString($this->Request['MatchPath']));
-            $this->ClosestMatchName = $this->ExactMatch['Name'];
+            if( ($this->ExactMatch = $this->ps->Match(\asm\Path::ToString($this->Request['MatchPath']))) !== NULL )
+                $this->ClosestMatchName = $this->ExactMatch['Name'];
         }
 
-        // apply any app-wide directives
+        // apply app-wide directives
         foreach( $this->Manifest['Directives'] as $V )
         {
             if( empty($this->{$V[0]}) )
@@ -218,14 +342,11 @@ abstract class App
                 $this->{$V[0]}->ApplyDirective($V[1],$V[2]);
         }
 
-
-
         // execute SitewideFunction - returning FALSE will bypass default page checking, execution and HTML rendering, below
         if( !empty($this->Config['SitewideFunction']) )
             $PreContinue = $this->Config['SitewideFunction']($this);
         else
             $PreContinue = TRUE;
-
 
         // returning FALSE from SiteWideFunction above will bypass default page checking, execution and HTML rendering
         if( $PreContinue !== FALSE )
@@ -253,9 +374,16 @@ abstract class App
 
 
     /**
-     * Generic debug toggler for pages and templates.
+     * Default debug toggler for pages and templates.
      *
-     * @todo Needs review and documented where this is called... below logic may also be incorrect.
+     * This helper method activates debugging for the PageSet (@c $this->lp) and TemplateSet
+     * (@c $this->html) based on the presence of the @c debug query string parameter.
+     *
+     * Debugging is only allowed if the manifest is @e not being cached, or if the @c or
+     * query string parameter is present and matches the @c $this->RoutingPS value.
+     *
+     * If the @c display query string parameter is set to @c 0 then debug output won't be
+     * output to the browser.
      */
     public function Debugger()
     {
@@ -281,39 +409,133 @@ abstract class App
 
 
     /**
+     * Default handler for when no pages could be matched (a 404).
+     *
+     * This method should be overridden in the application's extending App class.
+     */
+    public function NoPageHandler()
+    {
+        Log::Log('NO PAGE FOUND: '.URL::ToString($this->Request));
+
+        if( $this->Request['IsCLI'] === FALSE )
+            \asm\HTTP::_404();
+
+        exit;
+    }
+
+
+    /**
+     * Default user error handler.
+     *
+     * Handle an application or PHP error.  This method is set using
+     * set_error_handler() in App::__construct().
+     *
+     * @param int $errno The message severity as a PHP constant.
+     * @param string $errstr The error message.
+     * @param string $errfile The filename from which the message came.
+     * @param int $errline The line number of the file.
+     * @param array $errcontext Local scope where the error occurred.
+     * @retval boolean FALSE if the error should be ignored, TRUE if not.
+     *
+     * @note errcontext can be huge.
+     */
+    public function ErrorHandler( $errno,$errstr,$errfile,$errline,$errcontext )
+    {
+        // error surpressed with @
+        if( error_reporting() === 0 )
+            return FALSE;
+
+        if( in_array($errno,array(E_WARNING,E_USER_WARNING)) )
+            $errno = 'WARN';
+        else if( in_array($errno,array(E_NOTICE,E_USER_NOTICE)) )
+            $errno = 'INFO';
+        else
+            $errno = 'ERROR';
+
+        $BT = array_merge(array("[{$errfile}:{$errline}]"),Debug::Backtrace());
+
+        Log::Log($errstr,$errno,$BT,$errcontext);
+
+        return TRUE;
+    }
+
+
+    /**
+     * Set PHP's open_basedir() directive for the application's execution.
+     *
+     * @param string $Path Base directory
+     *
+     * @todo This isn't currently used anywhere.  Also needs to consider cache directories
+     *       and the AppRoot.
+     * @todo Needs finalization - only for shared environments.
+     */
+    public function OpenBaseDir( $Path = '' )
+    {
+        if( empty($Path) )
+        {
+            if( Instance::IsWindows() )
+                ini_set('open_basedir',ASM_ROOT.';C:/Windows/Temp/');
+            else
+                ini_set('open_basedir',ASM_ROOT.':/tmp');
+        }
+        else
+            ini_set('open_basedir',$Path);
+    }
+
+
+    /**
+     * Determine whether we're executing in a Windows environment.
+     *
+     * @retval boolean TRUE if the application is executing in a Windows environment.
+     */
+    public static function IsWindows()
+    {
+        return isset($_SERVER['SystemRoot']);
+    }
+
+
+    /**
      * Build the application's manifest from a Google Spreadsheet.
      *
-     * A manifest URL typically looks something like:
-     *   https://docs.google.com/spreadsheet/ccc?key=SOME_STRING_OF_CHARS
+     * A manifest URL will look something like:
+     *   https://docs.google.com/spreadsheets/d/SOME_STRING_CHARS/pubhtml
      *
-     * @param string $ManifestURL URL to load Google spreadsheet from.
+     * @param string $ManifestURL The URL of the Google Spreadsheet.
      * @retval array The application's manifest.
      */
     protected function BuildManifest( $ManifestURL )
     {
-        $AppRoot = Path::Init($this->AppRoot);
-        $AppRoot['IsDir'] = TRUE;
-        $AppRoot = Path::ToString($AppRoot);
+//         $AppRoot = Path::Init($this->AppRoot);
+//         $AppRoot['IsDir'] = TRUE;
+//         $AppRoot = Path::ToString($AppRoot);
 
-        $ManifestURL = $ManifestURLOrig = URL::Init($ManifestURL);
-        $ManifestURLOrigStr = URL::ToString($ManifestURL);
+//         $ManifestURL = $ManifestURLOrig = URL::Init($ManifestURL);
+//         $ManifestURLOrigStr = URL::ToString($ManifestURL);
 
-        // only new google spreadsheets in 4.1
-        $Manifest = $this->Manifestd($ManifestURL,$ManifestURLOrig,$AppRoot);
+        // only new google spreadsheets in asmblr 4.2
+        $Manifest = $this->Manifestd($ManifestURL);
 
         return $Manifest;
     }
 
-    // new spreadsheets - supports data sheets and multi-column config values (arrays)
-    protected function Manifestd( $ManifestURL,$ManifestURLOrig,$AppRoot )
+
+    /**
+     * Extract the tabs of a Google Spreadsheet as CSV strings.
+     *
+     * @param string $ManifestURL The URL of the Google Spreadsheet.
+     * @throws Exception Manifest doesn't appear published.
+     * @throws Exception Couldn't find a config tab.
+     * @retval array The application's manifest.
+     */
+    // ,$ManifestURLOrig,$AppRoot
+    protected function Manifestd( $ManifestURL )
     {
         // read in the HTML version which we scrape for each of the tabs
-        $Buf = file_get_contents(URL::ToString($ManifestURL));
-
+        $Buf = file_get_contents($ManifestURL);
         $Headers = \asm\restr::ParseHeaders($http_response_header);
 
         if( empty($Headers['http']) || strpos($Headers['http'],'200') === FALSE )
-            throw new Exception("manifest doesn't appear published in $AppRoot");
+            throw new Exception("Manifest doesn't appear published in {$this->AppRoot}");
 
         libxml_use_internal_errors(TRUE);
         $DOM = new \DOMDocument;
@@ -338,7 +560,8 @@ abstract class App
 
         foreach( $Tabs as $Name => $ID )
         {
-//            $TabCSVd = fopen('php://temp','rw');
+            // may be handy someday
+            // $TabCSVd = fopen('php://temp','rw');
 
             $Tab = array();
 
@@ -353,13 +576,7 @@ abstract class App
 
                 // will break if value contains comma
                 $Tab[] = implode(',',$Line);
-
-//                fputcsv($TabCSVd,$Line);
             }
-
-//            rewind($TabCSVd);
-//            $Tabs[$Name] = stream_get_contents($TabCSVd);
-//            fclose($TabCSVd);
 
             $Tabs[$Name] = $Tab;
         }
@@ -367,7 +584,7 @@ abstract class App
         // Pages/PageMaps are numeric arrays of one of more page sets
         // Directives are app-wide directives executed for every request.
         // DataSheets are an associative array - by sheet name - of general purpose data (key/value)
-        $Manifest = array('AppRoot'=>$AppRoot,'Config'=>array(),'Directives'=>array(),
+        $Manifest = array('AppRoot'=>$this->AppRoot,'Config'=>array(),'Directives'=>array(),
                             'Pages'=>array(),'PageMaps'=>array(),'Templates'=>array(),'DataSheets'=>array());
 
         // now actually build the manifest from the CSV tabs
@@ -402,17 +619,19 @@ abstract class App
 
         // if no config something isn't right
         if( empty($Manifest['Config']) )
-            throw new Exception("Couldn't find a config tab at '".URL::ToString($ManifestURLOrig));
+            throw new Exception("Couldn't find a config tab for {$this->AppRoot}.");
 
         return $Manifest;
     }
 
-    // $B is an array of CSV lines
+    /**
+     * Parse an array of CSV lines from a Google Spreadsheet tab into a manifest section.
+     *
+     * @param array $B An array of CSV lines.
+     * @retval array A normalized manifest section.
+     */
     protected function ParseTabCSV( $B )
     {
-        // not needed since we put the double quotes in the strpos()'s below
-        // $Header = str_getcsv($B[0]);
-
         // config tab - Key, Value
         // directives must have a $ in the key column (column 0) - comma notation isn't currently supported
         // multiple columns for a single key will cause the key to be an array containing all values
@@ -651,12 +870,28 @@ abstract class App
     }
 
 
-    // if CacheApp isn't TRUE, we leave templates on disk and will include them - this helps with debugging
-    // since PHP's error messages directly point to a line and file - see also Template::__call()
-    // only .php and .inc files are pulled in - .tpl and .html and .js and .css for templates
-    // if $Dirs is non-empty array, it's taken as array('lib'=>array(),'functions'=>array(),'templates'=>array())
-    // and each directory is loaded appropriately - otherwise, the default lib/functions/templates dirs are loaded
-    // directories specified must exist - they will not be gracefully skipped
+    /**
+     * Compile an application into a single executeable string.
+     *
+     * This loads functions, templates and PHP code from the filesystem into memory as a single string.
+     *
+     * This will prefix Template names with their parent directory's name if more than one-level deep.  This
+     * also parses templates for the \@\@\@ notation and is partially duplicated in TemplateSet::LoadFile
+     *
+     * If @c $Dirs is provided, it must be of the form:
+     *   - @c array('lib'=>array(),'functions'=>array(),'templates'=>array())
+     *
+     * where each element is an array of directories to load from.
+     *
+     * @param array $Dirs An array of directories to load the application from.
+     * @throws Exception Unreadable AppRoot
+     * @retval string The compiled application.
+     *
+     * @note If App::$CacheApp is FALSE, the templates remain on disk and will be loaded by
+     *       TemplateSet::LoadFile upon rendering.  This helps with debugging since PHP's error messages
+     *       will reference a real file/line.
+     * @note Only files with the following extensions are loaded: <tt> .inc .php .tpl .html .js .css </tt>
+     */
     protected function BuildFile( $Dirs = array() )
     {
         if( empty($Dirs) )
@@ -806,6 +1041,14 @@ abstract class App
     }
 
 
+    /**
+     * Helper method for normalizing and parsing a function string name into a callable
+     * string or array.
+     *
+     * @param string $F The function name.
+     * @retval string The normalized function name.
+     * @retval array A Class:Method callable array.
+     */
     protected function ParseFunctionName( $F )
     {
         if( strpos($F,'::') === FALSE )
@@ -818,99 +1061,4 @@ abstract class App
             return array(trim($T[0]),trim(str_replace(array('(',')'),'',$T[1])));
         }
     }
-
-
-    /**
-     * Generic handler for when no pages could be matched.
-     *
-     * This method should be overridden in the application's extending App class.
-     */
-    public function NoPageHandler()
-    {
-        Log::Log('NO PAGE FOUND: '.URL::ToString($this->Request));
-
-        if( $this->Request['IsCLI'] === FALSE )
-            \asm\HTTP::_404();
-
-        exit;
-    }
-
-
-    /**
-     * User error handler.
-     *
-     * Handle an application or PHP error.  This method is set using
-     * set_error_handler() in App::__construct().
-     *
-     * Framewire uses PHP's native error handling, allowing well-known
-     * PHP functions such as trigger_error() to intelligently deliver
-     * error messages using advanced mechanisms, such as Wildfire or
-     * email.
-     *
-     * This method maps PHP's error constants to Framewire's Log error
-     * levels.
-     *
-     * @param int $errno The message severity as a PHP constant.
-     * @param string $errstr The error message.
-     * @param string $errfile The filename from which the message came.
-     * @param int $errline The line number of the file.
-     * @param array $errcontext Local scope where the error occurred.
-     * @retval boolean FALSE if the error should be ignored, TRUE if not.
-     *
-     * @todo errcontext can be huge - might filter/etc
-     */
-    public function ErrorHandler( $errno,$errstr,$errfile,$errline,$errcontext )
-    {
-        // error surpressed with @
-        if( error_reporting() === 0 )
-            return FALSE;
-
-        if( in_array($errno,array(E_WARNING,E_USER_WARNING)) )
-            $errno = 'WARN';
-        else if( in_array($errno,array(E_NOTICE,E_USER_NOTICE)) )
-            $errno = 'INFO';
-        else
-            $errno = 'ERROR';
-
-        $BT = array_merge(array("[{$errfile}:{$errline}]"),Debug::Backtrace());
-
-        Log::Log($errstr,$errno,$BT,$errcontext);
-
-        return TRUE;
-    }
-
-    /**
-     * Set PHP's open_basedir() directive for the application.
-     *
-     * @param string $Path Base directory.
-     * @todo implement/test - currently a no op
-     */
-    public function OpenBaseDir( $Path = '' )
-    {
-        if( empty($Path) )
-        {
-            // these defaults need work - should use cache directory and AppRoot or something
-            // so no this is a no op
-            return;
-
-            if( Instance::IsWindows() )
-                ini_set('open_basedir',ASM_ROOT.';C:/Windows/Temp/');
-            else
-                ini_set('open_basedir',ASM_ROOT.':/tmp');
-        }
-        else
-            ini_set('open_basedir',$Path);
-    }
-
-    /**
-     * Determine whether we're executing in a Windows environment.
-     *
-     * @retval boolean TRUE if the application is executing in a Windows environment.
-     * @todo Should PHP_OS be used instead?
-     */
-    public static function IsWindows()
-    {
-        return isset($_SERVER['SystemRoot']);
-    }
-
 }

@@ -24,6 +24,9 @@ namespace asm;
  * The Struct is a "singleton" - once it's been initialized, it's values are persisted
  * in the $Request static variable.
  *
+        // $SiteURL and $MatchPath elements which are used for creating URLs (LinkSet) and
+        // matching pages (PageSet), respectively.
+ *
  * @note Request can be used as a URL.
  */
 abstract class Request extends Struct
@@ -32,8 +35,11 @@ abstract class Request extends Struct
      * Same as URL with addition of IsCLI.
      */
     protected static $Skel = array('IsHTTPS'=>FALSE,'Scheme'=>'','Username'=>'','Password'=>'',
-    							   'Hostname'=>array(),'Port'=>'','Path'=>array(),'Query'=>array(),'Fragment'=>'',
-                                   'IsCLI'=>FALSE);
+    							   'Hostname'=>array(),'Port'=>'','Path'=>array(),'Query'=>array(),'Fragment'=>'','IsCLI'=>FALSE,
+                                   // these are calculated in CalcURLs()
+                                   'SiteURL'=>array(),'BaseURL'=>array(),'MatchPath'=>array(),
+                                   'IsBaseScheme'=>FALSE,'IsBaseHostname'=>FALSE,'IsBasePort'=>FALSE,'IsBasePath'=>FALSE);
+
 
     /**
      * Current request data.
@@ -56,9 +62,9 @@ abstract class Request extends Struct
      * @todo Use of PHP_SAPI?
      * @todo Allow forging a request, i.e. pass in a URL and return the result, rather than store statically.
      */
-    public static function Init()
+    public static function Init( $Rebuild = FALSE )
     {
-        if( static::$Request !== NULL )
+        if( static::$Request !== NULL && $Rebuild === FALSE )
             return static::$Request;
 
         $Request = static::$Skel;

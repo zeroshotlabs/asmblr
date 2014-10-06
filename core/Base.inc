@@ -203,6 +203,11 @@ abstract class Log
         global $asmapp;
 
         $IsCLI = $asmapp->Request['IsCLI'];
+
+        // if this isn't even set we likely have a problem very early on so just dump the message and hope
+        if( !isset($asmapp->Config['LogPublic']) )
+            exit("CRITICAL: $Msg");
+
         $LogPublic = $asmapp->Config['LogPublic'];
 
         if( count(debug_backtrace()) > 100 )
@@ -414,7 +419,7 @@ abstract class Debug
             $T['Type'] = isset($V['type'])?$V['type']:'';
 
             // this has to be done like this otherwise we reference the actual object
-//            $T['Args'] = isset($V['args'])?$V['args']:array();            
+//            $T['Args'] = isset($V['args'])?$V['args']:array();
             $T['Args'] = array();
             if( isset($V['args']) )
             {
@@ -2094,8 +2099,11 @@ abstract class Path extends Struct
      * This creates an array containing increasingly more or less specific versions of
      * the same path.
      *
+     * By default this returns an array in increasing path size, i.e. most general to
+     * most specific.
+     *
      * @param string $Path The Path Struct.
-     * @param boolean $Inc Iterate in increasing path size, i.e., most general to most specific.
+     * @param boolean $Inc FALSE to iterate in decreasing path size, i.e. most specific to most general.
      * @retval array Ordered path segments.
      *
      * @note This doesn't honor IsDir or IsAbs of the Path struct - there will always be leading

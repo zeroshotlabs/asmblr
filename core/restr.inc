@@ -1,6 +1,6 @@
 <?php
 /**
- * @file cnvyr.inc cnvyr asset/media delivery and manipulation.
+ * @file restr.inc cnvyr asset/media delivery and manipulation.
  * @author Stackware, LLC
  * @version 4.0
  * @copyright Copyright (c) 2012-2014 Stackware, LLC. All Rights Reserved.
@@ -87,7 +87,7 @@ class restr extends \asm\LinkSet
      * Create URLs for defined API methods or return the BaseURL if there's no methods.
      *
      * @param string $Name Name of the defined method.
-     * @see \asm\LinkSet::__invoke() for details.
+     * @see asm::LinkSet::__invoke() for details.
      */
     public function __invoke( $Name = NULL,$Set = array() )
     {
