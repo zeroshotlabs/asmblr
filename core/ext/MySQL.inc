@@ -517,6 +517,15 @@ class MySQLSet extends TemplateSet
     }
 
     /**
+     * Not implemented.
+     */
+    public function ApplyDirective( $Key,$Value )
+    {
+        Log::Log("ApplyDirective not implemented for MySQLSet for Key '$Key'");
+        return NULL;
+    }
+
+    /**
      * Internal method for debugging MySQL query rendering.
      *
      * Debug info includes available variable within the scope of rendering.

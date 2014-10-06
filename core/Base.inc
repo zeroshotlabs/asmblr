@@ -2,7 +2,7 @@
 /**
  * @file Base.inc Base classes.
  * @author Stackware, LLC
- * @version 4.0
+ * @version 4.2
  * @copyright Copyright (c) 2012-2014 Stackware, LLC. All Rights Reserved.
  * @copyright Licensed under the GNU General Public License
  * @copyright See COPYRIGHT.txt and LICENSE.txt.
@@ -11,15 +11,21 @@ namespace asm;
 
 
 /**
- * Apply a Directive to the object.
+ * Directives allow keys/values to be pushed from the manifest into an object.
  *
- * The affect of applying a Directive is determined only by the object itself.
- *
- * @param string $Key The Key to set.
- * @param mixed $Value The Value to set.
- * @retval void
+ * The handling of such key/value pairs is handled completely by the object itself.
  */
-// public function ApplyDirective( $Key,$Value );
+interface Directable
+{
+    /**
+     * Apply a directive.
+     *
+     * @param string $Key The key - or name - of the directive to set.
+     * @param mixed $Value The value of the directive.
+     */
+    public function ApplyDirective( $Key,$Value );
+}
+
 
 interface Debuggable
 {
@@ -2919,7 +2925,7 @@ abstract class Directive extends Struct
  *       method isn't know, rather than return silently.  Otherwise things get very
  *       confusioning.  And this comment should be moved somewhere else.
  */
-class KeyValueSet implements KVS
+class KeyValueSet implements KVS,Directable
 {
     /**
      * Key/value pairs that comprise the KV's data.

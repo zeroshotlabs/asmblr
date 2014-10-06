@@ -77,7 +77,7 @@ abstract class Template extends Struct
  * @todo Cacheable templates - Some templates, like subnav, can be
  *       expensive to create and don't change much - should be savable to disk/app file
  */
-class TemplateSet implements Debuggable
+class TemplateSet implements Debuggable,Directable
 {
     use Debugged;
 
