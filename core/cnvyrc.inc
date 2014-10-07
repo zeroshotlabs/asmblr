@@ -1,8 +1,8 @@
 <?php
 /**
- * @file cnvyrc.inc Client for the cnvyr.io asset/media manipulation API.
+ * @file cnvyrc.inc Client for the cnvyr.io API.
  * @author Stackware, LLC
- * @version 4.0
+ * @version 4.2
  * @copyright Copyright (c) 2012-2014 Stackware, LLC. All Rights Reserved.
  * @copyright Licensed under the GNU General Public License
  * @copyright See COPYRIGHT.txt and LICENSE.txt.
@@ -11,8 +11,9 @@ namespace asm;
 
 
 /**
- * cnvyr client (clientc) connects to the cnvyr.io API and provides static methods to be
- * used as default Page function for serving and caching the results.
+ * cnvyr client (cnvyrc) provides connectivity and caching for the
+ * <a href="http://cnvyr.io">cnvyr.io minify thumbnail API</a> and provides a static
+ * Page method for serving assets.
  *
  * The non-static methods are for communicating with the API and getting a result.
  *
@@ -20,39 +21,56 @@ namespace asm;
  *
  * The following configuration directives must be set in the manifest's Config tab.
  *
- *  - cnvyrBaseURL: full URL of cnvyr.io API, typically http://srv.cnvyr.io/srv
- *  - cnvyrCacheLocal: boolean TRUE or FALSE whether to cache results from cnvyr.io
- *  - cnvyrCacheDir: local filesystem directory to cache assests if above is TRUE.
- *                   Must be writeable by the web processes.
- *  - cnvyrHandlerPrefix: A short string to prefix each cached resource.  Must be
- *                        unique per server.
- *  - cnvyrOrigins: An array (multiple columns) of handler=directory/ entries that map
- *                  a URL's first segment to a local directory.
- *  - cnvyrOpOverrides: A key/value array of ops/values that will get explicitly set for all API calls.
- *  - cnvyrHTTPCacheTime: Number of seconds to set HTTP value.
-                 
+ *  - @c cnvyrBaseURL: full URL of cnvyr.io API, typically http://srv.cnvyr.io/v1
+ *  - @c cnvyrCacheLocal: boolean TRUE or FALSE whether to cache results from cnvyr.io
+ *  - @c cnvyrCacheDir: local filesystem directory to cache assests if above is TRUE.
+ *                      Must be writeable by the web processes.
+ *  - @c cnvyrHandlerPrefix: A short string to prefix each cached resource.  Must be
+ *                           unique per server.
+ *  - @c cnvyrOrigins: One or more \c handler=directory/ entries that map a URL's first
+ *                     segment to a local directory where the assets reside.
+ *  - @c cnvyrOpOverrides: A key/value array of ops/values that will get explicitly set for all API calls.
+ *  - @c cnvyrHTTPCacheTime: Number of seconds of @e absolute HTTP caching (see asm::HTTP::Cache).
+ *
+ * This class must be extended, at least as a stub.
+ *
+ * Ehe cnvyrc::$XAccelRedirectBase static property should be set in the stub class.
  *
  * All caching is done to a local filesystem path.
  *
- * This class must be extended at least as a stub.
+ * The cnvyrc::FromCache can be called statically in an application's Load.inc which will
+ * skip the rest of asmblr execution.
  *
- * @todo Possibly add helper methods for HTTP caching, storing cache files, gzip, etc.
- * @todo Determine passthru/no-op behavior - i.e. just cache so it can be sent via x-sendfile.
- * @todo If we have a gzip op, we shoul be caching the gzip'd version and then directly serving that
- *       with the proper headers.
- * @todo We don't really address cache-busting URLs.
- * @note Pre-gzip'd assets and using x-sendfile will only work with nginx.
- * @note This requires all content to send to the API to be a string - files are not supported.
- * @note It may be often to not have asmblr lowercase the requested URL, especially for things like
- *       documents/PDFs/etc.  The following two lines can recalculate the request structures and can be
- *       added to the cnvyr.io short-circuit check in Load.inc:
+ * By default asmblr lowercases all requested URLs.  When serving assets on Linux with capitalized
+ * letters, the asset won't be found.  The following will recalculate the request, keeping it's
+ * original case, and can be added to the cnvyr.io short-circuit in Load.inc:
+ *       @code
  *       $Request = \asm\Request::Init();
  *       Request::CalcURLs($app->Request,$app->Config['BaseURL'],FALSE);
+ *       @endcode
  *
+ * cnvyrc also supports CSS or JS bundles which combine multiple files into one and perform operations
+ * on the result (asset pipeline).  Bundles are defined in the stub class using the cnvyrc::$Bundles property
+ * with the following structure:
+ *  @code
+ *  public $Bundles = array('bundle.css'=>
+ *                      array(array('css_bootstrap.min','css_jquery-ui-1.10.3.custom','css_style'),array('min'=>'css','gzip'=>'1')),
+ *                          'bundle.js'=>
+ *                      array(array('js_jquery-1.10.2.min','js_jquery-ui-1.10.3.custom.min','js_bootstrap.min','js_sitelib'),array('min'=>'js','gzip'=>'1')));
+ * @endcode
+ *
+ * A bundle is referenced by it's key, ie. @c bundle.css or @c bundle.js in the example above.  Each filepart
+ * of a bundle is referenced but it's template name.
+ *
+ * @note Pre-gzip'd assets (those gzip'd by the API) and using x-sendfile will only work with nginx.
+ * @todo Cache-busting URLs aren't handled.
+ * @todo $Bundles probably doesn't belong in cnvyrc as a property since it's more dependant on the srv Page function
+ *       and uses template names which cnvyrc itself doesn't care about.  Should be defined somewhere else.
  */
 abstract class cnvyrc extends restr
 {
     /**
+     * @var string $XAccelRedirectBase
      * Base URL for serving via nginx's X-Accel-Redirect.  Needs leading and trailing
      * slashes and must match nginx config (see nginx-asmblr.conf).
      *
@@ -61,22 +79,14 @@ abstract class cnvyrc extends restr
     protected static $XAccelRedirectBase = '/xcnvyr/';
 
     /**
+     * @var array $Config
      * Configuration variables from the manifest.
      */
     protected $Config = array();
 
     /**
-     * Definition of CSS or JS bundles.  Bundles combine multiple files into one and
-     * perform operations on the result (asset pipeline).
-     *
-     * This is an associative array of the form:
-     *   $this->Bundles = array('bundle.css'=>
-     *                      array(array('css_bootstrap.min','css_jquery-ui-1.10.3.custom','css_style'),array('min'=>'css','gzip'=>'1')),
-     *                          'bundle.js'=>
-     *                      array(array('js_jquery-1.10.2.min','js_jquery-ui-1.10.3.custom.min','js_bootstrap.min','js_sitelib'),array('min'=>'js','gzip'=>'1')));
-     *
-     * A bundle is referenced by it's key, i.e. bundle.css.  Each part of bundle is referenced but it's template name.
-     * Generally used in the static cnvyrc::srv() Page method.
+     * @var array $Bundles
+     * Definition of CSS or JS bundles.
      *
      * Configurable in the stub class only.
      */
@@ -91,6 +101,11 @@ abstract class cnvyrc extends restr
     public $Origins = array();
 
 
+    /**
+     * Instantiate a cnvyrc object for API communication and caching of the result.
+     *
+     * @param App $app The application's App object.
+     */
     public function __construct( $app )
     {
         $this->Config = $app->Config;
@@ -108,11 +123,13 @@ abstract class cnvyrc extends restr
     }
 
     /**
-     * Perform API request with one or more buckets of content.
+     * Perform an API request with one or more buckets of content.
      *
-     * Each bucket of content is a string of data to hit the API with.  For CSS/JS,
+     * Each bucket of content is a string of data to send to the API.  For CSS/JS,
      * an array of strings is acceptable as a bundle.  For images, only a single bucket
      * is accepted.
+     *
+     * This will trigger a HTTP 500 error and exit if the API call fails.
      *
      * @param string $Payload A string that's the payload to operate on.
      * @param array $Payload An array of strings to bundle and perform operations on (CSS/JS only).
@@ -150,12 +167,11 @@ abstract class cnvyrc extends restr
     }
 
     /**
-     * Cache a payload making.
+     * Cache a payload.
      *
-     * Cached payloads can then be served by FromCache().
-     *
-     * This supports only a single bucket of payload and is used mostly for caching binary
-     * types of files (PDF, fonts, doc, audio/video, etc) except images.
+     * The payload can be any string, typically a result from the API, or a string that
+     * doesn't require any processing (PDF, fonts, doc, etc).  Cached payloads can then
+     * be served by FromCache().
      *
      * @param string $Payload The payload to cache.
      * @param string $Filename The cache filename.
@@ -169,16 +185,17 @@ abstract class cnvyrc extends restr
         return file_put_contents($this->Config['cnvyrCacheDir'].$Filename,$Payload);
     }
 
-
     /**
      * Attempt a local cache hit and serve the cached resource if available.
      *
-     * @param string $Filename The filename of the resource to be checked and served.
+     * This should typically be called in an application's Load.inc which will skip the rest of
+     * asmblr execution for a very fast response.
+     *
+     * @param string $Filename The filename of the cached resource to be checked and served.
      * @param string $CacheDir The full path to the cache directory for cnvyr with trailing slash.
      * @param boolean $DirectOut TRUE to avoid using any server optimization (i.e. X-SendFile).
      * @retval boolean TRUE if the cache hit was successfully served, FALSE if it didn't exist.
      *
-     * @note This is best called in an app's Load.inc for very fast responses.
      * @note $Filename and $CacheDir are trusted - do checks elsewhere.
      * @note Serving gzip'd cache files using Apache's mod_xsendfile won't work because it strips Content-Encoding.
      */
@@ -223,17 +240,17 @@ abstract class cnvyrc extends restr
     }
 
     /**
-     * Default Page Function for handling cnvyr.io based asset delivery.
+     * Default Page function for cnvyr.io based asset delivery.
      *
      * This includes logic for pushing local assets to the cnvyr.io API, caching the result
      * if desired, and then serving the result.
      *
      * It uses cnvyrc::$Origins to determine where the asset resides on the local filesystem.  The
-     * first segment of the requested URL (MatchPath) is used to determine how to handle the asset.
+     * first segment of the requested URL (Request $MatchPath) is used to determine how to handle the asset.
      * The following handlers exist by default:
-     *  - img: handle as an image
-     *  - css: handle as CSS (text from templating system)
-     *  - js: handle as Javascript (text from templating system)
+     *  - img: handle as an image (pulled from filesystem)
+     *  - css: handle as CSS (text string from templating system)
+     *  - js: handle as Javascript (text string from templating system)
      *
      * Any other prefix is handled as a generic binary and simply cached - no operations are performed.
      *
@@ -242,12 +259,11 @@ abstract class cnvyrc extends restr
      * This enforces the cnvyrOpOverrides config parameter and sets the cnvyrHTTPCacheTime
 	 * parameter from the manifest.
      *
+     * @param asm::App $app The application's App object.
+     *
      * @note In apps that use cnvyrc::FromCache() in Load.inc and a cache entry exists, execution never
      * reaches this method - the serve happens directly in FromCache().
-     *
-     * @param \asm\App $app
-     *
-     * @see The comments of this class for maintaining the case of the requested URL.
+     * @note This exits when complete.
      */
     public static function srv( \asm\App $app )
     {
@@ -380,7 +396,6 @@ abstract class cnvyrc extends restr
             }
         }
 
-
         // now just output for this request and we're done
         // this type of stuff is done in FromCache() or by the web server itself sometimes
         header('Content-Length: '.strlen($Payload));
@@ -392,49 +407,6 @@ abstract class cnvyrc extends restr
         echo $Payload;
         exit;
     }
-
-
-
-//     protected static function text( $Type,$Path,cnvyrc $cc,$app )
-//     {
-//         if( isset(static::$Bundles[$Path[1]]) )
-//         {
-//             $Content = array();
-//             foreach( static::$Bundles[$Path[1]][0] as $K => $F )
-//             {
-//                 if( isset($app->html->$F) === FALSE )
-//                 {
-//                     llog("Template {$F} of bundle {$Path[1]} not found");
-//                     HTTP::_404();
-//                     exit;
-//                 }
-//                 else
-//                 {
-//                     $Content[$Path[1].$K] = $app->html->Render($F);
-//                 }
-//             }
-
-//             $cc->srv($Type,$Path[1],empty(static::$Bundles[$Path[1]][1])?array():static::$Bundles[$Path[1]][1],$Content);
-//         }
-//         // single
-//         else
-//         {
-//             $Token = "{$Type}_".str_replace(".{$Type}",'',$Path[1]);
-
-//             if( isset($app->html->$Token) )
-//             {
-//                 $cc->srv($Type,$Path[1],array('min'=>$Type,'gzip'=>'1'),$app->html->Render($Token));
-//             }
-//             else
-//             {
-//                 \asm\HTTP::_404();
-//                 exit;
-//             }
-//         }
-//     }
-
-
-
 
     /**
      * Parse a path into cnvyr components.
@@ -449,38 +421,38 @@ abstract class cnvyrc extends restr
      * @param array $P Path Struct to parse.
      * @retval array Numeric array with handler, filename/bundle and cache buster elements.
      * @retval NULL The path could not be parsed.
+     *
+     * @deprecated This isn't used currently but may be reinstated for cache-busting and security purposes.
      */
-//     public static function PathParse( $P )
-//     {
-//         // /handler-url/cache-buster pattern
-//         if( !empty($P['Segments'][2]) )
-//         {
-//             $CacheBuster = $P['Segments'][1];
-//             $Handler = str_replace(array('..','/'),'',rawurldecode($P['Segments'][0]));
-//             $Filename = str_replace(array('..','/'),'',rawurldecode($P['Segments'][2]));
-//         }
-//         // /handler/filename pattern
-//         else if( !empty($P['Segments'][1]) )
-//         {
-//             $Filename = str_replace(array('..','/'),'',rawurldecode($P['Segments'][1]));
-//             $Handler = str_replace(array('..','/'),'',rawurldecode($P['Segments'][0]));
-//             $CacheBuster = '';
-//         }
-//         // nothing (probably a 404)
-//         else
-//         {
-//             return array();
-//         }
+    public static function PathParse( $P )
+    {
+        // /handler-url/cache-buster pattern
+        if( !empty($P['Segments'][2]) )
+        {
+            $CacheBuster = $P['Segments'][1];
+            $Handler = str_replace(array('..','/'),'',rawurldecode($P['Segments'][0]));
+            $Filename = str_replace(array('..','/'),'',rawurldecode($P['Segments'][2]));
+        }
+        // /handler/filename pattern
+        else if( !empty($P['Segments'][1]) )
+        {
+            $Filename = str_replace(array('..','/'),'',rawurldecode($P['Segments'][1]));
+            $Handler = str_replace(array('..','/'),'',rawurldecode($P['Segments'][0]));
+            $CacheBuster = '';
+        }
+        // nothing (probably a 404)
+        else
+        {
+            return array();
+        }
 
-//         return array($Handler,$Filename,$CacheBuster);
-//     }
-
+        return array($Handler,$Filename,$CacheBuster);
+    }
 }
 
 
-
 /**
- * Create URLs for cnvyr handler pages.
+ * Create URLs for cnvyrc managed assets.
  *
  * @note Largely similar to LinkPage.  Modifications to __invoke().
  */
@@ -490,16 +462,15 @@ class Linkcnvyr extends LinkPage
      * Linkcnvyr constructor.
      *
      * @param PageSet $PageSet PageSet containing Pages to create URLs for.
+     * @param App $App The application's App object.
      * @param array $BaseURL URL Struct to use as BaseURL.
      * @param string $BaseURL URL string to use as BaseURL.
      * @param NULL $BaseURL App::$SiteURL will be used.
      * @param string $Buster Numeric string to use as a cache-buster path segment (first segment).
      * @param NULL $Buster No cache-buster will be used.
      *
-     * @see LinkPage::__construct
-     *
      * @todo Buster stuff needs work, including properly appending the path segment and perhaps a review
-     *       of URL::Set()/Path::Set() stuff.
+     *       of URL::Set() and Path::Set() stuff.
      */
     public function __construct( \asm\PageSet $PageSet,\asm\App $App,$BaseURL = NULL,$Buster = NULL )
     {
@@ -521,8 +492,6 @@ class Linkcnvyr extends LinkPage
      * @param string $Handler The name of the handler page, typically one of css, img, js or bin.
      * @param string $Filename The filename of the resource or bundle to serve.
      * @retval string The absolute URL of the cnvyr served resource.
-     *
-     * @note This is does not parse the Filename as a URL - it's taken only as a path.
      */
     public function __invoke( $Handler = NULL,$Filename = '' )
     {

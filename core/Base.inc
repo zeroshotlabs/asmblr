@@ -2256,7 +2256,7 @@ abstract class URL extends Struct
      *  - @c domain.com
      *  - @c domain.com/
      *  - @c domain.com/something.html
-     *  - @c/something.html
+     *  - @c /something.html
      *
      * @param string $URLStr The URL string to parse.
      * @throws Exception URLStr not a string.
