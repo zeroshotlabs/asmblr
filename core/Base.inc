@@ -2390,7 +2390,7 @@ abstract class URL extends Struct
     {
         if( is_string($Hostname) === TRUE )
             $URL['Hostname'] = Hostname::Init($Hostname);
-        else if( Hostname::IsA($Hostname) === TRUE )
+        else if( is_array($Hostname) === TRUE )
             $URL['Hostname'] = $Hostname;
         else
             throw new Exception("Hostname not a string or Hostname Struct.");
