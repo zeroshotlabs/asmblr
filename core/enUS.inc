@@ -2,7 +2,7 @@
 /**
  * @file enUS.inc Default en-US locale validation, text utilities, and HTML templating.
  * @author Stackware, LLC
- * @version 4.0
+ * @version 4.2
  * @copyright Copyright (c) 2012-2014 Stackware, LLC. All Rights Reserved.
  * @copyright Licensed under the GNU General Public License
  * @copyright See COPYRIGHT.txt and LICENSE.txt.
@@ -14,29 +14,35 @@ namespace asm;
  * Tools for working with US English text, delimited strings (tags), and forms.
  *
  * enUS methods fall into the following categories:
- *  - String: manipulate strings of US English (latin) text.
- *  - Element: normalize and validate elements of an array.
+ *  - string: manipulate strings of US English (latin) text.
+ *  - element: normalize and validate elements of an array.
  *
- * The element category of methods are typically used for validating forms using the
+ * The element methods are typically used for validating forms using the
  * $_POST and $_GET superglobals.  For these methods, the following semantics apply:
  *  - the original source array is changed as part of their normalization.
- *  - NEEDS REVIEW: a form field is considered "empty" when it's trimmed value is the empty string ($var === '') or an array
+ *  - a form field is considered "empty" when it's trimmed value is the empty string ($var === '') or an array
  *    with zero elements (count($var) === 0)
  *
  * These methods are not character set/encoding aware and use standard PHP
  * string functions.  It may also be worth setting your locale explicity:
+ *  @code
+ *  setlocale(LC_ALL,'');      // Windows - use Control Panel settings
+ *  setlocale(LC_ALL,'en_US'); // Unix
+ *  @endcode
  *
- * setlocale(LC_ALL,'');  // Windows - use Control Panel settings
- * setlocale(LC_ALL,'en_US'); // Unix
+ * @see asm::enUSHTMLSet for English (latin) HTML templating and related HTML tools.
  *
- * @see enUSHTMLSet for English (latin) HTML templating and other HTML tools.
- *
- * @todo setlocale() and related needs to be correctly implemented and documented.
+ * @todo setlocale() and related may need further implementation and documentation.
  * @todo Possibly add countries, date, time, AM/PM, and more... and extract to additional classes.
  *       http://komunitasweb.com/2009/03/10-practical-php-regular-expression-recipes/
+ * @todo Reviewing of what's "empty" and what's not may be needed.
  */
 abstract class enUS
 {
+    /**
+     * @var array $Plural
+     * Internal array of plural mappings.
+     */
     protected static $Plural = array(
         '/(quiz)$/i'               => "$1zes",
         '/^(ox)$/i'                => "$1en",
@@ -59,6 +65,10 @@ abstract class enUS
         '/$/'                      => "s"
     );
 
+    /**
+     * @var array $Singular
+     * Internal array of singular mappings.
+     */
     protected static $Singular = array(
         '/(quiz)zes$/i'             => "$1",
         '/(matr)ices$/i'            => "$1ix",
@@ -90,11 +100,23 @@ abstract class enUS
         '/s$/i'                     => ""
     );
 
+    /**
+     * @var array $Irregular
+     * Internal array of irregular mappings.
+     */
     protected static $Irregular = array('move'=>'moves','foot'=>'feet','goose'=>'geese','sex'=>'sexes',
                                         'child'=>'children','man'=>'men','tooth'=>'teeth','person'=>'people');
 
+    /**
+     * @var array $Uncountable
+     * Internal array of uncountable mappings.
+     */
     protected static $Uncountable = array('sheep','fish','deer','series','species','money','rice','information','equipment');
 
+    /**
+     * @var array $States
+     * Internal array of US state names and abbreviations.
+     */
     protected static $States = array('AL'=>'Alabama','AK'=>'Alaska','AS'=>'American Samoa','AZ'=>'Arizona','AR'=>'Arkansas',
                                      'CA'=>'California','CO'=>'Colorado','CT'=>'Connecticut','DE'=>'Delaware','DC'=>'District Of Columbia',
                                      'FL'=>'Florida','GA'=>'Georgia','GU'=>'Guam','HI'=>'Hawaii','ID'=>'Idaho','IL'=>'Illinois',
@@ -107,24 +129,53 @@ abstract class enUS
                                      'SD'=>'South Dakota','TN'=>'Tennessee','TX'=>'Texas','UT'=>'Utah','VT'=>'Vermont',
                                      'VI'=>'Virgin Islands','VA'=>'Virginia','WA'=>'Washington','WV'=>'West Virginia','WI'=>'Wisconsin',
                                      'WY'=>'Wyoming');
-
+    /**
+     * @var array $Prefixes
+     * Internal array of US person title prefixes.
+     */
     protected static $Prefixes = array('Mr.','Mrs.','Ms.','Miss.','Master.','Prof.','Dr.');
+
+    /**
+     * @var array $Suffixes
+     * Internal array of US person title suffixes.
+     */
     protected static $Suffixes = array('Sr.','Jr.','Ph.D.','M.D.','B.A.','M.A.','D.D.S.');
 
+    /**
+     * @var string $UseStopWords
+     * Internal regex for skipping common stop words.
+     */
     protected static $UseStopWords = '/(\b(on|the|with|of|and|for|a|to|at|or|out|as|thy|from|how)\b)|(\40|\/|\.|@)/i';
+
+    /**
+     * @var string $NoUseStopWords
+     * Internal regex for not skipping stop words.
+     */
     protected static $NoUseStopWords = '/(\40|\/|\.|@)/i';
 
-    protected static $NoAlphaNum = '([^a-zA-Z0-9-])';
-//    protected static $StopWords2 = '(-{2,})';
+    /**
+     * @var array $StopWordsReplaceWith
+     * Internal array for replacing stop words with placeholders.
+     */
     protected static $StopWordsReplaceWith = array('-','','-');
 
+    /**
+     * @var array $StopWordsReplaceWith
+     * Internal array/regex for allowing stop words but not non-alpha/numeric characters.
+     */
     protected static $AllowStopWords = array(array('/(\40|\/)/i','([^a-zA-Z0-9-])','(-{2,})'),array('-','','-'));
+
+    /**
+     * @var string $NoAlphaNum
+     * Internal regex for not matching alpha/numeric characters.
+     */
+    protected static $NoAlphaNum = '([^a-zA-Z0-9-])';
 
 
     /**
      * Convert a string into an array of words.
      *
-     * By default, the following is performed:
+     * The following is performed:
      *  - Stop words are replaced with dashes.
      *  - Non-alphanumeric characters are removed.
      *  - The string is split on dashes, spaces, and those characters contained in $Delims.
@@ -144,7 +195,7 @@ abstract class enUS
         else
             $Str = preg_replace(array(static::$NoUseStopWords,static::$NoAlphaNum),array('-','-'),$Str);
 
-        // do we want a space as a delim? do we need to trim each word?
+        // do we need to trim each word that's returned?
         $Words = preg_split("/[\ \-{$Delims}]+/",$Str,NULL,PREG_SPLIT_NO_EMPTY);
 
         if( $DeDupe === TRUE )
@@ -429,8 +480,8 @@ abstract class enUS
      * @retval boolean TRUE if the element exists and validates or is empty and not required, FALSE if required but empty.
      * @retval NULL Data did not validate.
      *
-     * @note This validates a string of digits ONLY - not an integer string or PHP integer type.  This means 0111 is valid
-     * but 2.00 is NOT.
+     * @note This validates a string of digits ONLY - not an integer string or PHP integer type.  This
+     *       means 0111 is valid but 2.00 is NOT.
      */
     public static function Number( $Label,&$Src,$Required = TRUE )
     {
@@ -438,9 +489,6 @@ abstract class enUS
 
         if( $R !== TRUE )
             return $R;
-
-//         if( empty($Src[$Label])  )
-//             return !$Required;
 
         return ctype_digit($Src[$Label])?TRUE:NULL;
     }
@@ -538,7 +586,7 @@ abstract class enUS
      * @retval boolean TRUE if the element exists and validates or is empty and not required, FALSE if required but empty.
      * @retval NULL Data did not validate.
      *
-     * @note This can be used for a form's listboxes and multi-checkboxes fields.
+     * @note This can be used for a form's listboxes and multi-checkbox fields.
      * @note When options are a numeric array, in_array() type-strict checking is used - ensure the values are strings.
      */
     public static function Multi( $Label,&$Src,$Options,$Required = TRUE )
@@ -574,6 +622,8 @@ abstract class enUS
     /**
      * Retrieve a listing of US states.
      *
+     * @retval array Array of state abbreviations (keys) and names (values).
+     *
      * @note Use with enUS::Single() or enUS::Multi() to validate a submitted form field.
      */
     public static function StateListing()
@@ -584,6 +634,8 @@ abstract class enUS
     /**
      * Retrieve a listing of title prefixes.
      *
+     * @retval array Array of prefixes.
+     *
      * @note Use with enUS::Single() or enUS::Multi() to validate a submitted form field.
      */
     public static function PrefixListing()
@@ -592,6 +644,8 @@ abstract class enUS
     }
     /**
      * Retrieve a listing of title suffixes.
+     *
+     * @retval array Array of suffixes.
      *
      * @note Use with enUS::Single() or enUS::Multi() to validate a submitted form field.
      */
@@ -605,7 +659,7 @@ abstract class enUS
      *
      * This uses PHP's native DateTime functions.
      *
-     * IT will be alter the original data to a standard ISO date YYYY-mm-dd.
+     * It will alter the original data to a standard ISO date YYYY-mm-dd.
      *
      * @param string $Label The name of the element to check.
      * @param array $Src The array of data.
@@ -777,7 +831,7 @@ abstract class enUS
      * The following is performed:
      *  - Dashes, spaces and periods are removed.
      *  - enUS::Number() to normalize and validate the element.
-     *  - Luhn checksum is tested.
+     *  - Luhn checksum is performed.
      *
      * @param string $Label The name of the element to check.
      * @param array $Src The array of data.
@@ -893,7 +947,7 @@ abstract class enUS
      * @retval NULL Data did not validate.
      *
      * @note Because this uses enUS::Text(), leading and trailing whitespace is stripped, which may lead to
-     *       user confusion.
+     *       user confusion - or just don't put whitespace in a password.
      */
     public static function Password( $Label1,&$Src,$Label2 = NULL,$Required = TRUE )
     {
@@ -925,9 +979,13 @@ abstract class enUS
 }
 
 
+/**
+ * Common traits for en-US based TemplateSets for HTML.
+ */
 trait enUSHTMLTraits
 {
     /**
+     * @var array $AllowTags
      * Allowed HTML tags when Strip()'ing HTML.
      */
     protected static $AllowTags = '<a><b><i><u><strong><em><span><font><br><strike>
@@ -938,6 +996,7 @@ trait enUSHTMLTraits
                                    <img><object><param><embed>';
 
     /**
+     * @var array $ccTLDs
      * Recognized TLDs for ToLinks() to create links in text.
      */
     protected static $ccTLDs = array('com','org','edu','net','gov','us','tv','ly','io','my','uk','ca','de','dk',
@@ -1045,11 +1104,11 @@ trait enUSHTMLTraits
     }
 }
 
+
 /**
  * A set of English (latin) HTML templates and tools.
  *
- * This is not character set encoding aware and uses standard PHP
- * string functions.
+ * This is not character set encoding aware and uses standard PHP string functions.
  *
  * @see TemplateSet
  */
