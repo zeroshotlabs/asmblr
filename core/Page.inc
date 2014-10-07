@@ -1,8 +1,8 @@
 <?php
 /**
- * @file Page.inc URL matching and logic execution.
+ * @file Page.inc URL matching and application execution.
  * @author Stackware, LLC
- * @version 4.0
+ * @version 4.2
  * @copyright Copyright (c) 2012-2014 Stackware, LLC. All Rights Reserved.
  * @copyright Licensed under the GNU General Public License
  * @copyright See COPYRIGHT.txt and LICENSE.txt.
@@ -16,10 +16,8 @@ namespace asm;
  * A Page contains one trigger absolute Path, a Name, an optional function, and none, one or more
  * Directives.  The Path and Name must be unique within a PageSet.
  *
- * Pages are usually executed and managed by a PageSet, together loosely forming
- * Framewire's MVC <b>c</b>ontrol layer.
- *
- * @see PageSet
+ * Pages are usually executed and managed by a PageSet, forming the "control layer".  PageSets and
+ * Pages are managed through the manifest.
  */
 abstract class Page extends Struct
 {
@@ -31,17 +29,13 @@ abstract class Page extends Struct
      *
      * @param string $Name The name of the Page.
      * @param string $Path The trigger absolute path of the Page which is lowercased.
-     * @param string $Routine A Routine string; both inline or pointer are accepted.
-     * @param string|array $Directives A single Directive definition or an array of them.
-     * @throws Exception Invalid Page Name '$Name'.
+     * @param string $Status The page's status, generally @c Active.
+     * @param string|array $Function A function callback.
      * @retval array The created Page Struct.
      *
-     * @note The Path should be absolute and always directly off the root.  It should not
-     *       contain any prefixes as these are handled automatically using AppURL.
      * @note The Path should not be encoded.
-     * @todo Passing in Directives (here) may be deprecated.
      */
-    public static function Init( $Name,$Path,$Status,$Function = NULL,$Directives = NULL )
+    public static function Init( $Name,$Path,$Status,$Function = NULL )
     {
         $Page = static::$Skel;
 
@@ -66,7 +60,7 @@ abstract class Page extends Struct
  *
  * Page Names and Paths are unqiue and overwritten silently.
  *
- * This is the default execution and request routing mechanism in Framewire.
+ * This is the default execution and request routing mechanism in asmblr.
  */
 class PageSet implements Debuggable
 {
@@ -82,6 +76,12 @@ class PageSet implements Debuggable
     public $PageMap;
 
 
+    /**
+     * Create a PageSet.
+     *
+     * @param array $Pages Numeric index of Page Struct to be managed.
+     * @param array $PageMap Mapping of Page paths and the page name.
+     */
     public function __construct( $Pages,$PageMap )
     {
         $this->Pages = $Pages;
@@ -99,7 +99,7 @@ class PageSet implements Debuggable
      * @retval array The matched Page Struct.
      * @retval NULL No Page matched.
      *
-     * @note This is the primary Page routing mechanism in Framewire.
+     * @note This is the primary Page routing mechanism in asmblr.
      * @note Matching should be done against unencoded paths.
      * @note If multiple pages with the same name are matched (rare), only the first instance will be stored in $Matched.
      */
@@ -122,12 +122,9 @@ class PageSet implements Debuggable
      *
      * @param array $Page The Page Struct to execute.
      * @retval mixed The value returned by the function, if any.
-     * @throws Exception Directive Name {$V['Name']}' doesn't exist while executing Page '{$Page['Name']}'.
+     * @throws Exception Directive object ... doesn't exist while executing Page ...
      *
-     * @todo We'd love to optimize/streamline applying directives somehow.
-     *
-     * @note It is not enforced that the Page must exist in the PageSet,
-     *       i.e. this can be used to execute any Page.
+     * @note It is not enforced that the Page must exist in the PageSet, i.e. this can be used to execute any Page.
      * @note If multiple pages with the same name are executed, only the first instance will be stored in $Executed.
      */
     public function Execute( $Page )
@@ -154,7 +151,7 @@ class PageSet implements Debuggable
         if( !empty($Page['Function']) )
         {
             // this automatically executes class::func when an array... sweet
-            $Page['Function']($asmapp);
+            return $Page['Function']($asmapp);
         }
     }
 
