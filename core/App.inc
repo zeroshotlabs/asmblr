@@ -44,7 +44,7 @@ abstract class App
     /**
      * @var string $AppRoot
      * The absolute path of the application's root directory, for example:
-     * \c /var/www/aapps/example.com
+     * @c /var/www/aapps/example.com
      *
      * Many other paths are relative to this path.
      *
@@ -169,9 +169,9 @@ abstract class App
      * called explicitly by the extending class if not fully re-implemented.
      *
      * Key system objects are also instantiated as properties of the object:
-     *  - $this->ps = PageSet
-     *  - $this->lp = LinkPage
-     *  - $this->lc = Linkcnvyr
+     *  - @c $this->ps = PageSet
+     *  - @c $this->lp = LinkPage
+     *  - @c $this->lc = Linkcnvyr
      *
      * @param array $App Application array defined in @c index.php.
      * @param asm::Request $Request Request Struct to use as the current request.
