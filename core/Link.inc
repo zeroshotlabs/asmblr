@@ -2,7 +2,7 @@
 /**
  * @file Link.inc URL creation.
  * @author Stackware, LLC
- * @version 4.0
+ * @version 4.2
  * @copyright Copyright (c) 2012-2014 Stackware, LLC. All Rights Reserved.
  * @copyright Licensed under the GNU General Public License
  * @copyright See COPYRIGHT.txt and LICENSE.txt.
@@ -23,7 +23,7 @@ namespace asm;
  * Both lines do the same thing - all created URLs will be, by default, based on:
  *     http://www.stackware.com/?district=nyc
  *
- * The $ls object is then called as a function with additional changes for create URLs:
+ * The $ls object is then called as a function with additional changes for creating the URLs:
  *     $ls('<login');
  *     $ls('>login');
  *
@@ -40,11 +40,13 @@ namespace asm;
 class LinkSet
 {
     /**
+     * @var URL $BaseURL
      * The URL Struct that links will be derived from.
      */
     protected $BaseURL = NULL;
 
     /**
+     * @var string $BaseURLStr
      * BaseURL cached as a string.
      *
      * @note Not currently implemented because of Set() complexity.
@@ -55,11 +57,11 @@ class LinkSet
     /**
      * LinkSet constructor.
      *
-     * If no BaseURL is supplied, it will default to the current SiteURL (App::$SiteURL).
+     * If no BaseURL is supplied, it will default to the current App::$SiteURL.
      * The BaseURL and any changes set here, will persist for all created URLs, unless
      * changed using SetBaseURL() or Set().
      *
-     * @param array $BaseURL URL Struct to use as BaseURL.
+     * @param URL $BaseURL URL Struct to use as BaseURL.
      * @param string $BaseURL URL string to use as BaseURL.
      * @param NULL $BaseURL App::$SiteURL will be used.
      * @param array $Set Array of change strings for persistent changes to BaseURL.
@@ -82,7 +84,7 @@ class LinkSet
     /**
      * Build a URL for the provided Path or filename.
      *
-     * The URLs is calculated from BaseURL and may incorporate one-time changes.
+     * The URLs are calculated from BaseURL and may incorporate one-time changes.
      *
      * @param string $File A filename with optional path or an empty string to use only the base URL.
      * @param array $Set Array of change strings for one-time changes to BaseURL.
@@ -112,7 +114,7 @@ class LinkSet
      * @param array $Set Array of change strings for persistent changes to BaseURL.
      * @throws Exception Invalid base URL.
      *
-     * @note Caches BaseURL as $BaseURLStr.
+     * @note Caches BaseURL as $BaseURLStr, though not really used elsewhere.
      */
     public function SetBaseURL( $BaseURL,$Set = array() )
     {
@@ -216,6 +218,7 @@ class LinkPage extends LinkSet
      * changed using SetBaseURL() or Set().
      *
      * @param PageSet $PageSet PageSet containing Pages to create URLs for.
+     * @param App $App The application's App object.
      * @param array $BaseURL URL Struct to use as BaseURL.
      * @param string $BaseURL URL string to use as BaseURL.
      * @param NULL $BaseURL App::$SiteURL will be used.
@@ -239,15 +242,9 @@ class LinkPage extends LinkSet
      * @param array $Set Array of change strings for non-persistent changes to BaseURL.
      * @retval string A well-formed URL.
      *
-     * @todo Most links created are of the current request with a change in query string
-     *       and/or fragment.  We could cache the $BaseURL and last executed Page and
-     *       add only query string/fragment.  Another strategy would be to "freeze"
-     *       certain parts of the URL, based on the type of URLs we're forming - for example,
-     *       if the path changes, rather than the query string, when forming long lists of links.
-     *       This behavior would need to include which URLs parts the Set arg includes -
-     *       the more Set, the less caching.  Another to consider is that once this
-     *       starts executing (and Current()) the current Page likely won't change, and thus
-     *       can be cached.  Note that these caches probably don't belong in LinkSet itself.
+     * @todo Optimize link creation by converting to string only those parts that have changed.
+     *       For example, the current page (Path) won't change for long listings and thus shouldn't
+     *       have to be recalculated for every row of a listing - sometimes just the query string changes.
      */
     public function __invoke( $Name = NULL,$Set = array() )
     {
@@ -309,7 +306,7 @@ class LinkPage extends LinkSet
     /**
      * Test whether one or more Pages have been matched for this request.
      *
-     * $True or $False is returned accordingly.
+     * @c $True or @c $False is returned accordingly.
      *
      * @param string $Name Page Name to test.
      * @param array $Name Page Names to test.
