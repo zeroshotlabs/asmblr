@@ -2,7 +2,7 @@
 /**
  * @file Load.inc asmblr loader and global helper functions.
  * @author Stackware, LLC
- * @version 4.0
+ * @version 4.2
  * @copyright Copyright (c) 2012-2014 Stackware, LLC. All Rights Reserved.
  * @copyright Licensed under the GNU General Public License
  * @copyright See COPYRIGHT.txt and LICENSE.txt.

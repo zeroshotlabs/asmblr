@@ -2,7 +2,7 @@
 /**
  * @file Misc.inc Miscellaneous tools and helpers.
  * @author Stackware, LLC
- * @version 4.0
+ * @version 4.2
  * @copyright Copyright (c) 2012-2014 Stackware, LLC. All Rights Reserved.
  * @copyright Licensed under the GNU General Public License
  * @copyright See COPYRIGHT.txt and LICENSE.txt.
@@ -16,13 +16,22 @@ namespace asm;
  * Messager allows a message to be set on one Page and read from another.
  *
  * Messages are persisted using sessions and, by default, are deleted
- * after they are read.
+ * after they are read (snapchat style).
  *
  * All Messager objects will use the same $_SESSION element and thus
  * share a common message namespace.
  */
 class Messager
 {
+    /**
+     * Generate a twitter bootstrap compatible alert message.
+     *
+     * $Msg is filtered; $Class is not.
+     *
+     * @param string $Msg The message.
+     * @param string $Class The type of alert such as @c alert-success.
+     * @retval string The alert box HTML.
+     */
     public static function Alert( $Msg,$Class = '' )
     {
         if( !empty($Msg) )
@@ -30,18 +39,38 @@ class Messager
             if( Request::Init()['IsCLI'] )
                 return "\r\n{$Msg}\r\n";
             else
-                return "\r\n<pre class=\"alert {$Class}\">{$Msg}</pre>\r\n";
+                return "\r\n<pre class=\"alert {$Class}\">".htmlentities($Msg)."</pre>\r\n";
         }
     }
 
+    /**
+     * Generate a green message.
+     *
+     * @param string $Msg
+     * @retval string The alert box HTML.
+     */
     public static function AlertSuccess( $Msg )
     {
         return static::Alert($Msg,'alert-success');
     }
+
+    /**
+     * Generate a red message.
+     *
+     * @param string $Msg
+     * @retval string The alert box HTML.
+     */
     public static function AlertError( $Msg )
     {
         return static::Alert($Msg,'alert-error');
     }
+
+    /**
+     * Generate a light blue message.
+     *
+     * @param string $Msg
+     * @retval string The alert box HTML.
+     */
     public static function AlertInfo( $Msg )
     {
         return static::Alert($Msg,'alert-info');
@@ -303,6 +332,7 @@ abstract class Math
             return (round($Part/$Total,$Places)*100).'%';
     }
 }
+
 
 /**
  * Tools for generating database agnostic SQL strings.
