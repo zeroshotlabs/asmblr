@@ -2,27 +2,36 @@
 /**
  * @file corsp.inc CORS transparent proxy.
  * @author Stackware, LLC
- * @version 4.0
+ * @version 4.2
  * @copyright Copyright (c) 2012-2014 Stackware, LLC. All Rights Reserved.
  * @copyright Licensed under the GNU General Public License
  * @copyright See COPYRIGHT.txt and LICENSE.txt.
  */
 namespace asm;
 
+
 /**
- * CORS proxy - drop-in "transparent" proxy to mitigate CORS problems.
+ * CORS drop-in "transparent" proxy.
  *
- * Note that this is meant to be a Page's function.
+ * This function proxies local requests to a remote API so that CORS isn't an issue.
  *
- * Install requirements:
+ * Install:
  *  - CORSP_DestURL config variable must be set in the manifest's config, which can be overridden.
- *  - a page - commonly corsp - mapped to this function with a path such as /ajx/
+ *  - a page - commonly corsp - mapped to this function with a path such as /ajx/ as shown below.
+ *    The path must be only a single segment.
  *  - exclude page from session and zlib compression in sitewide.php
+ *
+ * This function should be defined in the manifest as a Page's function, such as:
+ *  @code
+ *  corsp	/ajx/	Active	\asm\corsp
+ *  @endcode
+ *
+ * Note that the namespace is required.
  *
  * This will pass nearly all headers - see code for details and exceptions.
  *
  * @todo We may choose to extend restr at some point, rather than use generic.
- * @todo Fully test, including GET method.
+ * @todo Fully test, including GET method, and possibly add config options.
  */
 function corsp( $app )
 {
@@ -30,8 +39,7 @@ function corsp( $app )
     if( empty($_SERVER['REQUEST_METHOD']) )
         \asm\HTTP::_400();
 
-    // determine our Ajax method URL since it's dynamic. it's everything
-    // past our first segment
+    // determine our Ajax method URL since it's dynamic. it's everything past our first segment
     $ProxyPath = $app->Request['MatchPath'];
     \asm\Path::Del(0,$ProxyPath);
 
@@ -49,7 +57,6 @@ function corsp( $app )
     // always added
     $Headers['Connection'] = 'close';
 
-
     $rest = new \asm\restr($app->Config['CORSP_DestURL'],array('CORSP'=>\asm\Path::ToURLString($ProxyPath)));
 
     if( $_SERVER['REQUEST_METHOD'] === 'GET' )
@@ -63,6 +70,7 @@ function corsp( $app )
     }
     else
     {
+        llog("Unknown method for corsp: {$SERVER['REQUEST_METHOD']}");
         \asm\HTTP::_400();
     }
 
@@ -70,7 +78,7 @@ function corsp( $app )
     if( empty($R) )
         \asm\HTTP::_204();
 
-    // we passback only certain headers - encoding?
+    // we passback only access-control, cookie and content-type - others?  encoding?
     foreach( $rest->Headers as $K => $V )
     {
         if( stripos($K,'access-control') !== FALSE )
@@ -82,11 +90,12 @@ function corsp( $app )
     }
 
     echo $R;
+    exit;
 }
 
 
 /**
- * Oh PHP
+ * Oh PHP - for < 5.4 - might get deprecated since we need 5.6 overall
  */
 if( !function_exists('getallheaders') )
 {
