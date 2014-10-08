@@ -21,6 +21,10 @@ namespace asm;
  */
 abstract class Page extends Struct
 {
+    /**
+     * @var array $Skel
+     * The base structure of a Page.
+     */
     protected static $Skel = array('Name'=>'','Path'=>'','Status'=>'','PathStruct'=>array(),'Function'=>array(),'Directives'=>array());
 
 
@@ -165,7 +169,7 @@ class PageSet implements Debuggable
      *
      * Log messages are always labeled with the class name.
      *
-     * @param boolean $Label TRUE to display debug info into rendering templates.
+     * @param boolean $Label TRUE to output debug info.
      */
     public function DebugOn( $Label = NULL )
     {

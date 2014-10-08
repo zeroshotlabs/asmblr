@@ -88,6 +88,8 @@ trait Debugged
      *
      * @param NULL $Label Log messages will be labeled with the class name.
      * @param string $Label Custom label for log messages.
+     *
+     * @todo $Label is misused in PageSet/TemplateSet as a way to trigger output of debug info - needs clean-up.
      */
     public function DebugOn( $Label = NULL )
     {

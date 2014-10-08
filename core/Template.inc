@@ -2,7 +2,7 @@
 /**
  * @file Template.inc Text templating and rendering.
  * @author Stackware, LLC
- * @version 4.0
+ * @version 4.2
  * @copyright Copyright (c) 2012-2014 Stackware, LLC. All Rights Reserved.
  * @copyright Licensed under the GNU General Public License
  * @copyright See COPYRIGHT.txt and LICENSE.txt.
@@ -13,19 +13,25 @@ namespace asm;
 /**
  * A Template is a block of text that can be rendered.
  *
- * A Template contains a Name, and optional function, and a body.  The Name
+ * A Template contains a Name, an optional function, and a body.  The Name
  * must be unique within a TemplateSet.
  *
  * If a function is present, it is executed before rendering occurs.  If the
- * function returns FALSE, rendering will not occur.
+ * function returns FALSE, rendering will not occur. A template function should
+ * be prototyped as:
+ *  @code funcname( $Connected,$Args,$App ) @endcode
  *
- * Templates are usually rendered and managed by a TemplateSet, together
- * loosely forming Framewire's MVC <b>v</b>iew layer.
+ * where @c $Connected is an array of the TemplateSet::Connect()'d variables, @c $Args are render-time
+ * arguments, and @c $App is the application's App object.
  *
- * @see TemplateSet
+ * Templates are rendered and managed by a TemplateSet, together forming the "view layer".
  */
 abstract class Template extends Struct
 {
+    /**
+     * @var array $Skel
+     * The base structure of a Template.
+     */
     protected static $Skel = array('Name'=>'','Function'=>array(),'Path'=>'','Body'=>'');
 
 
@@ -38,8 +44,6 @@ abstract class Template extends Struct
      * @param string $Body The contents of the Template.
      * @throws Exception Template Body not a string with '$Name'.
      * @retval array The created Template Struct.
-     *
-     * @note A template function should be prototyped function( $this->Connected,$Args,$App )
      */
     public static function Init( $Name,$Path,$Function = array(),$Body = '' )
     {
@@ -67,58 +71,62 @@ abstract class Template extends Struct
  *
  * Template Names are unique and overwritten silently.
  *
- * This is the default templating mechanism in Framewire.
- *
- * This TemplateSet manages file-based templates.
+ * This is the default templating mechanism in asmblr.
  *
  * TemplateSet is generally extended to provide locale specific functionality,
  * for example enUSHTMLSet.
  *
- * @todo Cacheable templates - Some templates, like subnav, can be
- *       expensive to create and don't change much - should be savable to disk/app file
+ * @todo Cacheable templates - Some templates, like a subnav menu, can be
+ *       expensive to create and don't change much - should be savable to disk/app file,
+ *       or perhaps using a cnvyrc mechanism.
  */
 class TemplateSet implements Debuggable,Directable
 {
     use Debugged;
 
     /**
-     * @var boolean Whether to display debug info to the browser.
+     * @var boolean $DebugDisplay
+     * Whether to display debug info to the browser.
+     *
      * @see TemplateSet::DebugOn()
      */
     protected $DebugDisplay = FALSE;
 
+    /**
+     * @var App $App
+     * The application's App object.
+     */
     protected $App;
 
     /**
-     * Array of managed Template Structs.
+     * @var array $Templates
+     * Array of Template Structs that this TemplateSet manages.
      *
-     * Current these will be Template structs with no body in dev/non-cache mode.
-     * Once production/cache mode is implemented, these may contain the body too.
+     * @note Unless App::$CacheApp is TRUE, these won't contain a body (it's pulled from the filesystem upon render).
      */
     protected $Templates = array();
 
     /**
-     * Array of Wired()'d objects and arrays that are made
-     * available within all templates using Connect().
+     * @var array $Connected
+     * Array of TemplateSet::Connect()'d variables that are made
+     * available within all templates during rendering.
      */
     protected $Connected = array();
 
     /**
-     * Cache of the last generated Connect()'d variables, suitable for pushing
-     * into the scope of a rendering template.
+     * @var array $Stacks
+     * Template stacks for grouped rendering.
      *
-     * @todo Consider other options as this has little gain.
-     */
-    protected $ConnectedScope = array();
-
-    /**
-     * Contains Template stacks for grouped rendering.
-     * @see Stack();
-     * @see Unstack();
+     * @see TemplateSet::Stack
+     * @see TemplateSet::Unstack
      */
     protected $Stacks = array();
 
-
+    /**
+     * Create a TemplateSet.
+     *
+     * @param App $App Application's App object.
+     */
     public function __construct( \asm\App $App )
     {
         $this->App = $App;
@@ -155,7 +163,7 @@ class TemplateSet implements Debuggable,Directable
     /**
      * Removes a mapping.
      *
-     * This is a shorthand for ReMap()'ing to NULL.
+     * This is a shorthand for ReMap()'ing to NULL which prevents a Name from rendering anything.
      *
      * @param string $Name The Name to unset.
      */
@@ -184,38 +192,33 @@ class TemplateSet implements Debuggable,Directable
             return NULL;
     }
 
-
     /**
      * Render and output a Template that exists in this TemplateSet.
      *
-     * The rendered Template is outputted directly.
+     * The rendered Template is output directly.
      *
      * Rendering begins with the named Template.  The Template Name is resolved
      * as follows:
-     *  - The Name is checked for in $ReMapped.  If it's been ReMap()'d to another
-     *    Name, then the Template with that Name is rendered.  If it's been
-     *    ReMap()'d to NULL, nothing is rendered.
-     *  - The Name is checked for in $Templates and if found that Template is rendered.
+     *  - The Name is checked for in $Templates and if found that Template is rendered.  Note
+     *    that the Name may have been ReMap()'d to another template, thus causing that
+     *    template to render instead.
+     *  - If Name is not found, or has been mapped to NULL, nothing is rendered.
      *
-     * If the rendering Template has a Routine defined, it will executed prior to
-     * rendering.  For Pointer Routines, if FALSE is returned, rendering will not occur.
-     * An Inline Routine will be locally scoped and should set $AllowRender to FALSE
-     * to prevent rendering.  It can also access the Template Struct directly as
-     * $RenderingTemplate.
+     * If the rendering Template has a function defined, it will be executed prior to
+     * rendering.  If the function returns FALSE, rendering for that template will not occur.
      *
-     * This method can be called with an associative array.  Each element of the array
-     * will be made available as a variable in the Template's Body during rendering.
-     *
-     * <?php
+     * Passing render-time arguments is possible by calling this method with an associative array.  Each
+     * element of the array will be made available as a variable in the Template's body during rendering.
+     *  @code
      *   $Data = array('FirstName'=>'John','LastName'=>'Doe','Items'=>array('One','Two'));
      *   $this->Header($Data);
-     * ?>
+     *  @endcode
      *
      * This will create three variables - $FirstName, $LastName and $Items - in the
-     * Template Body's scope during rendering.
+     * Template body's scope during rendering.
      *
-     * All Templates will also have access to variables that have been Connect()'d,
-     * and to the TemplateSet object itself, available as $this.
+     * All rendering Templates also have access to variables that have been Connect()'d,
+     * and to the TemplateSet object itself, available as @c $this.
      *
      * While combining variables from multiple sources is convenient, it is important
      * to consider that naming conflicts can occur.  To avoid confusion, remember the
@@ -226,19 +229,14 @@ class TemplateSet implements Debuggable,Directable
      *  3. The TemplateSet itself as $this.
      *
      * @param string $Name A ReMap()'d Name or Template Name to render.
-     * @param array $Args Optional associative array of keys/values variables for the Template's scope.
+     * @param array $Args Optional render-time arguments as an associative array of keys/value variables.
      *
      * @note This uses eval() to do the rendering.
-     * @note Render functions cannot ReMap() the template they are executing under, though they can
+     * @note Template functions cannot ReMap() the template they are executing under, though they can
      *       manually render another template and then return FALSE.
-     * @note Render functions should expect $this->Connected,$Args,$this->App as parameters.
-     * @note Variables $RenderingTemplate, $AllowRender and $this are reserved variable names.
-     * @note WARNING: There is no escaping - it should be done inline in the Template's Body.
+     * @note WARNING: There is no automatic escaping - it should be done explicitly in the body.
      * @note No error is raised if the Template Name isn't found and debugging is off.
      *
-     * @todo Test the behavior of multiple keys/vales in $Args.
-     * @todo Test AllowRender behavior for both Pointer/Inline routines.
-     * @todo Some of the above is outdated.
      * @todo We'd really like to have the render function do a ReMap() to change the template that
      *       ends up getting rendered.
      */
@@ -299,10 +297,21 @@ class TemplateSet implements Debuggable,Directable
         }
     }
 
-    // this needs to be cleaned up/organized with App including @@@ handling and merging with functions
-    // currently if a file contains @@@ an array of template structs will be returned - this is currently
-    // only used by MySQL extension - existing templates are overwrittenw with the same name
-    // unlike @@@ parsing in App the directory name of Path isn't prefixed
+    /**
+     * Load a template from a file.
+     *
+     * This will load a template from disk and create a Template Struct for it.  The Struct may
+     * then be returned, or added to the TemplateSet's managed templates.
+     *
+     * @param string $Path The absolute path to the template file.
+     * @param App $app The application's object.
+     * @param boolean $Return TRUE to return the Template Struct, otherwise added to the TemplateSet.
+     * @retval Template Template set if $Return is TRUE.
+     *
+     * @note This is typically only used for loading non-standard templates, like SQL.
+     * @note Unlike \@\@\@ parsing in App, the parent's directory isn't added as a prefix to the template name.
+     * @todo This needs to be reviewed/merged with App::BuildApp() template loading.
+     */
     public function LoadFile( $Path,\asm\App $app,$Return = FALSE )
     {
         $P = Path::Init($Path);
@@ -360,11 +369,11 @@ class TemplateSet implements Debuggable,Directable
     }
 
     /**
-     * Retrieve a template Struct by name.
+     * Retrieve a Template Struct by name.
      *
-     * This may not include the body - see __get().
+     * The Struct will contain the body only if App::$CacheApp is TRUE.
      *
-     * @param string $Name
+     * @param string $Name The name of the template.
      * @retval array The Template Struct.
      * @retval NULL Template not found.
      */
@@ -379,13 +388,13 @@ class TemplateSet implements Debuggable,Directable
     /**
      * Render a Template, returning it's output by default.
      *
-     * Helper function for rendering Templates.
+     * Helper method for __call() for rendering Templates.
      *
      * @param string $Name A ReMap()'d Name or Template Name to render.
-     * @param boolean $Return FALSE for direct output.
-     * @retval string The rendered Template.
+     * @param boolean $Return FALSE to directly output the rendered template.
+     * @retval string The rendered template or NULL if direct output.
      *
-     * @note Passing arguments is not supported.
+     * @note Passing render-time arguments is not supported.
      * @see __call()
      * @todo Add/test $Args support.
      */
@@ -406,15 +415,17 @@ class TemplateSet implements Debuggable,Directable
     /**
      * Map a Name to another Template Name.
      *
-     * This will cause $DestName to be rendered when $Name is called.
+     * This will cause $DestName to be rendered when $Name is called.  It's used to dynamically
+     * render different templates.
+     *
+     * TemplateSet directives perform this operation.
      *
      * @param string $Name The Name to map.
      * @param string $DestName The Template to map to.
      *
      * @note If Name has already been mapped, it is silently overwritten.
-     * @note If a template Name is mapped to NULL, the template is lost.
-     * @note If Name is mapped to NULL, rendering will be a no-op.
-     * @note If DestName doesn't exist, an empty template is created.
+     * @note If $DestName is empty, rendering of $Name will be a no-op and the original template is lost.
+     * @note If $DestName doesn't exist, an placeholder template is created.
      */
     public function ReMap( $Name,$DestName )
     {
@@ -435,85 +446,21 @@ class TemplateSet implements Debuggable,Directable
     }
 
     /**
-     * Push variables into templates.
+     * Add a Template to a stack.
      *
-     * This make arrays and objects available within a rendering template's scope.  Each
-     * connected variable is available within every template, unless it gets overwritten.
+     * A Stack groups Templates for bundled execution at a later time, which must be
+     * performed using Unstack().
      *
-     * Other variables could be connected but it's not recommended.
+     * TemplateSet directives with a key of @c Stack perform this operation.
      *
-     * @param array $Vars Key/value pair of names and objects or other arrays.
-     * @throws Exception Vars not an array for '$Name'
-     *
-     * @note Arrays are not passed by reference - they must be Connect()'d after any changes are to be made to them.
-     * @note WARNING: There is no escaping - it should be done inline in the template's Body.
-     *
-     * @see __call() for passing variables at render time.
-     */
-    public function Connect( $Vars )
-    {
-        if( !is_array($Vars) )
-            throw new Exception('Vars not an array for Connect()');
-
-        foreach( $Vars as $K => $V )
-            $this->Connected[$K] = $V;
-    }
-
-    /**
-     * Retrieve a Connect()'d variable.
-     *
-     * @param string $Name The Name of the Connect()'d variable.
-     * @retval mixed The variable.
-     * @retval NULL Name is not connected.
-     *
-     * @note This does not return a reference.  Use wisely.
-     */
-    public function GetConnect( $Name = NULL )
-    {
-        if( empty($Name) )
-            return $this->Connected;
-        else
-            return empty($this->Connected[$Name])?NULL:$this->Connected[$Name];
-    }
-
-    /**
-     * Perform a ReMap() or a Stack() according to a Directive.
-     *
-     * If $Key is Stack a Stack will be performed in which case Value will be used as
-     * Name;Stack arguments to Stack().
-     *
-     * @param string $Key The Name to map or Stack.
-     * @param string $Value The Template to map to.
-     */
-    public function ApplyDirective( $Key,$Value )
-    {
-        if( $Key === 'Stack' )
-        {
-            $T = explode(';',$Value);
-            $this->Stack($T[0],$T[1]);
-        }
-        else
-        {
-            $this->ReMap($Key,$Value);
-        }
-    }
-
-    /**
-     * Add a Template to a Stack.
-     *
-     * A Stack groups Templates for bundled execution, which must be
-     * executed using Unstack().
-     *
-     * @param string $Name The Template to stack.
+     * @param string $Name The Template name to stack.
      * @param string $Stack The Stack to add to which is created if needed.
-     * @throws Exception Template '$Name' does not exist.
-     *
-     * @note $Name must be an original Template name, not a ReMap()'d name.
+     * @throws Exception Template '$Name' does not exist for stack $Stack.
      */
     public function Stack( $Name,$Stack )
     {
         if( empty($this->Templates[$Name]) )
-            throw new Exception("Template '{$Name}' does not exist for Stack '{$Stack}'.");
+            throw new Exception("Template '{$Name}' does not exist for stack '{$Stack}'.");
 
         if( isset($this->Stacks[$Stack]) )
             $this->Stacks[$Stack][] = $Name;
@@ -522,7 +469,7 @@ class TemplateSet implements Debuggable,Directable
     }
 
     /**
-     * Render each Template of a Stack.
+     * Render the templates of a stack.
      *
      * The Templates are rendered in the order they were stacked.  Each
      * one is rendered normally, though passing variables or having the
@@ -550,11 +497,76 @@ class TemplateSet implements Debuggable,Directable
     }
 
     /**
+     * Push variables into templates.
+     *
+     * This make variables available within a rendering template. Each connected variable is
+     * available within every template, unless it gets overwritten.
+     *
+     * @param array $Vars Key/value pair of variable names and their values.
+     * @throws Exception Vars not an array for Connect().
+     *
+     * @note Arrays are not passed by reference - they must be Connect()'d after any changes are to be made to them.
+     * @note WARNING: There is no automatic escaping - it should be done explicitly in the body.
+     *
+     * @see __call() for passing render-time variables.
+     */
+    public function Connect( $Vars )
+    {
+        if( !is_array($Vars) )
+            throw new Exception('Vars not an array for Connect().');
+
+        foreach( $Vars as $K => $V )
+            $this->Connected[$K] = $V;
+    }
+
+    /**
+     * Retrieve a Connect()'d variable.
+     *
+     * @param string $Name The Name of the Connect()'d variable to retrieve.
+     * @param NULL $Name Return all Connect()'d variables.
+     * @retval mixed The variable.
+     * @retval NULL Name is not connected.
+     *
+     * @note This does not return a reference.  Use wisely.
+     */
+    public function GetConnect( $Name = NULL )
+    {
+        if( empty($Name) )
+            return $this->Connected;
+        else
+            return empty($this->Connected[$Name])?NULL:$this->Connected[$Name];
+    }
+
+    /**
+     * Perform a ReMap() or a Stack() according to a directive.
+     *
+     * If $Key is @c Stack a Stack() will be performed.  $Value is expected to
+     * be a string of the form @code TemplateName;StackName @endcode
+     *
+     * All other keys will cause a ReMap() to occur.
+     *
+     * @param string $Key The Name to map or Stack.
+     * @param string $Value The Template to ReMap() or Stack().
+     */
+    public function ApplyDirective( $Key,$Value )
+    {
+        if( $Key === 'Stack' )
+        {
+            $T = explode(';',$Value);
+            $this->Stack($T[0],$T[1]);
+        }
+        else
+        {
+            $this->ReMap($Key,$Value);
+        }
+    }
+
+    /**
      * Enable debugging, overridding default Label behavior.
      *
      * Log messages are always labeled with the class name.
      *
-     * @param boolean $Label TRUE to display debug info into rendering templates.
+     * @param boolean $Label TRUE to output debug info.
      */
     public function DebugOn( $Label = NULL )
     {
@@ -568,7 +580,7 @@ class TemplateSet implements Debuggable,Directable
     /**
      * Internal method for debugging template rendering.
      *
-     * Debug info includes available variable within the scope of rendering.
+     * Debug info includes available variables within the scope of rendering.
      *
      * @param string $Name Name of template.
      * @param array $Args Optional render-time arguments.
