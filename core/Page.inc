@@ -56,7 +56,7 @@ abstract class Page extends Struct
 /**
  * A set of Pages used for application execution control.
  *
- * A PageSet manages, stores, matches and executes Pages.
+ * A PageSet manages, matches and executes Pages.
  *
  * Page Names and Paths are unqiue and overwritten silently.
  *
@@ -67,12 +67,23 @@ class PageSet implements Debuggable
     use Debugged;
 
     /**
-     * @var boolean Whether to display debug info to the browser.
+     * @var boolean $DebugDisplay
+     * Whether to display debug info to the browser.
+     *
      * @see PageSet::DebugOn()
      */
     protected $DebugDisplay = FALSE;
 
+    /**
+     * @var array $Pages
+     * Array of Page Structs that this PageSet manages.
+     */
     public $Pages;
+
+    /**
+     * @var array $PageMap
+     * Array of Page paths to names for PageSet::Match.
+     */
     public $PageMap;
 
 
@@ -80,7 +91,7 @@ class PageSet implements Debuggable
      * Create a PageSet.
      *
      * @param array $Pages Numeric index of Page Struct to be managed.
-     * @param array $PageMap Mapping of Page paths and the page name.
+     * @param array $PageMap Mapping of Page paths to names.
      */
     public function __construct( $Pages,$PageMap )
     {
@@ -93,15 +104,12 @@ class PageSet implements Debuggable
      *
      * An exact match of a Page's Path is done.  Only one or none Pages will match.
      *
-     * The matching Page Struct will be set in PageSet::$Matched (using Page Name) and returned.
-     *
      * @param string $Path The absolute path to match.
      * @retval array The matched Page Struct.
      * @retval NULL No Page matched.
      *
      * @note This is the primary Page routing mechanism in asmblr.
      * @note Matching should be done against unencoded paths.
-     * @note If multiple pages with the same name are matched (rare), only the first instance will be stored in $Matched.
      */
     public function Match( $Path )
     {
@@ -115,17 +123,14 @@ class PageSet implements Debuggable
      * Execute a Page.
      *
      * Execution of a Page entails:
-     *  - Appying Directives, if any
-     *  - Executing the Function, if any
-     *
-     * The executing Page Struct will be set in PageSet::$Executed (using Page Name).
+     *  - Appying it's Directives, if any
+     *  - Executing it's Function, if any
      *
      * @param array $Page The Page Struct to execute.
      * @retval mixed The value returned by the function, if any.
      * @throws Exception Directive object ... doesn't exist while executing Page ...
      *
      * @note It is not enforced that the Page must exist in the PageSet, i.e. this can be used to execute any Page.
-     * @note If multiple pages with the same name are executed, only the first instance will be stored in $Executed.
      */
     public function Execute( $Page )
     {

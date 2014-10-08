@@ -2,7 +2,7 @@
 /**
  * @file Request.inc Request data and management.
  * @author Stackware, LLC
- * @version 4.0
+ * @version 4.2
  * @copyright Copyright (c) 2012-2014 Stackware, LLC. All Rights Reserved.
  * @copyright Licensed under the GNU General Public License
  * @copyright See COPYRIGHT.txt and LICENSE.txt.
@@ -13,26 +13,24 @@ namespace asm;
 /**
  * Current request data.
  *
- * The Request Struct encapsulates the raw request data for both HTTP and CLI requests.
+ * The Request Struct encapsulates and normalizes the raw request data for both %HTTP and CLI requests.
  *
  * It is used by App to calculate application URLs and determine whether the request
- * came from a web browser or from the command line, and can be used throughout an
+ * came from a web browser or from the command line.  It's often used throughout an
  * application to access information about the current request.
  *
  * $_GET and $_POST data is not included.
  *
- * The Struct is a "singleton" - once it's been initialized, it's values are persisted
- * in the $Request static variable.
+ * This Struct is a "singleton" - once it's been initialized, it's values are persisted
+ * in the $Request static variable (though it can be re-generated).
  *
-        // $SiteURL and $MatchPath elements which are used for creating URLs (LinkSet) and
-        // matching pages (PageSet), respectively.
- *
- * @note Request can be used as a URL.
+ * @note Request is compatible with URL methods.
  */
 abstract class Request extends Struct
 {
     /**
-     * Same as URL with addition of IsCLI.
+     * @var array $Skel
+     * Base structure.
      */
     protected static $Skel = array('IsHTTPS'=>FALSE,'Scheme'=>'','Username'=>'','Password'=>'',
     							   'Hostname'=>array(),'Port'=>'','Path'=>array(),'Query'=>array(),'Fragment'=>'','IsCLI'=>FALSE,
@@ -40,8 +38,8 @@ abstract class Request extends Struct
                                    'SiteURL'=>array(),'BaseURL'=>array(),'MatchPath'=>array(),
                                    'IsBaseScheme'=>FALSE,'IsBaseHostname'=>FALSE,'IsBasePort'=>FALSE,'IsBasePath'=>FALSE);
 
-
     /**
+     * @var array $Request
      * Current request data.
      */
     protected static $Request = NULL;
@@ -59,7 +57,9 @@ abstract class Request extends Struct
      *  - Hostname is set to the value of gethostname().
      *  - Path is set to the value of the first command line argument (argv[1]).
      *
-     * @todo Use of PHP_SAPI?
+     * @param boolean $Rebuild Force a rebuild of the request data from scratch.
+     * @retval array The normalized request data.
+     *
      * @todo Allow forging a request, i.e. pass in a URL and return the result, rather than store statically.
      */
     public static function Init( $Rebuild = FALSE )
@@ -85,11 +85,7 @@ abstract class Request extends Struct
             $Request['Scheme'] = (empty($_SERVER['HTTPS'])||$_SERVER['HTTPS']==='off')?'http':'https';
 
             // If the hostname can't be determined, it's now silently left empty
-            // SERVER_NAME is first to support GAE/etc when on non-standard port
-            // the _ check is for nginx wildcard vhosting
-            // UPDATE TODO: this needs full testing across web servers/configurations as it's still a hack
-            // basically HTTP_HOST should be used first, then SERVER_NAME.  However in GAE, or when
-            // listening on a non-standard port in general (maybe), the port would then need to be parsed out
+            // TODO: does SERVER_NAME need to be first to support GAE/etc when on non-standard port?
             if( !empty($_SERVER['HTTP_HOST']) )
                 $Request['Hostname'] = Hostname::Init($_SERVER['HTTP_HOST']);
             else if( !empty($_SERVER['SERVER_NAME']) )
@@ -116,60 +112,37 @@ abstract class Request extends Struct
     }
 
     /**
-     * Calculate application URLs.
+     * Calculate application URLs, paths and indicators.
      *
      * The URLs are formed by merging data from a Request Struct with a base URL,
-     * typically from App::$BaseURL.
+     * typically from App::$BaseURL.  This is typically called from Request::__construct.
      *
      * URL parts specified by BaseURL will overwrite those of the request.
      * BaseURL can include:
      *  - A scheme, either http:// or https://.
      *  - A hostname, or an asterisk to use the requested hostname.
-     *  - A path, which is prepended to any requested path.
+     *  - A path, which is prepended to the path of the request.
      *
-     * The following URL variables are created:
-     *  - SiteURL: The base URL of the site, calculated by merging the scheme, hostname, port
-     *             and path of the current request and BaseURL.  It always contains a trailing
-     *             slash, is the root for all Page requests, and used for LinkSet URL creation,
-     *             among other things.
-     *  - MatchPath: The path used for matching Pages, calculated by removing a Path from
-     *               BaseURL from the current request, never has a trailing slash, and used
-     *               for matching Pages in PageSet::Match().
-     *
-     * The calculated Path used for matching Pages (Path Struct).
-    public $MatchPath = array();
-
-     * The calculated base URL of the site (URL Struct).
-    public $SiteURL = array();
-
-    base URL struct as configured
-    public $BaseURL
-
-     * TRUE if the BaseURL's Scheme matched our request's.
-    public $IsBaseScheme = TRUE;
-
-     * TRUE if the BaseURL's Hostname matched our request's.
-    public $IsBaseHostname = TRUE;
-
-     * TRUE if the BaseURL's Port matched our request's.
-    public $IsBasePort = TRUE;
-
-     * TRUE if the BaseURL's Path matched our request's.
-    public $IsBasePath = TRUE;
-     *
-     *
-     * Additionally, flags about how closely the request matched the base URL are
-     * calculated.
+     * The following URL/path variables are calculated:
+     *  - @c SiteURL: The base URL of the site, calculated by merging the scheme, hostname, port
+     *       and path of the current request and BaseURL.  It always contains a trailing
+     *       slash, is the root for all Page URLs, and used for LinkPage/Linkcnvyr URL creation.
+     *  - @c MatchPath: The Path used for matching Pages, calculated by masking the BaseURL's Path from
+     *       the current request.  It never has a trailing slash and is used by App::Execute to route
+     *       control to a Page via PageSet::Match.
+     *  - @c IsBaseScheme: TRUE if the BaseURL's scheme matches the requested scheme.
+     *  - @c IsBaseHostname: TRUE if the BaseURL's hostname matches the requested hostname.
+     *  - @c IsBasePort: TRUE if the BaseURL's port matches the requested port.
+     *  - @c IsBasePath: TRUE if the BaseURL's path matches the requested path.
      *
      * All calculated values are stored directly in the Request array passed.
      *
-     * @param array $Request A reference to a Request Struct which is modified.
+     * @param array $Request A reference to a Request Struct, which is modified.
      * @param string $BaseURL Base URL to calculate from.
-     * @param bool $Lower FALSE to not lowercase the calculated URL.
+     * @param boolean $Lower FALSE to not lowercase the SiteURL's Path.
      *
      * @note Paths are lowercased by default.
      * @note Username/password is not considered and not merged.
-     * @note The static $Request property isn't overwritten.
      */
     public static function CalcURLs( &$Request,$BaseURL,$Lower = TRUE )
     {
@@ -232,23 +205,19 @@ abstract class Request extends Struct
         $Request['IsBaseHostname'] = $IsBaseHostname;
         $Request['IsBasePort'] = $IsBasePort;
         $Request['IsBasePath'] = $IsBasePath;
-
-//        return array($SiteURL,$MatchPath,$IsBaseScheme,$IsBaseHostname,$IsBasePort,$IsBasePath);
     }
 
 
-
-
     /**
-     * Read the request's full hostname or sub-domains of it as a string.
+     * Read the request's full hostname, or sub-domains of it, as a string.
      *
      * A $Limit of 0 (default) returns the full hostname.  A negative
      * value returns that many sub-domains from the bottom.  A positive
      * values returns that many sub-domains from the top.
      *
-     * Given www.framewire.org, -1 returns \c www, 1 returns \c org,
-     * -2 returns \c www.framewire, 2 returns \c framewire.org and
-     * 0 (default) returns \c www.framewire.org.
+     * Given @c www.asmblr.org, @c -1 returns @c www, @c 1 returns @c org,
+     * @c -2 returns @c www.asmblr, @c 2 returns @c asmblr.org and
+     * @c 0 (default) returns @c www.asmblr.org.
      *
      * @param int $Limit Optional number and direction of sub-domains to return.
      * @retval string The hostname string.
@@ -275,15 +244,15 @@ abstract class Request extends Struct
      * value returns that many path segments from the bottom.  A positive
      * values returns that many path segments from the top.
      *
-     * Given /first/second/third, -1 returns \c third, 1 returns \c first,
-     * -2 returns \c /second/third, 2 returns \c /first/second and
-     * 0 (default) returns \c /first/second/third.
+     * Given @c /first/second/third, @c -1 returns @c third, @c 1 returns @c first,
+     * @c -2 returns @c /second/third, @c 2 returns @c /first/second and
+     * @c 0 (default) returns @c /first/second/third.
      *
      * @param int $Limit Optional number and direction of path segments to return.
      * @retval string The path string.
      *
      * @note Paths returned using a top or bottom limit will never have leading
-     * or trailing separators (slashes).
+     *       or trailing separators (slashes).
      *
      * @see Path::Top()
      * @see Path::Bottom()
@@ -327,11 +296,11 @@ abstract class Request extends Struct
     }
 
     /**
-     * Determine if the request is ChromePHP aware.
+     * Determine if the request is ChromePHP (chromelogger.com) aware.
      *
      * @note ChromePHP doesn't currently announce itself so this has little use and isn't supported anymore.
      *       https://github.com/ccampbell/chromelogger/issues/8
-     * @note Set LogPublic config variable to TRUE/FALSE until they fix this.
+     * @note Manually toggle LogPublic config variable to TRUE/FALSE until they fix this.
      */
     public static function IsChromePHP()
     {
@@ -366,6 +335,7 @@ abstract class FileUpload extends Struct
                                    'Error'=>0,'FileSize'=>0);
 
     /**
+     * @var array $Err2Txt
      * Error code constants to text mappings.
      */
     protected static $Err2Txt = array(UPLOAD_ERR_OK=>'Ok',UPLOAD_ERR_INI_SIZE=>'Upload too big (UPLOAD_ERR_INI_SIZE)',
@@ -384,8 +354,7 @@ abstract class FileUpload extends Struct
      * FieldName[] naming convention.
      *
      * @param string $Name The name of the file upload form field or empty to take all of $_FILES.
-     * @retval array An array of one or more FileUpload Structs, or an
-     *               empty array if no files have been uploaded.
+     * @retval array An array of one or more FileUpload Structs, or an empty array if no files have been uploaded.
      */
     public static function Init( $Name )
     {

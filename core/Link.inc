@@ -206,7 +206,16 @@ class LinkSet
  */
 class LinkPage extends LinkSet
 {
+    /**
+     * @var App $App
+     * The application's App object.
+     */
     protected $App;
+
+    /**
+     * @var PageSet $PageSet
+     * The PageSet which contains the Pages to generate links for.
+     */
     protected $PageSet;
 
 
@@ -221,10 +230,9 @@ class LinkPage extends LinkSet
      * @param App $App The application's App object.
      * @param array $BaseURL URL Struct to use as BaseURL.
      * @param string $BaseURL URL string to use as BaseURL.
-     * @param NULL $BaseURL App::$SiteURL will be used.
      * @param array $Set Array of change strings for persistent changes to BaseURL.
      */
-    public function __construct( \asm\PageSet $PageSet,\asm\App $App,$BaseURL = NULL,$Set = array() )
+    public function __construct( \asm\PageSet $PageSet,\asm\App $App,$BaseURL,$Set = array() )
     {
         $this->PageSet = $PageSet;
         $this->App = $App;
@@ -317,7 +325,7 @@ class LinkPage extends LinkSet
      *
      * @note Matching multiple pages is slower if overused - use a hierarchal page like /admin/ instead.
      * @note When checking multiple pages, if any matches, $True is returned.
-     * @todo This checks the most exact matched page.  We may add the option to specify an exact or ordered match.
+     * @note This always checks against App::$ClosestMatchName.
      */
     public function Current( $Name = '',$True = 'active',$False = NULL )
     {
