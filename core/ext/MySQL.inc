@@ -339,6 +339,8 @@ class MySQL extends \mysqli implements Debuggable,CRUDC
  * methods for SQL generation and escaping.
  *
  * Queries are rendered and executed by their defined template name.
+ *
+ * @see SQL for additional helper methods to be used within a template when constructing SQL statements.
  */
 class MySQLSet extends TemplateSet
 {

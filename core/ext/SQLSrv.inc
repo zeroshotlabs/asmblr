@@ -2,47 +2,39 @@
 /**
  * @file SQLSrv.inc SQL Server connectivity.
  * @author Stackware, LLC
- * @version 4.0
+ * @package SQLSrv
+ * @version 4.2
  * @copyright Copyright (c) 2012-2014 Stackware, LLC. All Rights Reserved.
  * @copyright Licensed under the GNU General Public License
  * @copyright See COPYRIGHT.txt and LICENSE.txt.
+ *
+ * This extension is composed of two classes, SQLSrv and MySQLSet, which wrap PHP's
+ * native sqlsrv functions and extend TemplateSet, respectively.  They add functionality
+ * to each but do not interfere with native functionality.
  */
 namespace asm;
 
 
 /**
- * This extension is comprised of two classes:
- *  - The SQLSrv class which wraps PHP's sqlsrv_* functions and implements both
- *    Debuggable and CRUDC, and includes debugging, error handling, data mapping
- *    and binding, and SQL generation.
+ * asmblr's SQLSrv class wraps PHP's sqlsrv_* functions and adds debugging,
+ * improved error handling, data mapping and binding methods, and SQL generation.
  *
- *  - The SQLSrvSet class which extends TemplateSet for custom SQL statements.
- *
- * The SQLSrv extension provides two ways to query the database:
- *  - SQLSrv/CRUDC: Simple CREATE/READ/UPDATE/DELETE/COUNT queries with automatic
- *    SQL generation and parameter binding.  Queries are executed using a fixed set of
- *    methods and customization is limited.  Column nor table names are escaped.
- *
- *  - SQLSrvSet/TemplateSet: Specialized Templates for dynamically generating
- *    custom SQL with complex SQL generation.  Queries are rendered and executed
- *    by Name.
- *
- * Both classes use sqlsrv_query() for executing statements and assist in
- * correctly binding parameters.  However, not all functionality of the sqlsrv
- * PHP extension is supported.
- *
- * @todo Thorough testing of all functionality and debugging.
+ * CRUDC provides for simple CREATE/READ/UPDATE/DELETE/COUNT operations with automatic
+ * SQL generation and data binding.  Column and table names are not escaped.  For complex
+ * custom queries, see SQLSrvSet.
  */
 class SQLSrv implements Debuggable,CRUDC
 {
     use Debugged;
 
     /**
+     * @var array $ColumnInfoCache
      * Cache of table column info (name, type and length).
      */
     protected $ColumnInfoCache = array();
 
     /**
+     * @var resource $DB
      * SQL Server database resource.
      */
     public $DB;
@@ -58,7 +50,7 @@ class SQLSrv implements Debuggable,CRUDC
      * @note When specifying $Hostname in the form hostname\\instance, use a
      *       double back-slash if using double quotes.
      * @note Use SQLSrv::LastErrors() to determine whether the connection succeeded.
-     * @todo ReturnDateAsStrings could be set to TRUE.
+     * @todo ReturnDateAsStrings could be set to TRUE.  Support for other options may also be added.
      */
     public function __construct( $Hostname,$Username,$Password,$Database = '' )
     {
@@ -90,7 +82,9 @@ class SQLSrv implements Debuggable,CRUDC
      *
      * By default, a string of errors is returned, each on it's own line.  Each
      * error is constructed as:
+     *   @code
      *   Error Message (SQLSTATE:Code)
+     *   @endcode
      *
      * Setting $AsArray to TRUE will return an array of strings, indexed by
      * it's error code integer value.
@@ -100,7 +94,7 @@ class SQLSrv implements Debuggable,CRUDC
      * @retval array Array of error strings.
      * @retval NULL No errors or warnings exist.
      *
-     * @note By default, this only returns true errors (not warnings).
+     * @note By default, this only returns errors (not warnings).
      * @note sqlsrv_errors() returns duplicate errors for some reason, so we
      *       overwrite based on the error code.
      */
@@ -119,8 +113,6 @@ class SQLSrv implements Debuggable,CRUDC
     }
 
 
-    /*** Implement CRUDC ***/
-
     /**
      * INSERT a row into a table.
      *
@@ -129,6 +121,8 @@ class SQLSrv implements Debuggable,CRUDC
      * @throws Exception CREATE Error: (includes the error code of the first error)
      * @retval integer The identity value of the inserted row.
      * @retval boolean TRUE if the query was executed but did not create an identity value.
+     *
+     * @note Warnings generated during query execution are logged with Log::Log().
      */
     public function CREATE( $Table,$Values )
     {
@@ -296,14 +290,15 @@ class SQLSrv implements Debuggable,CRUDC
      * Collect column name, type and length information for a table.
      *
      * @param string $Table The table to collect column information for.
+     * @param boolean $NoCache TRUE to re-collect and cache the column info.
      * @throws Exception ColumnInfo Error:
      * @retval array Information for each column in a table.
      *
      * @note This caches the column information between calls.
      */
-    public function ColumnInfo( $Table )
+    public function ColumnInfo( $Table,$NoCache = FALSE )
     {
-        if( isset($this->ColumnInfoCache[$Table]) )
+        if( isset($this->ColumnInfoCache[$Table]) && $NoCache === FALSE )
             return $this->ColumnInfoCache[$Table];
 
         $SQL = 'SELECT COLUMN_NAME,DATA_TYPE,CHARACTER_MAXIMUM_LENGTH
@@ -328,12 +323,16 @@ class SQLSrv implements Debuggable,CRUDC
     /**
      * Map the columns of a table to an array of SQL typed data.
      *
+     * This is useful for mapping fields from a form, for example from $_POST, to
+     * a pre-defined set of column names.
+     *
      * Map() reads the column names of a table and matches them to the elements
      * of an array.  If a column name doesn't exist in the array, it is skipped.
      *
      * An associative array of column name/element name overrides can also be
      * provided to map columns to an element of a different name.  If the column
-     * name is mapped to NULL, or to an element that doesn't exist, it is skipped.
+     * name is mapped to NULL, or to an element that doesn't exist, it is skipped,
+     * allowing certain fields to be masked.
      *
      * @param string $Table The table to map.
      * @param array $Src Associative array of data to map.
@@ -345,9 +344,6 @@ class SQLSrv implements Debuggable,CRUDC
      *       NULL, an array, boolean, etc., the returned array will have that value
      *       mapped as well.  This is important to remember regarding default column
      *       values, non-required form fields, multi-selects (i.e. arrays), etc.
-     * @note The $Table name is not escaped.
-     *
-     * @see ColumnInfo()
      */
     public function Map( $Table,$Src,$Override = array() )
     {
@@ -384,13 +380,13 @@ class SQLSrv implements Debuggable,CRUDC
      *  - 2: Placeholders (?) separated by commas or an empty string.
      *
      * To correctly form the first element, the table's column types are read.
-     * Currently, only a type of varbinary is mapped to it's corresponding SQL
+     * Currently only a type of varbinary is mapped to it's corresponding SQL
      * type (binary stream) to support file uploads.
      *
      * The contents of the second and third elements are determined by the
      * $TwoStrings parameter.  The third element is populated only if $TwoStrings = TRUE.
      *
-     * If a value is prefixed with a pipe (|) it is considered a function
+     * If a value is prefixed with a pipe (|) it is considered a SQL function (such as NOW())
      * and is untouched and not included in the parameter array.
      *
      * A PHP value of NULL is translated to a SQL value of NULL.
@@ -398,15 +394,11 @@ class SQLSrv implements Debuggable,CRUDC
      * @param string $Table The table to prepare for.
      * @param array $Src An associative array of column names/values.
      * @param string $Separator Separator between each pair or a comma by default.
-     * @param boolean $TwoStrings TRUE to populate two strings; one of column names
-     *        and one of placeholders.
+     * @param boolean $TwoStrings TRUE to populate two strings; one of column names and one of placeholders.
      * @retval array Three element numeric array as described.
      *
      * @note Any non-string column names are silently skipped if $TwoStrings = FALSE.
-     * @note An empty first or second element of the returned array indicates no constraint
-     *       and should be checked for.
-     *
-     * @todo Shouldn't $Separator always be a comma for the third element?
+     * @note An empty first or second element of the returned array indicates no constraint and should be checked for.
      */
     public function ToPrepared( $Table,$Src,$Separator = ',',$TwoStrings = FALSE )
     {
@@ -475,7 +467,7 @@ class SQLSrv implements Debuggable,CRUDC
     }
 
     /**
-     * Helper for displaying debug information about the last CRUDC query.
+     * Internal method for displaying debug information about the last CRUDC query.
      *
      * @param string $Type Type of CRUDC operation.
      * @param string $Table Table being executed against.
@@ -492,22 +484,24 @@ class SQLSrv implements Debuggable,CRUDC
 
 
 /**
- *  A set of SQL Server SQL templates and tools for executing statements.
+ *  A set of SQL templates and tools for executing statements with SQL Server.
  *
- *  SQLSrvSet manages and renders a set of SQL templates into statements
- *  which are executed using a SQLSrv object.
+ * asmblr's SQLSrvSet provides SQL generation and templating in much the same way HTML templates
+ * are used.  This allows creating custom, complex and dynamic database queries, and includes helper
+ * methods for SQL generation and binding.
  *
- * @see TemplateSet
- * @see SQLSrv
+ * @see SQL for additional helper methods to be used within a template when constructing SQL statements.
  */
 class SQLSrvSet extends TemplateSet
 {
     /**
+     * @var asm::SQLSrv $DB
      * The SQLSrv object to execute statements against.
      */
     protected $DB;
 
     /**
+     * @var array $Params
      * Currently prepared parameters, reset on each __call() call.
      */
     protected $Params = array();
@@ -518,9 +512,9 @@ class SQLSrvSet extends TemplateSet
      *
      * @param SQLSrv $SQLSrv The SQLSrv object that will be used for executing statements.
      *
-     * @note The SQLSrv object is Connect()'d as $DB.
+     * @note The SQLSrv object is Connect()'d as $DB and thus will be available in the templates as @c $DB
      */
-    public function __construct( \fw\SQLSrv $SQLSrv )
+    public function __construct( \asm\SQLSrv $SQLSrv )
     {
         $this->DB = $SQLSrv;
         $this->Connect($this->DB,'DB');
@@ -529,11 +523,17 @@ class SQLSrvSet extends TemplateSet
     /**
      * Convert a scalar or an array of scalars to SQL placeholders and parameters.
      *
-     * Each scalar will result in a placeholder (?) being return.  An array
+     * Each scalar will result in a placeholder @c ? being returned.  An array
      * of scalars will be converted to a placeholder listing, each separated
      * by $Separator.
      *
      * A PHP value of NULL is translated to a SQL value of NULL.
+     *
+     * This generates SQL strings that are useful, for example, in SQL functions
+     * like IN() and can be used as follows directly in a SQL template:
+     *  @code
+     *  SELECT * FROM Table1 WHERE ID IN (<?=$DB(array('1','2','3'))?>);
+     *  @endcode
      *
      * This can generate SQL strings that are useful, for example, in functions
      * like IN().
@@ -543,6 +543,8 @@ class SQLSrvSet extends TemplateSet
      * @param string $Type Explicit column type for given value(s).
      * @param string $Separator Optional separator between each value.  Defaults to a comma.
      * @retval string Escaped SQL value or list of values, or an empty string.
+     *
+     * @todo Re-examine and test how this would actually work with prepared statements.
      */
     public function __invoke( $Mixed,$Type = '',$Separator = ',' )
     {
@@ -573,18 +575,16 @@ class SQLSrvSet extends TemplateSet
      * @param array $Args Optional associative array of keys/values variables for the statement's scope.
      * @throws Exception $Name not found.
      * @throws Exception $Name Failed:
-     * @retval array An array of rows, each an associative array, or an empty array, for a SELECT query.
+     * @retval array For a SELECT, an array of rows, each an associative array, or an empty array.
      * @retval integer The number of affected rows for INSERT, UPDATE and DELETE queries.
      * @retval boolean TRUE if another type of query succeeded, for example a DDL query.
      *
      * @note Statement templates are prepared.
-     * @note Variables $RenderingTemplate, $DB (SQLSrv object), and $this are reserved variable names.
      * @note SQLSrvSet does not support ReMap() nor a pre-render Routine.
      * @note This DOES NOT use client buffered cursors (break affected rows).
      * @note SQLSrvSet::$Params is cleared when this method is called.
      *
-     * @see Render() to generate and return the SQL statement without executing it.
-     * @todo Review return behavior; this may break if multiple statements are executed.
+     * @todo Review return behavior; this may break if multiple statements are executed - and what about identity columns?
      * @todo Determine how we can tell whether multiple statements were executed - currently nothing is done.
      */
     public function __call( $Name,$Args )
