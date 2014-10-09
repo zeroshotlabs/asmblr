@@ -2,41 +2,31 @@
 /**
  * @file MySQL.inc MySQL connectivity.
  * @author Stackware, LLC
- * @version 4.0
+ * @package MySQL
+ * @version 4.2
  * @copyright Copyright (c) 2012-2014 Stackware, LLC. All Rights Reserved.
  * @copyright Licensed under the GNU General Public License
  * @copyright See COPYRIGHT.txt and LICENSE.txt.
+ *
+ * This extension is composed of two classes, MySQL and MySQLSet, which extend PHP's
+ * native mysqli class and asmblr's TemplateSet, respectively.  They add functionality
+ * to each but do not interefere with native functionality.
  */
 namespace asm;
 
 
-// NEEDS TESTING
-
 /**
- * This extension is composed of two classes:
+ * asmblr's MySQL class extends PHP's native mysqli class and adds CRUDC operations,
+ * debugging, improved error handling, data mapping convenience methods and SQL generation.
  *
- *  - The MySQL class which extends MySQLi and implements both Wireable and CRUDC,
- *    and includes debugging, error handling, data mapping, and SQL generation.  The
- *    full native functionality of MySQLi is untouched.
- *
- *  - The MySQLSet class which extends TemplateSet for custom SQL statements.
- *
- * The MySQL extension provides two ways to query the database:
- *
- *  - MySQL/CRUDC: Simple CREATE/READ/UPDATE/DELETE/COUNT queries with automatic
- *    SQL generation and escaping.  Queries are executed using a fixed set of
- *    methods and customization is limited.  Column nor table names are escaped.
- *
- *  - MySQLSet/TemplateSet: Specialized Templates for dynamically generating
- *    custom SQL with complex SQL generation and escaping.  Queries are rendered
- *    and executed by Name.
+ * CRUDC provides for simple CREATE/READ/UPDATE/DELETE/COUNT operations with automatic
+ * SQL generation and escaping.  Column and table names are not escaped.  For complex
+ * custom queries, see MySQLSet.
  */
 class MySQL extends \mysqli implements Debuggable,CRUDC
 {
     use Debugged;
 
-
-    /*** Implement CRUDC ***/
 
     /**
      * INSERT a row into a table.
@@ -200,12 +190,16 @@ class MySQL extends \mysqli implements Debuggable,CRUDC
     /**
      * Map the columns of a table to an array of data.
      *
+     * This is useful for mapping fields from a form, for example from $_POST, to
+     * a pre-defined set of column names.
+     *
      * Map() reads the column names of a table and matches them to the elements
      * of an array.  If a column name doesn't exist in the array, it is skipped.
      *
      * An associative array of column name/element name overrides can also be
      * provided to map columns to an element of a different name.  If the column
-     * name is mapped to NULL, or to an element that doesn't exist, it is skipped.
+     * name is mapped to NULL, or to an element that doesn't exist, it is skipped,
+     * allowing certain fields to be masked.
      *
      * @param string $Table The Table or Database.Table to map.
      * @param array $Src Associative array of data to map.
@@ -272,17 +266,18 @@ class MySQL extends \mysqli implements Debuggable,CRUDC
      * INSERT/UPDATE SET clauses.
      *
      * Each value is properly escaped and enclosed in single quotes unless
-     * unless it is prefixed with a pipe (|), in which case it is untouched.
+     * unless it is prefixed with a pipe (|), in which case it is untouched.  This is
+     * used, for example, to specify a SQL function, such as NOW().
      *
      * A PHP value of NULL is translated to a SQL value of NULL.
      *
      * Column names are not escaped.
      *
      * @param array $Src An associative array of column names/values.
-     * @param string $Separator Separator between each pair or comma by default.
+     * @param string $Separator Separator between each pair or a comma by default.
      * @retval string SQL string of separated column names and values or an empty string.
      *
-     * @note Any non-string column names are silently skipped.
+     * @note Any non-string column names in $Src are silently skipped.
      * @note An empty string return value indicates no constraint, and should be checked for.
      */
     public function ToColumnValueList( $Src,$Separator = ',' )
@@ -302,21 +297,6 @@ class MySQL extends \mysqli implements Debuggable,CRUDC
     }
 
     /**
-     * Helper for displaying debug information about the last CRUDC query.
-     *
-     * @param string $Type Type of CRUDC operation.
-     * @param string $Table Table being executed against.
-     * @param string $SQL SQL query to be executed.
-     */
-    protected function DebugCRUDC( $Type,$Table,$SQL )
-    {
-        $BT = Debug::Backtrace();
-        $BT = current(Debug::BT2Str($BT));
-
-        Log::Log("\${$this->DebugToken}::{$Type}('{$Table}') at {$BT}: {$SQL}",'LOG',NULL);
-    }
-
-    /**
      * Return the last database warnings.
      *
      * @retval string Listing of database warnings from last query, one on each line.
@@ -333,23 +313,37 @@ class MySQL extends \mysqli implements Debuggable,CRUDC
 
         return $S;
     }
+
+    /**
+     * Internal method for displaying debug information about the last CRUDC query.
+     *
+     * @param string $Type Type of CRUDC operation.
+     * @param string $Table Table being executed against.
+     * @param string $SQL SQL query to be executed.
+     */
+    protected function DebugCRUDC( $Type,$Table,$SQL )
+    {
+        $BT = Debug::Backtrace();
+        $BT = current(Debug::BT2Str($BT));
+
+        Log::Log("\${$this->DebugToken}::{$Type}('{$Table}') at {$BT}: {$SQL}",'LOG',NULL);
+    }
 }
 
 
 /**
- * A set of MySQL SQL templates and tools for executing statements.
+ * A set of SQL templates and tools for executing statements with MySQL.
  *
- * MySQLSet manages and renders a set of SQL templates into statements
- * which are executed using a MySQL object.
+ * asmblr's MySQLSet provides SQL generation and templating in much the same way HTML templates
+ * are used.  This allows creating custom, complex and dynamic database queries, and includes helper
+ * methods for SQL generation and escaping.
  *
- * @note CRUDC operations must be performed using a \asm\MySQL object, rather than this one.
- *
- * @see TemplateSet
- * @see MySQL
+ * Queries are rendered and executed by their defined template name.
  */
 class MySQLSet extends TemplateSet
 {
     /**
+     * @var asm::MySQL $DB
      * The MySQL object to execute statements against.
      */
     protected $DB;
@@ -359,10 +353,10 @@ class MySQLSet extends TemplateSet
      * Create a MySQLSet object.
      *
      * @param MySQL $MySQL The MySQL object that will be used for executing statements.
-     * @param string $Path The file containing the SQL statements.
+     * @param string $Path A single file containing the SQL statements.
      *
-     * @note The MySQL object is Connect()'d as $DB.
-     * @todo If we get rid of @@@ we'd need $Path to be treated recursively
+     * @note The MySQL object is Connect()'d as @c $DB and thus will be available in the templates as @c $DB
+     * @todo If we get rid of @@@ we'd need $Path to be treated recursively.
      */
     public function __construct( \asm\MySQL $MySQL,$Path = '' )
     {
@@ -382,8 +376,11 @@ class MySQLSet extends TemplateSet
      *
      * A PHP value of NULL is translated to a SQL value of NULL.
      *
-     * This can generate SQL strings that are useful, for example, in functions
-     * like IN().
+     * This generates SQL strings that are useful, for example, in SQL functions
+     * like IN() and can be used as follows directly in a SQL template:
+     *  @code
+     *  SELECT * FROM Table1 WHERE ID IN (<?=$DB(array('1','2','3'))?>);
+     *  @endcode
      *
      * @param scalar $Mixed Scalar to be escaped and surrounded.
      * @param array|Traversible $Mixed Set of scalars to convert to a value listing.
@@ -415,19 +412,15 @@ class MySQLSet extends TemplateSet
      *
      * @param string $Name Name of the SQL statement to render and execute.
      * @param array $Args Optional associative array of keys/values variables for the statement's scope.
-     * @throws Exception $Name not found.
-     * @throws Exception $Name Failed:
-     * @retval array An array of rows, each an associative array, or an empty array, for a SELECT query.
-     * @retval integer The last inserted ID for an INSERT query that generates an auto-increment ID.
+     * @throws Exception Query not found.
+     * @throws Exception Query Failed:
+     * @retval array For a SELECT, an array of rows, each an associative array, or an empty array.
+     * @retval integer For an INSERT with an auto-increment ID the last inserted ID.
      * @retval integer The number of affected rows for UPDATE and DELETE queries.
-     * @retval boolean TRUE if another type of query succeeded, for example a DDL query, or no rows were changed.
+     * @retval boolean TRUE if another type of query succeeded, for example a DDL query, or no rows were changed, or there was no auto-increment column.
      *
-     * @note WARNING: There is no escaping - it should be done inline in the statement.
-     * @note Variables $RenderingTemplate, $DB (MySQL object), and $this are reserved variable names.
-     * @note MySQLSet does not support ReMap() nor a pre-render Routine.
-     * @note If an UPDATE/DELETE doesn't change any rows, TRUE is returned.
-     *
-     * @see Render() to generate and return the SQL statement without executing it.
+     * @note WARNING: There is no escaping - it must be done in the SQL template itself.
+     * @note MySQLSet does not support ReMap() nor a pre-render function.
      */
     public function __call( $Name,$Args )
     {
@@ -484,7 +477,7 @@ class MySQLSet extends TemplateSet
      *
      * @param string $Name Name of the SQL statement to render.
      * @param boolean $Return FALSE for direct output.
-     * @throws Exception $Name not found.
+     * @throws Exception Query $Name not found.
      * @retval string The rendered SQL statement.
      *
      * @note Passing arguments is not supported.
@@ -505,7 +498,7 @@ class MySQLSet extends TemplateSet
                 echo ob_get_clean();
         }
         else
-            throw new Exception("{$this->WiredAs}::{$Name} not found.");
+            throw new Exception("Query '{$Name}' not found.");
     }
 
     /**
@@ -576,7 +569,7 @@ class MySQLSet extends TemplateSet
     }
 
     /**
-     * @todo Doesn't fully support logging functionality because Log::Sys() doesn't
+     * @todo May be useful but probably deprecated - pick through and merge to above and delete.
      */
     protected function Debug__call2( $R,$DebugSQL,$Args )
     {
