@@ -276,7 +276,7 @@ abstract class App
         // other pagesets/linkers can be instantiated manually if needed
         // note that we use isset because an empty routing PS is ok
         if( empty($this->RoutingPS) || !isset($this->Pages[$this->RoutingPS]) )
-            throw new Exception("Invalid routing page set for '{$this->Hostname}'");
+            throw new Exception("Invalid routing page set {$this->RoutingPS} for '{$this->Hostname}'");
 
         $this->ps = new PageSet($this->Pages[$this->RoutingPS],$this->PageMaps[$this->RoutingPS]);
         $this->lp = new LinkPage($this->ps,$this,$this->Request['SiteURL']);
@@ -763,8 +763,10 @@ abstract class App
                     else
                         $D = explode(',',$L[4]);
 
+                    // squelch errors because sometime only two parameters and no trailing comma
+                    // but this could also result in invalid directives
                     if( !empty($LastPage) )
-                        $Page[$LastPage]['Directives'][] = array(str_replace('$','',$D[0]),$D[1],$D[2]);
+                        $Page[$LastPage]['Directives'][] = array(str_replace('$','',@$D[0]),@$D[1],@$D[2]);
                 }
             }
 
