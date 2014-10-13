@@ -63,6 +63,12 @@ namespace asm;
  * of a bundle is referenced but it's template name.
  *
  * @note Pre-gzip'd assets (those gzip'd by the API) and using x-sendfile will only work with nginx.
+ * @note If @c cnvyrCacheDir is set to a path in /tmp the following may be useful to avoid automatic deletion of
+ *       cached assets.  Add the following flag to the first call of tmpwatch, generally in /etc/cron.daily/tmpwatch
+ *       @code
+ *       -x /tmp/cnvyr-cache
+ *       @endcode
+ *
  * @todo Cache-busting URLs aren't handled.
  * @todo $Bundles probably doesn't belong in cnvyrc as a property since it's more dependant on the srv Page function
  *       and uses template names which cnvyrc itself doesn't care about.  Should be defined somewhere else.
