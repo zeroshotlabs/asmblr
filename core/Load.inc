@@ -30,20 +30,20 @@ function llog( $Msg,$Level = 'LOG',$Backtrace = NULL,$Context = NULL )
 /**
  * Require the asmblr source code.
  */
-require(ASM_ROOT.'Base.inc');
-require(ASM_ROOT.'Request.inc');
+require(ASM_ROOT.'Base.php');
+require(ASM_ROOT.'Request.php');
 
-require(ASM_ROOT.'App.inc');
+require(ASM_ROOT.'App.php');
 
-require(ASM_ROOT.'Page.inc');
-require(ASM_ROOT.'Template.inc');
-require(ASM_ROOT.'Link.inc');
+require(ASM_ROOT.'Page.php');
+require(ASM_ROOT.'Template.php');
+require(ASM_ROOT.'Link.php');
 
-require(ASM_ROOT.'restr.inc');
-require(ASM_ROOT.'cnvyrc.inc');
+require(ASM_ROOT.'restr.php');
+require(ASM_ROOT.'cnvyrc.php');
 
-require(ASM_ROOT.'Misc.inc');
+require(ASM_ROOT.'Misc.php');
 
 // Load the default en-US locale
-require(ASM_ROOT.'enUS.inc');
+require(ASM_ROOT.'enUS.php');
 
