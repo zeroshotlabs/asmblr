@@ -53,9 +53,9 @@ abstract class Request extends Struct
      *
      * This detects whether a request appears to be coming from a web server or CLI.
      *
-     * For CLI:
-     *  - Hostname is set to the value of gethostname().
-     *  - Path is set to the value of the first command line argument (argv[1]).
+     * When executed from the CLI, the first command line argument (argv[1]) must be the URL
+     * of the request, for example hostname.com/page-url - other parts of the URL, such as the scheme,
+     * are ignored.
      *
      * @param boolean $Rebuild Force a rebuild of the request data from scratch.
      * @retval array The normalized request data.
@@ -75,10 +75,15 @@ abstract class Request extends Struct
             $Request['IsCLI'] = TRUE;
             $Request['Hostname'] = Hostname::Init(gethostname());
 
-            if( !empty($_SERVER['argv'][1]) )
-                $Request['Path'] = Path::Init($_SERVER['argv'][1]);
-            else
+            if( empty($_SERVER['argv'][1]) )
                 exit(PHP_EOL.'Page URL not provided via command line.'.PHP_EOL.PHP_EOL);
+
+            $T = URL::Init($_SERVER['argv'][1]);
+            $Request['Hostname'] = $T['Hostname'];
+            $Request['Path'] = $T['Path'];
+
+            if( empty($Request['Hostname']) || empty($Request['Path']) )
+                exit(PHP_EOL.'Invalid hostname or path - must of the form hostname.com/page-url'.PHP_EOL.PHP_EOL);
         }
         else
         {
