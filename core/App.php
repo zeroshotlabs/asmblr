@@ -835,6 +835,9 @@ abstract class App
                         if( $I < 2 )
                             continue;
 
+                        if( empty($L[$I]) )
+                            continue;
+
                         if( isset($Tab['DataSheet'][$LastID][$V]) )
                         {
                             if( is_array($Tab['DataSheet'][$LastID][$V]) === FALSE )
@@ -860,7 +863,7 @@ abstract class App
                         if( $I === 0 )
                             continue;
 
-                        $Tab['DataSheet'][$ID][$V] = $L[$I];
+                        $Tab['DataSheet'][$LastID][$V] = $L[$I];
                     }
                 }
             }
