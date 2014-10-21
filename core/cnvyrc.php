@@ -204,6 +204,7 @@ abstract class cnvyrc extends restr
      *
      * @note $Filename and $CacheDir are trusted - do checks elsewhere.
      * @note Serving gzip'd cache files using Apache's mod_xsendfile won't work because it strips Content-Encoding.
+     * @todo Content-Encoding: gzip doesn't appear to be set, even when using nginx.
      */
     public static function FromCache( $Filename,$CacheDir,$DirectOut = FALSE )
     {
@@ -266,19 +267,24 @@ abstract class cnvyrc extends restr
 	 * parameter from the manifest.
      *
      * @param asm::App $app The application's App object.
+     * @param array $OverrideOps Key/value set of ops to set explicitly as full ops, overriding even cnvyrOpOverrides
+     *              config setting.  Used when called from a child method.
+     * @param array $Path Array of path segments to override the request.  Used whenc alled from a child method.
      *
      * @note In apps that use cnvyrc::FromCache() in Load.inc and a cache entry exists, execution never
      * reaches this method - the serve happens directly in FromCache().
      * @note This exits when complete.
+     * @todo This needs to be easier to extend/override.
      */
-    public static function srv( \asm\App $app )
+    public static function srv( \asm\App $app,$OverrideOps = array(),$Path = array() )
     {
         header_remove();
 
         if( !empty($app->Config['cnvyrHTTPCacheTime']) )
             HTTP::Cache($app->Config['cnvyrHTTPCacheTime']);
 
-        $Path = $app->Request['MatchPath']['Segments'];
+        if( empty($Path) )
+            $Path = $app->Request['MatchPath']['Segments'];
 
         // wouldn't make any sense
         if( empty($Path[1]) )
@@ -368,6 +374,9 @@ abstract class cnvyrc extends restr
         // build up cache'd filename - sort of hardwired
         $CacheFile = "{$app->Config['cnvyrPrefix']}_{$Path[0]}_{$Path[1]}";
 
+        if( !empty($OverrideOps) )
+            $Ops = $OverrideOps;
+
         // now either hit the cnvyr API or just locally cache if there are no ops
         if( empty($Ops) )
         {
@@ -383,7 +392,7 @@ abstract class cnvyrc extends restr
                 $app->Config['cnvyrOpOverrides'] = (array) $app->Config['cnvyrOpOverrides'];
 
                 // apply op overrides
-                if( !empty($app->Config['cnvyrOpOverrides']) )
+                if( !empty($app->Config['cnvyrOpOverrides']) && empty($OverrideOps))
                 {
                     foreach( $app->Config['cnvyrOpOverrides'] as $K => $V )
                     {
