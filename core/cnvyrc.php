@@ -508,7 +508,7 @@ class Linkcnvyr extends LinkPage
      * @param string $Filename The filename of the resource or bundle to serve.
      * @retval string The absolute URL of the cnvyr served resource.
      */
-    public function __invoke( $Handler = NULL,$Filename = '' )
+    public function __invoke( $Handler = NULL,$Filename = '',$Ops = array() )
     {
         $Base = $this->BaseURL;
 
@@ -523,6 +523,9 @@ class Linkcnvyr extends LinkPage
 //        $Base['Path']['Segments'][] = $Handler;
         $Base['Path']['Segments'][] = $Filename;
         $Base['Path']['IsDir'] = $Base['Path']['IsAbs'] = FALSE;
+
+        if( !empty($Ops) )
+            \asm\URL::SetQuery($Ops,$Base);
 
         return URL::ToString($Base);
     }
