@@ -292,6 +292,7 @@ abstract class App
      *
      * @throws Exception Directive object doesn't exist.
      *
+     * @note This uses a lowercased MatchPath.
      * @note If an ordered match is found and doesn't have a Status of Weak, no exact match will be attempted.
      * @note If @c SitewideFunction returns FALSE, default page execution and rendering will not happen,
      *       including 404 and Page status checks.
@@ -309,11 +310,15 @@ abstract class App
         $this->OrderedMatch = $this->ExactMatch = array();
         $this->ClosestMatchName = '';
 
+        // we'll use a copy of MatchPath and have it lowercased
+        $MatchPath = $this->Request['MatchPath'];
+        Path::Lower($MatchPath);
+
         // first determine hierarchal ordered matches - most general to most specific URL path
         // only one page will match
-        if( $this->Request['MatchPath']['IsRoot'] === FALSE )
+        if( $MatchPath['IsRoot'] === FALSE )
         {
-            foreach( \asm\Path::Order($this->Request['MatchPath']) as $V )
+            foreach( \asm\Path::Order($MatchPath) as $V )
             {
                 if( ($this->OrderedMatch = $this->ps->Match($V)) !== NULL )
                 {
@@ -329,7 +334,7 @@ abstract class App
         //          Weak:  /admin/ matches then a page with /admin/something WILL match
         if( empty($this->OrderedMatch) || (strpos($this->OrderedMatch['Status'],'Weak') !== FALSE) )
         {
-            if( ($this->ExactMatch = $this->ps->Match(\asm\Path::ToString($this->Request['MatchPath']))) !== NULL )
+            if( ($this->ExactMatch = $this->ps->Match(\asm\Path::ToString($MatchPath))) !== NULL )
                 $this->ClosestMatchName = $this->ExactMatch['Name'];
         }
 

@@ -144,20 +144,16 @@ abstract class Request extends Struct
      *
      * @param array $Request A reference to a Request Struct, which is modified.
      * @param string $BaseURL Base URL to calculate from.
-     * @param boolean $Lower FALSE to not lowercase the SiteURL's Path.
      *
-     * @note Paths are lowercased by default.
+     * @note Paths are @e not lowercased.
      * @note Username/password is not considered and not merged.
      */
-    public static function CalcURLs( &$Request,$BaseURL,$Lower = TRUE )
+    public static function CalcURLs( &$Request,$BaseURL )
     {
         $MatchPath = array();
         $IsBaseScheme = $IsBaseHostname = $IsBasePort = $IsBasePath = TRUE;
 
         $SiteURL = $Request;
-
-        if( $Lower === TRUE )
-            Path::Lower($SiteURL['Path']);
 
         if( empty($BaseURL) )
         {
