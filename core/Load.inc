@@ -40,7 +40,7 @@ require(ASM_ROOT.'Template.php');
 require(ASM_ROOT.'Link.php');
 
 require(ASM_ROOT.'restr.php');
-require(ASM_ROOT.'cnvyrc.php');
+require(ASM_ROOT.'cnvyr.php');
 
 require(ASM_ROOT.'Misc.php');
 
