@@ -182,8 +182,8 @@ abstract class App
      * @note $Request can be @em spoofed if needed.
      * @note If $App contains a Dirs element (defined by the application array in @c index.php),
      *       it's used by BuildFile, rather than the default directory structure.
+     * @note No locking of cache files is performed.
      *
-     * @todo Implement locking/flock() for manifest/app cache file creation.
      * @todo Do we want a DataSheets property?
      * @todo Fully test that app-file caching works properly with complex apps/manifests/datasheets/etc.
      */
@@ -215,7 +215,7 @@ abstract class App
         else
         {
             // clear an existing cache
-            @unlink("{$this->CacheDir}{$this->Hostname}.manifest.inc");
+            $this->ClearManifestCache("{$this->CacheDir}{$this->Hostname}.manifest.inc");
             $this->Manifest = $this->BuildManifest($App['ManifestURL']);
         }
 
@@ -246,15 +246,15 @@ abstract class App
             // this will set $this->Templates if already cached
             if( (@include "{$this->CacheDir}{$this->Hostname}.app.inc") === FALSE )
             {
-                file_put_contents("{$this->CacheDir}{$this->Hostname}.app.inc",$this->BuildFile($Dirs));
+                file_put_contents("{$this->CacheDir}{$this->Hostname}.app.inc",$this->BuildApp($Dirs));
                 include "{$this->CacheDir}{$this->Hostname}.app.inc";
             }
         }
         else
         {
             // clear an existing cache
-            @unlink("{$this->CacheDir}{$this->Hostname}.app.inc");
-            $T = $this->BuildFile($Dirs);
+            $this->ClearAppCache("{$this->CacheDir}{$this->Hostname}.app.inc");
+            $T = $this->BuildApp($Dirs);
             eval('?>'.$T);
         }
 
@@ -488,6 +488,25 @@ abstract class App
             ini_set('open_basedir',$Path);
     }
 
+    /**
+     * Delete the manifest cache file if it exists.
+     *
+     * @param string $P The absolute path to the cache file.
+     */
+    public function ClearManifestCache( $P )
+    {
+        @unlink($P);
+    }
+
+    /**
+     * Delete the app cache file if it exists.
+     *
+     * @param string $P The absolute path to the cache file.
+     */
+    public function ClearAppCache( $P )
+    {
+        @unlink($P);
+    }
 
     /**
      * Determine whether we're executing in a Windows environment.
@@ -903,7 +922,7 @@ abstract class App
      *       will reference a real file/line.
      * @note Only files with the following extensions are loaded: <tt> .inc .php .tpl .html .js .css </tt>
      */
-    protected function BuildFile( $Dirs = array() )
+    protected function BuildApp( $Dirs = array() )
     {
         if( empty($Dirs) )
         {
