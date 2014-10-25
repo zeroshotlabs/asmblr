@@ -60,7 +60,8 @@ abstract class Request extends Struct
      * @param boolean $Rebuild Force a rebuild of the request data from scratch.
      * @retval array The normalized request data.
      *
-     * @todo Allow forging a request, i.e. pass in a URL and return the result, rather than store statically.
+     * @note HTTP username/password isn't considered at all - using it in URLs will break IE/etc browsers.
+     * @todo Allow forging a request, i.e. pass in a URL and return the result.
      */
     public static function Init( $Rebuild = FALSE )
     {
@@ -96,8 +97,8 @@ abstract class Request extends Struct
             else if( !empty($_SERVER['SERVER_NAME']) )
                 $Request['Hostname'] = Hostname::Init($_SERVER['SERVER_NAME']);
 
-            $Request['Username'] = (string)static::Get('PHP_AUTH_USER',$_SERVER);
-            $Request['Password'] = (string)static::Get('PHP_AUTH_PW',$_SERVER);
+//             $Request['Username'] = (string)static::Get('PHP_AUTH_USER',$_SERVER);
+//             $Request['Password'] = (string)static::Get('PHP_AUTH_PW',$_SERVER);
 
             if( !empty($_SERVER['SERVER_PORT']) && ($_SERVER['SERVER_PORT'] !== '80') && ($_SERVER['SERVER_PORT'] !== '443') )
                 $Request['Port'] = $_SERVER['SERVER_PORT'];
