@@ -294,6 +294,7 @@ abstract class App
      *
      * @note This uses a lowercased MatchPath.
      * @note If an ordered match is found and doesn't have a Status of Weak, no exact match will be attempted.
+     * @note The SitewideFunction, if present, will know the pages that have matched the request and can rearrange as needed.
      * @note If @c SitewideFunction returns FALSE, default page execution and rendering will not happen,
      *       including 404 and Page status checks.
      */

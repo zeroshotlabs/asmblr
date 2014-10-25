@@ -163,7 +163,7 @@ abstract class cnvyrsrv
     }
 
     // if no ops this will just cache (no API call)
-    protected static function binary( \asm\App $app,$Ops,$OriginDir = '',$CachePrefix = '',$Filename = '',$ContentType = '' )
+    protected static function binary( \asm\App $app,$Ops,$OriginDir = '',$CachePrefix = '',$Filename = '',$ContentType = '',$Payload = '' )
     {
         static::ResolveRequest($app,$Ops,$OriginDir,$CachePrefix,$Filename,$ContentType);
 
@@ -173,11 +173,15 @@ abstract class cnvyrsrv
 
         $Origin = "{$app->AppRoot}/".static::$OriginDir.'/';
 
-        if( is_readable($Origin.static::$Filename) )
+        if( empty($Payload) )
         {
-            $Payload = file_get_contents($Origin.static::$Filename);
+            if( is_readable($Origin.static::$Filename) )
+            {
+                $Payload = file_get_contents($Origin.static::$Filename);
+            }
         }
-        else
+
+        if( empty($Payload) )
         {
             HTTP::_404();
             exit;
@@ -195,54 +199,6 @@ abstract class cnvyrsrv
         static::srvout($Payload,static::$ContentType,empty(static::$Ops['gzip'])?FALSE:TRUE);
     }
 
-
-//     public static function js( $app,$Ops = array() )
-//     {
-//         header_remove();
-
-//         $Filename = \asm\Path::Bottom($app->Request['MatchPath']);
-
-//         $cc = new cnvyrc($app);
-
-//         // we have a bundle
-//         if( ($Payload = static::ResolveBundle($Filename,$app->html)) !== NULL )
-//         {
-//             if( !empty($Ops) )
-//                 $Payload[1] = $Ops;
-
-//             $Payload = $cc->ToAPI($Payload[0],$Payload[1]);
-//         }
-//         // no bundle - treat as a single template
-//         else
-//         {
-//             $Filename2 = pathinfo($Filename)['filename'];
-//             $Token = $app->page->Origin.'_'.$Filename2;
-
-//             $Payload = $app->html->Render($Token);
-
-//             if( empty($Ops) )
-//                 $Ops = array('min'=>'js','gzip'=>'1');
-
-//             $Payload = $cc->ToAPI($Payload,$Ops);
-//         }
-
-//         if( empty($Payload) )
-//         {
-//             HTTP::_404();
-//             exit;
-//         }
-
-//         if( !empty($app->Config['cnvyrCacheLocal']) )
-//         {
-//             $CacheFile = "{$app->Config['cnvyrPrefix']}_js_{$Filename}";
-//             $cc->ToCache($Payload,$CacheFile);
-//         }
-
-//         static::srv($Payload,HTTP::ContentType('js'),TRUE);
-//     }
-
-
-
     protected static function ResolveRequest( \asm\App $app,$Ops = array(),$OriginDir = '',$CachePrefix = '',$Filename = '',$ContentType = '',\asm\TemplateSet $TemplateSet = NULL )
     {
         if( empty($Filename) )
@@ -253,7 +209,12 @@ abstract class cnvyrsrv
         $FNPI = pathinfo(static::$Filename);
 
         if( empty($ContentType) )
-            static::$ContentType = $FNPI['extension'];
+        {
+            if( empty($FNPI['extension']) )
+                llog('Couldn\'t determine extension/content-type for \''.static::$Filename).'\'';
+            else
+                static::$ContentType = $FNPI['extension'];
+        }
         else
             static::$ContentType = $ContentType;
 
@@ -657,7 +618,7 @@ class Linkcnvyr extends LinkPage
      * @param string $Filename The filename of the resource or bundle to serve.
      * @retval string The absolute URL of the cnvyr served resource.
      */
-    public function __invoke( $Handler = NULL,$Filename = '',$Ops = array() )
+    public function __invoke( $Handler = NULL,$Filename = '' )
     {
         $Base = $this->BaseURL;
 
@@ -672,9 +633,6 @@ class Linkcnvyr extends LinkPage
 //        $Base['Path']['Segments'][] = $Handler;
         $Base['Path']['Segments'][] = $Filename;
         $Base['Path']['IsDir'] = $Base['Path']['IsAbs'] = FALSE;
-
-        if( !empty($Ops) )
-            \asm\URL::SetQuery($Ops,$Base);
 
         return URL::ToString($Base);
     }
