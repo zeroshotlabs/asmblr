@@ -214,8 +214,8 @@ abstract class App
         }
         else
         {
-            // clear an existing cache
-            $this->ClearManifestCache("{$this->CacheDir}{$this->Hostname}.manifest.inc");
+            // clear an existing cache - defaults to above path
+            $this->ClearManifestCache();
             $this->Manifest = $this->BuildManifest($App['ManifestURL']);
         }
 
@@ -252,8 +252,8 @@ abstract class App
         }
         else
         {
-            // clear an existing cache
-            $this->ClearAppCache("{$this->CacheDir}{$this->Hostname}.app.inc");
+            // clear an existing cache - defaults to above path
+            $this->ClearAppCache();
             $T = $this->BuildApp($Dirs);
             eval('?>'.$T);
         }
@@ -488,25 +488,38 @@ abstract class App
             ini_set('open_basedir',$Path);
     }
 
+
     /**
      * Delete the manifest cache file if it exists.
      *
-     * @param string $P The absolute path to the cache file.
+     * @param string $P The absolute path to the cache file or empty for the default location.
+     *
+     * @note Careful - this can unlink files.
      */
-    public function ClearManifestCache( $P )
+    public function ClearManifestCache( $P = '' )
     {
+        if( empty($P) )
+            $P = "{$this->CacheDir}{$this->Hostname}.manifest.inc";
+
         @unlink($P);
     }
+
 
     /**
      * Delete the app cache file if it exists.
      *
-     * @param string $P The absolute path to the cache file.
+     * @param string $P The absolute path to the cache file or empty for the default location.
+     *
+     * @note Careful - this can unlink files.
      */
-    public function ClearAppCache( $P )
+    public function ClearAppCache( $P = '' )
     {
+        if( empty($P) )
+            $P = "{$this->CacheDir}{$this->Hostname}.app.inc";
+
         @unlink($P);
     }
+
 
     /**
      * Determine whether we're executing in a Windows environment.
@@ -530,13 +543,6 @@ abstract class App
      */
     protected function BuildManifest( $ManifestURL )
     {
-//         $AppRoot = Path::Init($this->AppRoot);
-//         $AppRoot['IsDir'] = TRUE;
-//         $AppRoot = Path::ToString($AppRoot);
-
-//         $ManifestURL = $ManifestURLOrig = URL::Init($ManifestURL);
-//         $ManifestURLOrigStr = URL::ToString($ManifestURL);
-
         // only new google spreadsheets in asmblr 4.2
         $Manifest = $this->Manifestd($ManifestURL);
 
@@ -552,7 +558,6 @@ abstract class App
      * @throws Exception Couldn't find a config tab.
      * @retval array The application's manifest.
      */
-    // ,$ManifestURLOrig,$AppRoot
     protected function Manifestd( $ManifestURL )
     {
         // read in the HTML version which we scrape for each of the tabs
@@ -648,6 +653,7 @@ abstract class App
 
         return $Manifest;
     }
+
 
     /**
      * Parse an array of CSV lines from a Google Spreadsheet tab into a manifest section.
