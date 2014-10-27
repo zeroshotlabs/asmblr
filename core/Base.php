@@ -1,6 +1,6 @@
 <?php
 /**
- * @file Base.inc Base classes.
+ * @file Base.php Base classes.
  * @author Stackware, LLC
  * @version 4.2
  * @copyright Copyright (c) 2012-2014 Stackware, LLC. All Rights Reserved.

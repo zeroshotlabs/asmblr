@@ -1,6 +1,6 @@
 <?php
 /**
- * @file App.inc asmblr application controller.
+ * @file App.php asmblr application controller.
  * @author Stackware, LLC
  * @version 4.2
  * @copyright Copyright (c) 2012-2014 Stackware, LLC. All Rights Reserved.

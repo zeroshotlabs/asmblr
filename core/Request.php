@@ -1,6 +1,6 @@
 <?php
 /**
- * @file Request.inc Request data and management.
+ * @file Request.php Request data and management.
  * @author Stackware, LLC
  * @version 4.2
  * @copyright Copyright (c) 2012-2014 Stackware, LLC. All Rights Reserved.

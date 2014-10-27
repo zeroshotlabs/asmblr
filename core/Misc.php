@@ -1,6 +1,6 @@
 <?php
 /**
- * @file Misc.inc Miscellaneous tools and helpers.
+ * @file Misc.php Miscellaneous tools and helpers.
  * @author Stackware, LLC
  * @version 4.2
  * @copyright Copyright (c) 2012-2014 Stackware, LLC. All Rights Reserved.

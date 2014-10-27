@@ -1,6 +1,6 @@
 <?php
 /**
- * @file Link.inc URL creation.
+ * @file Link.php URL creation.
  * @author Stackware, LLC
  * @version 4.2
  * @copyright Copyright (c) 2012-2014 Stackware, LLC. All Rights Reserved.

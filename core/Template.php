@@ -1,6 +1,6 @@
 <?php
 /**
- * @file Template.inc Text templating and rendering.
+ * @file Template.php Text templating and rendering.
  * @author Stackware, LLC
  * @version 4.2
  * @copyright Copyright (c) 2012-2014 Stackware, LLC. All Rights Reserved.

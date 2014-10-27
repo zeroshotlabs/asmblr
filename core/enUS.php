@@ -1,6 +1,6 @@
 <?php
 /**
- * @file enUS.inc Default en-US locale validation, text utilities, and HTML templating.
+ * @file enUS.php Default en-US locale validation, text utilities, and HTML templating.
  * @author Stackware, LLC
  * @version 4.2
  * @copyright Copyright (c) 2012-2014 Stackware, LLC. All Rights Reserved.

@@ -1,6 +1,6 @@
 <?php
 /**
- * @file restr.inc RESTful API connectivity.
+ * @file restr.php RESTful API connectivity.
  * @author Stackware, LLC
  * @version 4.2
  * @copyright Copyright (c) 2012-2014 Stackware, LLC. All Rights Reserved.

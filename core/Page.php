@@ -1,6 +1,6 @@
 <?php
 /**
- * @file Page.inc URL matching and application execution.
+ * @file Page.php URL matching and application execution.
  * @author Stackware, LLC
  * @version 4.2
  * @copyright Copyright (c) 2012-2014 Stackware, LLC. All Rights Reserved.
