@@ -179,6 +179,7 @@ abstract class App
      *
      * @throws Exception CacheDir not set.
      *
+     * @note The ManifestURL configured in index.php can also be a local unprocessed .html file from Google.
      * @note $Request can be @em spoofed if needed.
      * @note If $App contains a Dirs element (defined by the application array in @c index.php),
      *       it's used by BuildFile, rather than the default directory structure.
@@ -557,15 +558,26 @@ abstract class App
      * @throws Exception Manifest doesn't appear published.
      * @throws Exception Couldn't find a config tab.
      * @retval array The application's manifest.
+     *
+     * @note This supports reading the manifest from a local HTML file as well.
      */
     protected function Manifestd( $ManifestURL )
     {
         // read in the HTML version which we scrape for each of the tabs
         $Buf = file_get_contents($ManifestURL);
-        $Headers = \asm\restr::ParseHeaders($http_response_header);
 
-        if( empty($Headers['http']) || strpos($Headers['http'],'200') === FALSE )
-            throw new Exception("Manifest doesn't appear published in {$this->AppRoot}");
+        if( stripos($ManifestURL,'http') !== FALSE )
+        {
+            $Headers = \asm\restr::ParseHeaders($http_response_header);
+
+            if( empty($Headers['http']) || strpos($Headers['http'],'200') === FALSE )
+                throw new Exception("Manifest doesn't appear published in {$this->AppRoot}");
+        }
+        else if( empty($Buf) )
+        {
+            throw new Exception("Local manifest not readable from \"{$ManifestURL}\"");
+        }
+
 
         libxml_use_internal_errors(TRUE);
         $DOM = new \DOMDocument;
