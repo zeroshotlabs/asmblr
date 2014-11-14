@@ -334,7 +334,7 @@ abstract class App
         // if the ordered match is Weak, an exact match is also allowed
         // i.e.  default:  /admin/ matches then a page with /admin/something will NOT match
         //          Weak:  /admin/ matches then a page with /admin/something WILL match
-        if( empty($this->OrderedMatch) || (strpos($this->OrderedMatch['Status'],'Weak') !== FALSE) )
+        if( empty($this->OrderedMatch) || $this->OrderedMatch['Status'] === 'Weak' )
         {
             if( ($this->ExactMatch = $this->ps->Match(\asm\Path::ToString($MatchPath))) !== NULL )
                 $this->ClosestMatchName = $this->ExactMatch['Name'];
@@ -355,7 +355,7 @@ abstract class App
         else
             $PreContinue = TRUE;
 
-        // returning FALSE from SiteWideFunction above will bypass default page checking, execution and HTML rendering
+        // returning FALSE from SitewideFunction above will bypass default page checking, execution and HTML rendering
         if( $PreContinue !== FALSE )
         {
             // if no pages, it's a 404
@@ -363,8 +363,8 @@ abstract class App
                 $this->NoPageHandler();
 
             // or if one isn't active
-            if( (!empty($this->OrderedMatch['Status']) && (strpos($this->OrderedMatch['Status'],'Active') === FALSE))
-            || (!empty($this->ExactMatch['Status']) && ($this->ExactMatch['Status'] !== 'Active')) )
+            if( (!empty($this->OrderedMatch['Status']) && ($this->OrderedMatch['Status'] !== 'Active' && $this->OrderedMatch['Status'] !== 'Weak'))
+            ||  (!empty($this->ExactMatch['Status']) && ($this->ExactMatch['Status'] !== 'Active')) )
                 $this->NoPageHandler();
 
             // now execute the actual page(s)
