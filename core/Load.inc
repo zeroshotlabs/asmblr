@@ -26,6 +26,16 @@ function llog( $Msg,$Level = 'LOG',$Backtrace = NULL,$Context = NULL )
 }
 
 
+/**
+ * Shorthand for getting the $app object.
+ *
+ * @note Do not overuse.
+ */
+function asm()
+{
+    return $GLOBALS['asmapp'];
+}
+
 
 /**
  * Require the asmblr source code.
