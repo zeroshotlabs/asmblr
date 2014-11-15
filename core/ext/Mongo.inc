@@ -156,7 +156,7 @@ class MongoDB extends \MongoDB implements Debuggable,CRUDC
      *
      * @param string $Table The collection to read from.
      * @param array $Constraint Key/value constraint array.
-     * @param array $Columns Not implemented.
+     * @param array $Columns Column/boolean pairs to include or exclude columns.
      * @param array $OrderBy Field names/directions (1 = ASC, -1 = DESC).  Valid MongoCollection::sort() syntax is required.
      * @retval array An array of records, or an empty array.
      *
@@ -168,7 +168,7 @@ class MongoDB extends \MongoDB implements Debuggable,CRUDC
         if( isset($_SERVER[$this->DebugToken]) )
             $this->DebugCRUDC('READ',$Table);
 
-        return iterator_to_array($this->{$Table}->find((array)$Constraint)->sort($OrderBy));
+        return iterator_to_array($this->{$Table}->find((array)$Constraint,$Columns)->sort($OrderBy));
     }
 
     /**
