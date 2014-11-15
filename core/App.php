@@ -69,6 +69,22 @@ abstract class App
     public $CacheApp = FALSE;
 
     /**
+     * @var boolean $BuiltManifest
+     * TRUE if the Manifest was built (not cached).
+     *
+     * @note Read-only.
+     */
+    public $BuiltManifest = FALSE;
+
+    /**
+     * @var boolean $BuiltApp
+     * TRUE if the app file was built (not cached).
+     *
+     * @note Read-only.
+     */
+    public $BuiltApp = FALSE;
+
+    /**
      * @var string $RoutingPS
      * The PageSet token (cell @c F1) of the manifest page tab that will be used for processing the current request.
      *
@@ -209,6 +225,7 @@ abstract class App
         {
             if( (@include "{$this->CacheDir}{$this->Hostname}.manifest.inc") === FALSE )
             {
+                $this->BuiltManifest = TRUE;
                 $this->Manifest = $this->BuildManifest($App['ManifestURL']);
                 file_put_contents("{$this->CacheDir}{$this->Hostname}.manifest.inc",'<?php $this->Manifest = '.var_export($this->Manifest,TRUE).';');
             }
@@ -216,6 +233,7 @@ abstract class App
         else
         {
             // clear an existing cache - defaults to above path
+            $this->BuiltManifest = TRUE;
             $this->ClearManifestCache();
             $this->Manifest = $this->BuildManifest($App['ManifestURL']);
         }
@@ -247,6 +265,7 @@ abstract class App
             // this will set $this->Templates if already cached
             if( (@include "{$this->CacheDir}{$this->Hostname}.app.inc") === FALSE )
             {
+                $this->BuiltApp = TRUE;
                 file_put_contents("{$this->CacheDir}{$this->Hostname}.app.inc",$this->BuildApp($Dirs));
                 include "{$this->CacheDir}{$this->Hostname}.app.inc";
             }
@@ -254,6 +273,7 @@ abstract class App
         else
         {
             // clear an existing cache - defaults to above path
+            $this->BuiltApp = TRUE;
             $this->ClearAppCache();
             $T = $this->BuildApp($Dirs);
             eval('?>'.$T);
