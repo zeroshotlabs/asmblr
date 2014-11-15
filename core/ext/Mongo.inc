@@ -168,7 +168,7 @@ class MongoDB extends \MongoDB implements Debuggable,CRUDC
         if( isset($_SERVER[$this->DebugToken]) )
             $this->DebugCRUDC('READ',$Table);
 
-        return iterator_to_array($this->{$Table}->find((array)$Constraint,$Columns)->sort($OrderBy));
+        return iterator_to_array($this->{$Table}->find((array)$Constraint,empty($Columns)?array():$Columns)->sort($OrderBy));
     }
 
     /**
