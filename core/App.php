@@ -732,9 +732,19 @@ abstract class App
                     continue;
 
                 // a directive in the config tab is recognized by having a $ as the first char of the key
-                // comma notation isn't currently supported in the config tab
+                // comma notation isn't currently supported in the config tab - here we normalize true/false/null
+                // into PHP types, but we don't do for page directives - we probably should
                 if( $L[0][0] === '$' )
                 {
+                    $T = strtolower($L[2]);
+
+                    if( $T === 'false' )
+                        $L[2] = FALSE;
+                    else if( $T === 'true' )
+                        $L[2] = TRUE;
+                    else if( $T === 'null' )
+                        $L[2] = NULL;
+
                     $Tab['Directives'][] = array(str_replace('$','',$L[0]),$L[1],$L[2]);
                 }
                 // otherwise taken as a key/value config parameter and trim/normalize
