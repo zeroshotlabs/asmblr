@@ -20,6 +20,8 @@ namespace asm;
  *
  * All Messager objects will use the same $_SESSION element and thus
  * share a common message namespace.
+ *
+ * @see Persist() to set a message that persists until explicitly unset.
  */
 class Messager
 {
@@ -85,20 +87,25 @@ class Messager
      */
     public function __construct()
     {
-        if( isset($_SESSION['Messager']) === FALSE )
+        if( empty($_SESSION['Messager']) )
+        {
             $_SESSION['Messager'] = array();
+            $_SESSION['MessagerPersist'] = array();
+        }
     }
 
     /**
-     * Store a persistent message.
+     * Store a semi-persistent message.
      *
      * Messages will persist until they are read.  Messages
-     * can be any PHP variable that can be stored in sessions.
+     * can be any PHP variable that can be stored in a session.
      *
      * If $Label already exists, it is silently overwritten.
      *
      * @param string $Label A label for referencing the message.
      * @param mixed $Value The message.
+     *
+     * @see Persist() to set a message that will persist until explicitly unset.
      */
     public function __set( $Label,$Value )
     {
@@ -116,7 +123,9 @@ class Messager
         if( isset($_SESSION['Messager'][$Label]) )
         {
             unset($_SESSION['Messager'][$Label]);
-            return TRUE;
+
+            if( !empty($_SESSION['MessagerPersist'][$Label]) )
+                unset($_SESSION['MessagerPersist'][$Label]);
         }
         else
             return FALSE;
@@ -136,7 +145,7 @@ class Messager
     /**
      * Retrieve and delete a stored message.
      *
-     * Once read, the message will be deleted.
+     * Once read, the message will be deleted unless it's been set using Persist().
      *
      * @param string $Label The label of the message to retrieve.
      * @retval mixed The contents of the message.
@@ -149,7 +158,10 @@ class Messager
         if( isset($_SESSION['Messager'][$Label]) )
         {
             $T = $_SESSION['Messager'][$Label];
-            unset($_SESSION['Messager'][$Label]);
+
+            if( empty($_SESSION['MessagerPersist'][$Label]) )
+                unset($_SESSION['Messager'][$Label]);
+
             return $T;
         }
         else
@@ -167,6 +179,25 @@ class Messager
     public function Info( $Label )
     {
         return static::AlertInfo($this->__get($Label));
+    }
+
+    /**
+     * Store a persistent message.
+     *
+     * Messages will persist until they are explicitly unset.  Messages
+     * can be any PHP variable that can be stored in a session.
+     *
+     * If $Label already exists, it is silently overwritten.
+     *
+     * @param string $Label A label for referencing the message.
+     * @param mixed $Value The message.
+     *
+     * @see __set() to set a message that will persist only until it's read.
+     */
+    public function Persist( $Label,$Value )
+    {
+        $_SESSION['Messager'][$Label] = $Value;
+        $_SESSION['MessagerPersist'][$Label] = TRUE;
     }
 
     /**
