@@ -949,9 +949,9 @@ abstract class enUS
      * @note Because this uses enUS::Text(), leading and trailing whitespace is stripped, which may lead to
      *       user confusion - or just don't put whitespace in a password.
      */
-    public static function Password( $Label1,&$Src,$Label2 = NULL,$Required = TRUE )
+    public static function Password( $Label1,&$Src,$Label2 = '',$Required = TRUE )
     {
-        if( $Label2 === NULL )
+        if( empty($Label2) )
         {
             $R = static::Text($Label1,$Src,$Required);
 
