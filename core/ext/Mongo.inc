@@ -158,17 +158,18 @@ class MongoDB extends \MongoDB implements Debuggable,CRUDC
      * @param array $Constraint Key/value constraint array.
      * @param array $Columns Column/boolean pairs to include or exclude columns.
      * @param array $OrderBy Field names/directions (1 = ASC, -1 = DESC).  Valid MongoCollection::sort() syntax is required.
+     * @param integer $Limit Limit number of records returned.
      * @retval array An array of records, or an empty array.
      *
      * @note An empty constraint is allowed - all records can be read.
      * @note This uses MongoCollection::find().
      */
-    public function READ( $Table,$Constraint = NULL,$Columns = NULL,$OrderBy = array() )
+    public function READ( $Table,$Constraint = NULL,$Columns = NULL,$OrderBy = array(),$Limit = 0 )
     {
         if( isset($_SERVER[$this->DebugToken]) )
             $this->DebugCRUDC('READ',$Table);
 
-        return iterator_to_array($this->{$Table}->find((array)$Constraint,empty($Columns)?array():$Columns)->sort($OrderBy));
+        return iterator_to_array($this->{$Table}->find((array)$Constraint,empty($Columns)?array():$Columns)->sort($OrderBy)->limit($Limit));
     }
 
     /**
