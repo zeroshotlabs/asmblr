@@ -281,6 +281,32 @@ abstract class Request extends Struct
             return 'INVALID PATH LIMIT';
     }
 
+
+    /**
+     * Read the request's full URL as a string.
+     *
+     * By default the URL returned will NOT include the query string.  Pass $_GET to have it included.
+     *
+     * @param array $Set A URL::Set() compatible change string/array.
+     * @retval string The URL string.
+     *
+     * @see URL::Set()
+     */
+    public static function URL( $Set = array() )
+    {
+        if( empty($Set) )
+        {
+            return \asm\URL::ToString(static::Init());
+        }
+        else
+        {
+            $U = static::Init();
+            \asm\URL::Set($Set,$U);
+            return \asm\URL::ToString($U);
+        }
+    }
+
+
     /**
      * Determine whether the request appears to be from a mobile device.
      *
