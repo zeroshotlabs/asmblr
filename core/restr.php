@@ -38,9 +38,13 @@ class restr extends \asm\LinkSet
 {
     /**
      * @var array $EndPoints
-     * Definition of API end-points.
+     * Key/value definition of API end-points: Name => /path
      *
-     * Configurable in the stub class only.
+     * @note If an endpoint's path starts with http it will be used as the absolute
+     *       URL for that particular endpoint, overriding BaseURL.
+     *
+     * @see restr::__construct
+     * @see restr::SetEndPoints
      */
     protected $EndPoints = array();
 
@@ -97,7 +101,7 @@ class restr extends \asm\LinkSet
             throw new Exception('No restr BaseURL defined.');
 
         if( !empty($EndPoints) )
-            $this->EndPoints = $EndPoints;
+            $this->SetEndPoints($EndPoints);
     }
 
     /**
@@ -106,13 +110,21 @@ class restr extends \asm\LinkSet
      * @param string $Name Name of the defined endpoint.
      * @param array $Set Array of change strings for one-time changes to BaseURL.
      * @retval string A well-formed URL for an endpoint.
+     *
+     * @note An endpoint path that starts with http will be used as the absolute URL,
+     *       overriding BaseURL.
      */
     public function __invoke( $Name = NULL,$Set = array() )
     {
         $Base = $this->BaseURL;
 
         if( isset($this->EndPoints[$Name]) )
-            Path::Merge(Path::Init($this->EndPoints[$Name]),$Base['Path']);
+        {
+            if( stripos($this->EndPoints[$Name],'http') === 0 )
+                $Base = URL::Init($this->EndPoints[$Name]);
+            else
+                Path::Merge(Path::Init($this->EndPoints[$Name]),$Base['Path']);
+        }
 
         if( !empty($Set) )
             URL::Set($Set,$Base);
@@ -281,14 +293,16 @@ class restr extends \asm\LinkSet
      * @param array $POSTPayload Key/value pairs of POST data; will be multipart encoded.
      * @param string $POSTPayload Encoded string of POST data; will be form-urlencoded.
      * @param array $Headers Headers to use in the request (key/value pairs).
+     * @param string $Verb Custom HTTP verb to use.  Setting to PUT will use POSTPayload as payload string.
      * @retval boolean TRUE upon successful request.
      *
      * @note If POSTPayload is empty, a GET will be performed.
      * @note If POSTPayload is a string, form-urlencoded; array = multipart  (unless overriden by a header)
+     * @note If Verb is PUT POSTPayload is taken as a string of data to upload (binary).
      * @todo Determine behavior of $Headers if non-empty.  Will they be the only headers sent, or are others automagically added?
      * @todo Add proper DebugOn/DebugOff handling.
      */
-    protected function curlr( $URL,$POSTPayload = array(),$Headers = array() )
+    protected function curlr( $URL,$POSTPayload = array(),$Headers = array(),$Verb = '' )
     {
         // :)  should be using DebugOn/etc
         $Debug = FALSE;
@@ -315,13 +329,28 @@ class restr extends \asm\LinkSet
         // may get overwritten per headers...?
         curl_setopt($CH,CURLOPT_USERAGENT,'asmblr.org restr v1.1');
 
-        // automatically sets correct content-type unless override below
-        if( !empty($POSTPayload) )
+        // setup doing a custom request, like PUT
+        if( !empty($Verb) )
+        {
+            $Verb = strtoupper(trim($Verb));
+
+            curl_setopt($CH,CURLOPT_CUSTOMREQUEST,$Verb);
+
+            if( $Verb === 'PUT' )
+                curl_setopt($CH,CURLOPT_POSTFIELDS,$POSTPayload);
+        }
+        // a POST - automatically sets correct content-type unless override below
+        // otherwise will be a GET by default
+        else if( !empty($POSTPayload) )
+        {
             curl_setopt($CH,CURLOPT_POSTFIELDS,$POSTPayload);
+        }
 
-        // for now we always remove Expect:
-        $CURLHeaders = array('Expect:');
+        // remove Expect unless explicitly specified
+        if( empty($Headers['Expect']) )
+            $Headers['Expect'] = '';
 
+        $CURLHeaders = array();
         foreach( $Headers as $K => $V )
         {
             // encoding?
@@ -369,6 +398,17 @@ class restr extends \asm\LinkSet
         }
 
         return TRUE;
+    }
+
+    /**
+     * Dump debug details about the last request/response.
+     */
+    public function curlrDump()
+    {
+        var_dump($this->Headers);
+        var_dump($this->CURLError);
+        var_dump($this->CURLInfo);
+        var_dump($this->CURLResponse);
     }
 
     /**
