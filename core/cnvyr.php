@@ -567,6 +567,7 @@ class cnvyrc extends restr
 
         if( !empty($this->CURLError) )
         {
+            llog($this->CURLError);
             llog($Response);
             HTTP::_500();
         }
