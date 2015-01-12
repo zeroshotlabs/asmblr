@@ -223,7 +223,8 @@ class restr extends \asm\LinkSet
      * @retval array json_decode()'d data as associative array.
      *
      * @note By default, an API's response with a Content-Type of application/json or +json will be automatically json_decode()'d.
-     * @note On Windows, IUSR must be given full control permissions of c:\\windows\\temp otherwise CURL can't read the temp. files created.
+     * @note On Windows, IUSR must be given full control permissions of c:\\windows\\temp otherwise CURL can't read the temp. files created
+     *       and things will fail silently and very confusingly (file_get_contents() still can read).
      * @note This currently does not provide a way to change the request headers.
      * @note CurlFile will be used if available.
      */
@@ -305,7 +306,7 @@ class restr extends \asm\LinkSet
     protected function curlr( $URL,$POSTPayload = array(),$Headers = array(),$Verb = '' )
     {
         // :)  should be using DebugOn/etc
-        $Debug = FALSE;
+        $Debug = TRUE;
 
         $CH = curl_init();
 
@@ -347,7 +348,7 @@ class restr extends \asm\LinkSet
         }
 
         // remove Expect unless explicitly specified
-        if( empty($Headers['Expect']) )
+        if( !isset($Headers['Expect']) )
             $Headers['Expect'] = '';
 
         $CURLHeaders = array();
@@ -395,6 +396,7 @@ class restr extends \asm\LinkSet
             llog(\asm\Debug::Dump(curl_getinfo($CH)));
             llog('RESPONSE HEADERS');
             llog(\asm\Debug::Dump($this->Headers));
+            llog($this->CURLResponse);
         }
 
         return TRUE;
