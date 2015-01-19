@@ -403,6 +403,8 @@ abstract class cnvyrsrv
      *
      * @see cnvyrsrv::text()
      * @see cnvyrsrv::binary()
+     *
+     * @todo Some of this (Filename parse) is redundant when a payload is provided by a caller.  Content-Type may also need to be provided when Filename is not.
      */
     protected static function ResolveRequest( \asm\App $app,$Ops = array(),$OriginDir = '',$CachePrefix = '',$Filename = '',$ContentType = '',\asm\TemplateSet $TemplateSet = NULL )
     {
