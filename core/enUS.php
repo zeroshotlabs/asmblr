@@ -683,7 +683,7 @@ abstract class enUS
             $Src[$Label] = $DT->format('Y-m-d');
             return TRUE;
         }
-        catch( Exception $E )
+        catch( \Exception $E )
         {
             return NULL;
         }
