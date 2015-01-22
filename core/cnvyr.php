@@ -666,15 +666,18 @@ class Linkcnvyr extends LinkPage
      *
      * @param string $Handler The name of the handler page, typically one of css, img, js or bin.
      * @param string $Filename The filename of the resource or bundle to serve.
+     * @param array $Ops Op => value array of cnvyr ops to set for the URL.
      * @retval string The absolute URL of the cnvyr served resource.
+     *
+     * @note $Ops will be constructed as an encoded 'c' query parameter.  Some installs of asmblr may not support custom $Ops.
      */
-    public function __invoke( $Handler = NULL,$Filename = '' )
+    public function __invoke( $Handler = NULL,$Filename = '',$Ops = array() )
     {
         $Base = $this->BaseURL;
 
         if( empty($Handler) || empty($this->PageSet->Pages[$Handler]) )
         {
-            Path::Append("PAGE-{$Handler}-NOT-FOUND",$Base['Path']);
+            Path::Append("HANDLER-{$Handler}-NOT-FOUND",$Base['Path']);
             return URL::ToString($Base);
         }
 
@@ -683,6 +686,9 @@ class Linkcnvyr extends LinkPage
 //        $Base['Path']['Segments'][] = $Handler;
         $Base['Path']['Segments'][] = $Filename;
         $Base['Path']['IsDir'] = $Base['Path']['IsAbs'] = FALSE;
+
+        if( !empty($Ops) )
+            URL::Set(array('c'=>http_build_query($Ops)),$Base);
 
         return URL::ToString($Base);
     }
