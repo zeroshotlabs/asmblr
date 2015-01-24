@@ -309,7 +309,7 @@ abstract class App
     /**
      * Match pages, apply app directives, execute SitewideFunction, execute pages, and render templates.
      *
-     * This enforces the @c ForceBaseHostname config setting if not running as a CLI.
+     * This enforces the @c ForceBaseHostname and @c ForceHTTPS config settings if not running as a CLI.
      *
      * @throws Exception Directive object doesn't exist.
      *
@@ -321,12 +321,19 @@ abstract class App
      */
     public function Execute()
     {
-        // if not running as a CLI, first honor our ForceBaseHostname setting
+        // if not running as a CLI, first honor our ForceBaseHostname and ForceHTTPS settings
         if( $this->Request['IsCLI'] === FALSE && ($this->Config['ForceBaseHostname'] === TRUE && $this->Request['IsBaseHostname'] === FALSE) )
         {
             $this->Request['Hostname'] = $this->Request['BaseURL']['Hostname'];
             HTTP::Location($this->Request);
         }
+
+        if( $this->Request['IsCLI'] === FALSE && ($this->Config['ForceHTTPS'] === TRUE && $this->Request['Scheme'] !== 'https') )
+        {
+            $this->Request['Scheme'] = 'https';
+            HTTP::Location($this->Request);
+        }
+        
 
         // match pages against the MatchPath to determine our executing page(s)
         $this->OrderedMatch = $this->ExactMatch = array();
