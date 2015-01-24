@@ -657,7 +657,10 @@ abstract class enUS
     /**
      * Normalize and validate an element as a date.
      *
-     * This uses PHP's native DateTime functions.
+     * This uses PHP's native DateTime functions.  It will normalize "\.,-"
+     * characters to the forward slash prior to having DateTime attempt to parse.
+     *
+     * It expects a rough American date in the form mm/dd/yy.
      *
      * It will alter the original data to a standard ISO date YYYY-mm-dd.
      *
@@ -679,7 +682,7 @@ abstract class enUS
 
         try
         {
-            $DT = new \DateTime($Src[$Label]);
+            $DT = new \DateTime(str_replace(array('\\','.',',','-'),'/',$Src[$Label]));
             $Src[$Label] = $DT->format('Y-m-d');
             return TRUE;
         }
