@@ -278,6 +278,11 @@ abstract class Log
         else if( App::IsWindows() === TRUE )
         {
             error_log(str_replace(array("\r\n","\n"),"\r\n",$Msg),0);
+/*
+            if( !empty($Context) )
+                error_log('CONTEXT: '.Debug::Dump($Context),0);
+*/
+                
         }
         // Assume Linux and log line-by-line for easier reading.
         else
@@ -588,6 +593,7 @@ abstract class HTTP
             'ttf'=>'application/x-font-ttf','woff'=>'application/font-woff',
 
             'gif'=>'image/gif','jpeg'=>'image/jpeg','jpg'=>'image/jpeg','png'=>'image/png',
+            'ico'=>'image/x-icon','favicon'=>'image/x-icon',
 
             'zip'=>'application/zip','gzip'=>'application/x-gzip','gz'=>'application/x-gzip',
 
