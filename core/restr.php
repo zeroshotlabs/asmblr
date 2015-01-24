@@ -34,8 +34,10 @@ namespace asm;
  * @todo GET/POST may not gracefully handle redirects and the headers from each.
  * @todo Enable setting of timeouts and other connection preferences, including client SSL.
  */
-class restr extends \asm\LinkSet
+class restr extends \asm\LinkSet implements Debuggable
 {
+    use Debugged;
+
     /**
      * @var array $EndPoints
      * Key/value definition of API end-points: Name => /path
@@ -305,8 +307,9 @@ class restr extends \asm\LinkSet
      */
     protected function curlr( $URL,$POSTPayload = array(),$Headers = array(),$Verb = '' )
     {
-        // :)  should be using DebugOn/etc
-        $Debug = FALSE;
+        // :)
+        if( isset($_SERVER[$this->DebugToken]) )
+            $Debug = TRUE;
 
         $CH = curl_init();
 
@@ -362,7 +365,7 @@ class restr extends \asm\LinkSet
 
         curl_setopt($CH,CURLOPT_URL,$URL);
 
-        if( $Debug )
+        if( !empty($Debug) )
         {
             curl_setopt($CH,CURLINFO_HEADER_OUT,TRUE);
             curl_setopt($CH,CURLOPT_VERBOSE,TRUE);  // doesn't seem to actually do anything
@@ -391,7 +394,7 @@ class restr extends \asm\LinkSet
         else
             $this->Headers = array();
 
-        if( $Debug )
+        if( !empty($Debug) )
         {
             llog(\asm\Debug::Dump(curl_getinfo($CH)));
             llog('RESPONSE HEADERS');
