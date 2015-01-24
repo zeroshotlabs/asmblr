@@ -126,6 +126,7 @@ class TemplateSet implements Debuggable,Directable
      * Create a TemplateSet.
      *
      * @param App $App Application's App object.
+     * @todo This is limited to use only $App->Templates meaning only a single template set per application unless extended.
      */
     public function __construct( \asm\App $App )
     {

@@ -308,6 +308,8 @@ abstract class Log
      * @param array $Backtrace A backtrace array (array of strings).
      * @param array $Context Local variables from the scope in which the message originated.
      * @param string $Email Optional email address to send to instead of App::$SysOp.
+     *
+     * @todo $Context is ignored (and in other methods too).
      */
     public static function Email( $Msg,$Level = 'LOG',$Backtrace = NULL,$Context = NULL,$Email = NULL )
     {
