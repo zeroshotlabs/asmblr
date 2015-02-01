@@ -322,18 +322,18 @@ abstract class App
     public function Execute()
     {
         // if not running as a CLI, first honor our ForceBaseHostname and ForceHTTPS settings
-        if( $this->Request['IsCLI'] === FALSE && ($this->Config['ForceBaseHostname'] === TRUE && $this->Request['IsBaseHostname'] === FALSE) )
+        if( $this->Request['IsCLI'] === FALSE && (!empty($this->Config['ForceBaseHostname']) && $this->Request['IsBaseHostname'] === FALSE) )
         {
             $this->Request['Hostname'] = $this->Request['BaseURL']['Hostname'];
             HTTP::Location($this->Request);
         }
 
-        if( $this->Request['IsCLI'] === FALSE && ($this->Config['ForceHTTPS'] === TRUE && $this->Request['Scheme'] !== 'https') )
+        if( $this->Request['IsCLI'] === FALSE && (!empty($this->Config['ForceHTTPS']) && $this->Request['Scheme'] !== 'https') )
         {
             $this->Request['Scheme'] = 'https';
             HTTP::Location($this->Request);
         }
-        
+
 
         // match pages against the MatchPath to determine our executing page(s)
         $this->OrderedMatch = $this->ExactMatch = array();
