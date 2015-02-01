@@ -153,17 +153,15 @@ abstract class cnvyrsrv
      *       when operating on a case-sensitive filesystem, i.e. Linux.
      * @note The cached filename should contain an accurate extension - otherwise a content type header
      *       will have to be sent explicitly in most cases.
-     *
-     * @todo Optimize further by putting before App instantiation (only would need manifest).
      */
-    public static function FromCache( $Filename,$CacheDir,$DirectOut = FALSE )
+    public static function FromCache( $Filename,$CacheDir,$DirectOut = FALSE,$HTTPCacheTime = '3600' )
     {
         if( is_readable($CacheDir.$Filename) === FALSE )
             return FALSE;
 
-        // set the HTTP cache time - if we did away with this we could almost not need $app
-        if( !empty($GLOBALS['asmapp']->Config['cnvyrHTTPCacheTime']) )
-            HTTP::Cache($GLOBALS['asmapp']->Config['cnvyrHTTPCacheTime']);
+        // set the HTTP cache time if not empty
+        if( !empty($HTTPCacheTime) )
+            HTTP::Cache($HTTPCacheTime);
 
         // explicitly set the content-type because it's too unpredictable between web servers/environments
         HTTP::ContentType(HTTP::Filename2ContentType($Filename));
