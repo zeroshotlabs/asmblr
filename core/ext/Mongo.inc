@@ -8,9 +8,11 @@
  * @copyright Licensed under the GNU General Public License
  * @copyright See COPYRIGHT.txt and LICENSE.txt.
  *
- * This extension is composed of two classes, Mongo and Mongodb, each extending PHP's
+ * This extension is primarily composed of two classes, Mongo and Mongodb, each extending PHP's
  * native classes, MongoClient and MongoDB, respectively.  They add functionality
  * to each class but do not interfere with native functionality.
+ *
+ * Additional utility classes are also included.
  */
 namespace asm;
 
@@ -118,10 +120,10 @@ class Mongo extends \MongoClient implements Debuggable
 
 
 /**
- * asmblr's MongoDB class PHP's native class of the same name and adds CRUDC operations,
+ * asmblr's MongoDB class extends PHP's native class of the same name and adds CRUDC operations,
  * debugging, data-mapping convenience methods, improved error handling, and other helper methods.
  *
- * Native functionality is untouched.
+ * Native functionality is untouched and Mongo's native exceptions are not caught.
  */
 class MongoDB extends \MongoDB implements Debuggable,CRUDC
 {
@@ -256,6 +258,8 @@ class MongoDB extends \MongoDB implements Debuggable,CRUDC
      *       likely should be before using it in this method.
      * @note A valid field is one that's TRUE.  This may include an empty field
      *       which is not required.  All others are skipped, regardless of $Override.
+     *
+     * @todo This may get deprecated/refactored into MongoStruct.
      */
     public function Map( \asm\ValidationReport $VR,$Src,$Override = array() )
     {
@@ -337,4 +341,153 @@ class MongoDB extends \MongoDB implements Debuggable,CRUDC
         Log::Log("\${$this->DebugToken}::{$Type}('{$Collection}') at {$BT}",'LOG',NULL);
     }
 }
+
+
+/**
+ * Link an asmblr Struct (PHP array) to a Mongo collection.
+ *
+ * This is effectively a Mongo backed array - setting or unsetting elements will
+ * be applied to the corresponding document in the database, in addition to the memory resident array itself.
+ *
+ * @note Any element can be set/unset - it's not restricted to the document's existing structure.
+ * @note Only __set()/__unset() actually hit the database - other operations just use the local array.
+ * @note This should be used for straight key/value operations only - use MongoDB/MongoCollection directly for nested or complex structures.
+ * @note Currently the document is linked only by _id.
+ * @note Currently this cannot create a new document in a collection - it works only on existing ones.
+ * @note Not all KeyValueSet methods are overriden - for example, iteration will iterate the local array, nothing in Mongo.
+ *
+ * @todo A MongoStruct probably isn't needed but it should be documented that a Struct that will be stored in Mongo
+ *       should have a _id and CurrentTS (default 0 means never updated) in the Skel and they should be initialized in Init().
+ *       Additionally, automatic updating of CurrentTS should be implemented somewhere.
+ * @todo Perhaps add some Debuggable awareness like MongoDB has.
+ */
+class MongoKVS extends \asm\KeyValueSet
+{
+    protected $MDC;
+
+
+    /**
+     * Create a new MongoKVS object.
+     *
+     * If ArrayRef isn't supplied, the KVS will reference it's own empty array.
+     *
+     * @param MongoCollection $MDC The Mongo collection the array is stored in.
+     * @param array $ArrayRef Reference to the Struct (array) which corresponds to a Mongo document (by _id).
+     *
+     * @throws Exception KV must reference an array, TYPE given.
+     */
+    public function __construct( \MongoCollection $MDC,&$ArrayRef )
+    {
+        $this->MDC = $MDC;
+
+        if( is_array($ArrayRef) )
+            $this->Link($ArrayRef);
+        else
+            throw new Exception('Array must be provided, '.gettype($ArrayRef).' given.');
+    }
+
+    /**
+     * Key/value setter using property overloading and MongoDB as storage.
+     *
+     * If $Key exists, it's value is silently overwritten.
+     *
+     * @param scalar $Key The element's key to set (string or integer).
+     * @param mixed $Value The element's value to set.
+     * @retval boolean TRUE if $Key was found and set.
+     *
+     * @note This is not nested document/dot-notation aware - the entire value is set for the key.
+     *
+     * @todo Add versioning and CurrentTS awareness which needs to consider MongoDate usage vs UNIX timestamp int.
+     * @todo Similarly, could add another method for setting multiple fields only if changed, and implement
+     *       an optimistic locking pattern - general usage of sync'ing local values with DB values would be huge.
+     */
+    public function __set( $Key,$Value )
+    {
+        // CurrentTS/versioning isn't implemented as a constraint: 'CurrentTS'=>$Haystack['CurrentTS'])
+        $R = $this->MDC->update(array('_id'=>$this->KV['_id']),
+                                array('$set'=>array($Key=>$Value)),array('multiple'=>FALSE));
+
+        if( empty($R['err']) && $R['n'] >= 1 )
+        {
+            $this->KV[$Key] = $Value;
+            return TRUE;
+        }
+        else
+        {
+            return FALSE;
+        }
+    }
+
+    /**
+     * Unset a key/value pair using property overloading and MongoDB as storage.
+     *
+     * @param scalar $Key The element's key to unset (string or integer).
+     * @retval boolean TRUE if $Key was found and unset.
+     *
+     * @note This is not nested document/dot-notation aware - the entire value is set for the key.
+     *
+     * @see __set() for versioning related and other comments.
+     */
+    public function __unset( $Key )
+    {
+        if( $this->__isset($Key) )
+        {
+            $R = $this->MDC->update(array('_id'=>$this->KV['_id']),
+                    array('$unset'=>array($Key=>'')),array('multiple'=>FALSE));
+
+            if( empty($R['err']) && $R['n'] >= 1 )
+            {
+                unset($this->KV[$Key]);
+                return TRUE;
+            }
+            else
+            {
+                return FALSE;
+            }
+        }
+        else
+        {
+            return FALSE;
+        }
+    }
+
+    /**
+     * Link to a Mongo document (array) using _id.
+     *
+     * If a document is already linked it is silently discarded.
+     *
+     * @param $ArrayRef A reference to an array.
+     * @throws Exception Linked document doesn't contain _id.
+     *
+     * @todo Add PrimaryKey parameter so it's not only _id.
+     */
+    public function Link( &$ArrayRef )
+    {
+        if( empty($ArrayRef['_id']) )
+            throw new Exception('Linked document doesn\'t contain _id.');
+
+        $this->KV = &$ArrayRef;
+    }
+
+    /**
+     * Retrieve the timestamp from the current document, using the _id.
+     *
+     * This will be the creation timestamp.
+     *
+     * @param string $Format Optional format for date/time.  Otherwise the UNIX timestamp integer is returned.
+     *
+     * @retval int The UNIX timestamp.
+     * @retval string The formatted date/time.
+     *
+     * @note This assumes the _id element is a MongoId.
+     */
+    public function TS( $Format = '' )
+    {
+        if( empty($Format) )
+            return $this->KV['_id'];
+        else
+            return date($Format,$this->KV['_id']->getTimestamp());
+    }
+}
+
 

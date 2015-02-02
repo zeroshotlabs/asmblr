@@ -282,7 +282,7 @@ abstract class Log
             if( !empty($Context) )
                 error_log('CONTEXT: '.Debug::Dump($Context),0);
 */
-                
+
         }
         // Assume Linux and log line-by-line for easier reading.
         else
@@ -2830,8 +2830,6 @@ class KeyValueSet implements KVS,Directable
      *
      * @param integer|string $Key The element's key to unset.
      * @retval boolean TRUE if $Key was found.
-     *
-     * @see Clear()
      */
     public function __unset( $Key )
     {
