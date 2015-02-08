@@ -227,6 +227,7 @@ abstract class cnvyrsrv
      *
      * @note Since asmblr doesn't lowercase the request URL by default, this method will be cache sensitive
      *       when operating on a case-sensitive filesystem, i.e. Linux.
+     * @note Passhthru behavior (an empty cnvyrAPIURL) is implemented here.
      *
      * @see ResolveRequest for customizing parameters.
      */
@@ -241,19 +242,31 @@ abstract class cnvyrsrv
         // we have a bundle - a bundle's ops will be overwritten if they're passed as an argument
         if( ($Payload = static::ResolveBundle(static::$Filename,static::$TemplateSet)) !== NULL )
         {
-            if( !empty(static::$Ops) )
-                $Payload[1] = static::$Ops;
+            // passthru mode - simply concat each file
+            if( $cc->PassthruMode === TRUE )
+            {
+                $Payload = implode("\n\n",$Payload[0]);
+            }
+            else
+            {
+                if( !empty(static::$Ops) )
+                    $Payload[1] = static::$Ops;
 
-            if( !empty($Payload[1]) )
-                $Payload = $cc->ToAPI($Payload[0],$Payload[1]);
+                if( !empty($Payload[1]) )
+                    $Payload = $cc->ToAPI($Payload[0],$Payload[1]);
+                else
+                    $Payload = implode("\n\n",$Payload[0]);
+            }
         }
         // no bundle - treat as a single template
         else
         {
             $Payload = static::$TemplateSet->Render(static::$TemplateToken);
-
-            if( !empty(static::$Ops) )
-                $Payload = $cc->ToAPI($Payload,static::$Ops);
+            if( $cc->PassthruMode === FALSE )
+            {
+                if( !empty(static::$Ops) )
+                    $Payload = $cc->ToAPI($Payload,static::$Ops);
+            }
         }
 
         if( empty($Payload) )
@@ -263,7 +276,10 @@ abstract class cnvyrsrv
         }
 
         // will auto-cache if config allows
-        $cc->ToCache($Payload,static::$CachePrefix,static::$Filename);
+        if( $cc->PassthruMode === FALSE )
+            $cc->ToCache($Payload,static::$CachePrefix,static::$Filename);
+        else
+            static::$Ops['gzip'] = FALSE;
 
         static::srvout($Payload,static::$ContentType,empty(static::$Ops['gzip'])?FALSE:TRUE);
     }
@@ -316,6 +332,7 @@ abstract class cnvyrsrv
      *
      * @note Since asmblr doesn't lowercase the request URL by default, this method will be cache sensitive
      *       when operating on a case-sensitive filesystem, i.e. Linux.
+     * @note Passhthru behavior (an empty cnvyrAPIURL) is implemented here.
      *
      * @see ResolveRequest for customizing parameters.
      */
@@ -343,11 +360,16 @@ abstract class cnvyrsrv
             exit;
         }
 
-        if( !empty(static::$Ops) )
-            $Payload = $cc->ToAPI($Payload,static::$Ops);
+        if( $cc->PassthruMode === FALSE )
+        {
+            if( !empty(static::$Ops) )
+                $Payload = $cc->ToAPI($Payload,static::$Ops);
 
-        // will cache if config allows
-        $cc->ToCache($Payload,static::$CachePrefix,static::$Filename);
+            // will cache if config allows
+            $cc->ToCache($Payload,static::$CachePrefix,static::$Filename);
+        }
+        else
+            static::$Ops['gzip'] = FALSE;
 
         static::srvout($Payload,static::$ContentType,empty(static::$Ops['gzip'])?FALSE:TRUE);
     }
@@ -493,24 +515,31 @@ abstract class cnvyrsrv
  *
  * The following configuration directives must be set in the manifest's Config tab.
  *
- *  - @c cnvyrBaseURL: full URL of cnvyr.io API, typically http://srv.cnvyr.io/v1
+ *  - @c cnvyrAPIURL: full URL of cnvyr.io API (typically http://srv.cnvyr.io/v1) or empty for passthru behavior
  *  - @c cnvyrCacheLocal: boolean TRUE or FALSE whether to cache results from cnvyr.io
  *  - @c cnvyrCacheDir: local filesystem directory to cache assests if above is TRUE.  Must be writeable by the web processes.
  *  - @c cnvyrPrefix: A short string to prefix each cached resource.  Must be unique per app.
- *  - @c cnvyrHTTPCacheTime: Number of seconds of @e absolute HTTP caching (see asm::HTTP::Cache).
  *
  * All caching is done to a local filesystem path.
  *
+ * @note If cnvyrAPIURL is empty, passhthru behavior will be active and automatically disable caching and gzip.  Passthru behavior is actually
+ *       implemented by cnvyrsrv::text() and cnvyrsrv::binary().
  * @note Pre-gzip'd cached assets (those gzip'd by the API) and using x-sendfile will only work with nginx.
  * @note Cached assets must have the correct file extension in order to have the content type set.
  * @note If @c cnvyrCacheDir is set to a path in /tmp the following may be useful to avoid automatic deletion of
- *       cached assets.  Add the following flag to the first call of tmpwatch, generally in /etc/cron.daily/tmpwatch
+ *       cached assets.  Add the following flag to the first call of tmpwatch, generally in /etc/cron.daily/tmpwatch right before the 10d
  *       @code
  *       -x /tmp/cnvyr-cache
  *       @endcode
  */
 class cnvyrc extends restr
 {
+    /**
+     * @var boolean $PassthruMode
+     * TRUE if an empty cnvyrAPIURL has been set.  Used by cnvyrsrv::text() and cnvyrsrv::binary().
+     */
+    public $PassthruMode = FALSE;
+
     /**
      * @var array $Config
      * Configuration variables from the manifest.
@@ -521,13 +550,18 @@ class cnvyrc extends restr
     /**
      * Instantiate a cnvyrc object for API communication and caching of the result.
      *
+     * An empty cnvyrAPIURL will put the object in passthru mode and disable caching and gzip.
+     *
      * @param App $app The application's App object.
      */
     public function __construct( $app )
     {
         $this->Config = $app->Config;
 
-        parent::__construct($this->Config['cnvyrAPIURL']);
+        if( empty($this->Config['cnvyrAPIURL']) )
+            $this->PassthruMode = TRUE;
+        else
+            parent::__construct($this->Config['cnvyrAPIURL']);
     }
 
     /**
