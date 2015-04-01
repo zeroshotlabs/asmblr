@@ -284,6 +284,8 @@ class ValidationReport extends KeyValueSet
      *
      * @note If the object's default InvalidValue or ValidValue is set to NULL, the return value is indeterminate.
      * @note Overall report validity is TRUE only if every individual element is valid (!empty()).
+     *
+     * @todo This can be used heavily by things like ajaxr and should be optimized/cached.
      */
     public function __invoke( $Label = '',$InvalidValue = NULL,$ValidValue = NULL )
     {

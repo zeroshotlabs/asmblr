@@ -523,7 +523,7 @@ abstract class cnvyrsrv
  * All caching is done to a local filesystem path.
  *
  * @note If cnvyrAPIURL is empty, passhthru behavior will be active and automatically disable caching and gzip.  Passthru behavior is actually
- *       implemented by cnvyrsrv::text() and cnvyrsrv::binary().
+ *       implemented by cnvyrsrv::text() and cnvyrsrv::binary().  Bundled files are concatenated together.
  * @note Pre-gzip'd cached assets (those gzip'd by the API) and using x-sendfile will only work with nginx.
  * @note Cached assets must have the correct file extension in order to have the content type set.
  * @note If @c cnvyrCacheDir is set to a path in /tmp the following may be useful to avoid automatic deletion of

@@ -333,7 +333,8 @@ abstract class enUS
     /**
      * Create a blurb from a plain-text string.
      *
-     * Any pre-processing, such as stripping HTML tags, should be done beforehand.
+     * Any pre-processing, such as stripping HTML tags, entities, non-ascii, etc must be done
+     * beforehand, otherwise the result may be unexpected.
      *
      * @param string $Src String to create blurb from.
      * @param integer $LimitLen The maximum length of the blurb.
