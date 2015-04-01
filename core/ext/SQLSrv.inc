@@ -135,12 +135,13 @@ class SQLSrv implements Debuggable,CRUDC
 
         if( ($R = sqlsrv_query($this->DB,$SQL,$CP[0])) === FALSE )
         {
-            $E = $this->LastErrors(TRUE);
-            throw new Exception("CREATE Error: ".implode("\r\n",$E),key($E));
+            $E = $this->LastErrors(FALSE,TRUE);
+            $D = print_r($CP[0],TRUE);
+            throw new Exception("CREATE Error: {$E} \r\n\r\nQUERY: {$SQL} \r\n\r\nDATA: {$D}",key($E));
         }
         else if( ($E = sqlsrv_errors()) !== NULL )
         {
-            Log::Log('CREATE Warning: '.print_r($E,TRUE),'WARN');
+            Log::Log('CREATE Warning: '.print_r($E,TRUE)."\r\n\r\nQUERY: {$SQL}",'WARN');
         }
 
         sqlsrv_next_result($R);
@@ -182,7 +183,8 @@ class SQLSrv implements Debuggable,CRUDC
 
         if( ($R = sqlsrv_query($this->DB,$SQL,empty($Constraint[0])?array():$Constraint,array('Scrollable'=>'buffered'))) === FALSE )
         {
-            throw new Exception('READ Error: '.$this->LastErrors());
+            $E = $this->LastErrors(FALSE,TRUE);
+            throw new Exception("READ Error: {$E} \r\n\r\nQUERY: {$SQL}",key($E));
         }
         else
         {
@@ -219,9 +221,15 @@ class SQLSrv implements Debuggable,CRUDC
             $this->DebugCRUDC('UPDATE',$Table,$SQL);
 
         if( ($R = sqlsrv_query($this->DB,$SQL,array_merge($Values[0],$Constraint[0]))) === FALSE )
-            throw new Exception('UPDATE Error: '.$this->LastErrors());
+        {
+            $E = $this->LastErrors(FALSE,TRUE);
+            $D = print_r(array_merge($Values[0],$Constraint[0]),TRUE);
+            throw new Exception("UPDATE Error: {$E} \r\n\r\nQUERY: {$SQL} \r\n\r\nDATA: {$D}",key($E));
+        }
         else
+        {
             return sqlsrv_rows_affected($R);
+        }
     }
 
     /**
@@ -247,9 +255,14 @@ class SQLSrv implements Debuggable,CRUDC
             $this->DebugCRUDC('DELETE',$Table,$SQL);
 
         if( ($R = sqlsrv_query($this->DB,$SQL,$Constraint[0])) === FALSE )
-            throw new Exception('DELETE Error: '.$this->LastErrors());
+        {
+            $E = $this->LastErrors(FALSE,TRUE);
+            throw new Exception("DELETE Error: {$E} \r\n\r\nQUERY: {$SQL} \r\n\r\nCONSTRAINT: {$Constraint[0]}",key($E));
+        }
         else
+        {
             return sqlsrv_rows_affected($R);
+        }
     }
 
     /**
@@ -278,7 +291,8 @@ class SQLSrv implements Debuggable,CRUDC
 
         if( ($R = sqlsrv_query($this->DB,$SQL,empty($Constraint[0])?array():$Constraint,array('Scrollable'=>'buffered'))) === FALSE )
         {
-            throw new Exception('COUNT Error: '.$this->LastErrors());
+            $E = $this->LastErrors(FALSE,TRUE);
+            throw new Exception("COUNT Error: {$E} \r\n\r\nQUERY: {$SQL} \r\n\r\nCONSTRAINT: {$Constraint[0]}",key($E));
         }
         else
         {
@@ -308,7 +322,8 @@ class SQLSrv implements Debuggable,CRUDC
 
         if( $R === FALSE )
         {
-            throw new Exception('ColumnInfo Error: '.$this->LastErrors());
+            $E = $this->LastErrors(FALSE,TRUE);
+            throw new Exception("ColumnInfo Error: {$E} \r\n\r\nQUERY: {$SQL}",key($E));
         }
         else
         {
