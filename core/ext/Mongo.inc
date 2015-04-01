@@ -364,26 +364,34 @@ class MongoDB extends \MongoDB implements Debuggable,CRUDC
 class MongoKVS extends \asm\KeyValueSet
 {
     protected $MDC;
+    protected $CollectionName;
 
 
     /**
      * Create a new MongoKVS object.
      *
-     * If ArrayRef isn't supplied, the KVS will reference it's own empty array.
+     * $Constraint is taken as a findOne() compatible query to find a single record which will be managed by the object.
+     *
+     * If $Constraint isn't supplied, the object will be "empty" and count($obj) will return 0.
      *
      * @param MongoCollection $MDC The Mongo collection the array is stored in.
-     * @param array $ArrayRef Reference to the Struct (array) which corresponds to a Mongo document (by _id).
+     * @param array $Constraint findOne() compatible lookup constraint.
      *
-     * @throws Exception KV must reference an array, TYPE given.
+     * @note Unlike it's base class, this will NOT reference the array passed in.  Use Export() to access the updated array.
+     * @note Link() uses references for linking an existing array (document).
+     * @note If the constraint 0 records this will succeed but be "empty."  getter/setter calls will throw exceptions in this case.
      */
-    public function __construct( \MongoCollection $MDC,&$ArrayRef )
+    public function __construct( \MongoCollection $MDC,$Constraint = array() )
     {
         $this->MDC = $MDC;
+        $this->CollectionName = $this->MDC->getName();
 
-        if( is_array($ArrayRef) )
-            $this->Link($ArrayRef);
-        else
-            throw new Exception('Array must be provided, '.gettype($ArrayRef).' given.');
+        if( !empty($Constraint) )
+        {
+            $R = $this->MDC->findOne($Constraint);
+            if( !empty($R) )
+                $this->Link($R);
+        }
     }
 
     /**
@@ -394,6 +402,7 @@ class MongoKVS extends \asm\KeyValueSet
      * @param scalar $Key The element's key to set (string or integer).
      * @param mixed $Value The element's value to set.
      * @retval boolean TRUE if $Key was found and set.
+     * @throws Exception KVS with collection '{$this->CollectionName}' is empty.
      *
      * @note This is not nested document/dot-notation aware - the entire value is set for the key.
      *
@@ -403,6 +412,9 @@ class MongoKVS extends \asm\KeyValueSet
      */
     public function __set( $Key,$Value )
     {
+        if( empty($this->KV['_id']) )
+            throw new Exception("KVS with collection '{$this->CollectionName}' is empty.");
+
         // CurrentTS/versioning isn't implemented as a constraint: 'CurrentTS'=>$Haystack['CurrentTS'])
         $R = $this->MDC->update(array('_id'=>$this->KV['_id']),
                                 array('$set'=>array($Key=>$Value)),array('multiple'=>FALSE));
@@ -423,6 +435,7 @@ class MongoKVS extends \asm\KeyValueSet
      *
      * @param scalar $Key The element's key to unset (string or integer).
      * @retval boolean TRUE if $Key was found and unset.
+     * @throws Exception KVS with collection '{$this->CollectionName}' is empty.
      *
      * @note This is not nested document/dot-notation aware - the entire value is set for the key.
      *
@@ -430,6 +443,9 @@ class MongoKVS extends \asm\KeyValueSet
      */
     public function __unset( $Key )
     {
+        if( empty($this->KV['_id']) )
+            throw new Exception("KVS with collection '{$this->CollectionName}' is empty.");
+
         if( $this->__isset($Key) )
         {
             $R = $this->MDC->update(array('_id'=>$this->KV['_id']),
@@ -475,6 +491,7 @@ class MongoKVS extends \asm\KeyValueSet
      * This will be the creation timestamp.
      *
      * @param string $Format Optional format for date/time.  Otherwise the UNIX timestamp integer is returned.
+     * @throws Exception KVS with collection '{$this->CollectionName}' is empty.
      *
      * @retval int The UNIX timestamp.
      * @retval string The formatted date/time.
@@ -483,6 +500,9 @@ class MongoKVS extends \asm\KeyValueSet
      */
     public function TS( $Format = '' )
     {
+        if( empty($this->KV['_id']) )
+            throw new Exception("KVS with collection '{$this->CollectionName}' is empty.");
+
         if( empty($Format) )
             return $this->KV['_id'];
         else
