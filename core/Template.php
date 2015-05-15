@@ -299,6 +299,40 @@ class TemplateSet implements Debuggable,Directable
     }
 
     /**
+     * Load a template from a string.
+     *
+     * This will load the string as a template and create a Template Struct for it.  The Struct
+     * may then be returned, or added to the TemplateSet's managed templates.
+     *
+     * @param string $Name The name of the template.
+     * @param string $Str The contents of the template.
+     * @param App $app The application's object.
+     * @param boolean $Return TRUE to return the Template Struct, otherwise added to the TemplateSet.
+     * @retval Template Template Struct if $Return is TRUE.
+     *
+     * @note This supports $Str as only a single template - \@\@\@ parsing isn't supported.
+     * @note The $Name is used verbatim without any prefixing.
+     * @note An existing template of the same name will be clobbered unless $Return is TRUE.
+     * @note The template is ephemeral and not written to disk and the Path must be kept empty.
+     * @note Setting a function for the template is not supported.  If the template exists and has a function, it will be preserved.
+     *
+     * @see TemplateSet::LoadFile()
+     */
+    public function LoadString( $Name,$Str,\asm\App $app,$Return = FALSE )
+    {
+        if( !empty($app->Manifest['Templates'][$Name]) )
+            $F = $app->Manifest['Templates'][$Name];
+        else
+            $F = array();
+
+        if( $Return )
+            return Template::Init($Name,'',$F,"?>{$Str}");
+        else
+            $this->Templates[$Name] = Template::Init($Name,'',$F,"?>{$Str}");
+    }
+
+
+    /**
      * Load a template from a file.
      *
      * This will load a template from disk and create a Template Struct for it.  The Struct may
@@ -307,7 +341,7 @@ class TemplateSet implements Debuggable,Directable
      * @param string $Path The absolute path to the template file.
      * @param App $app The application's object.
      * @param boolean $Return TRUE to return the Template Struct, otherwise added to the TemplateSet.
-     * @retval Template Template set if $Return is TRUE.
+     * @retval Template Template Struct if $Return is TRUE.
      *
      * @note This is typically only used for loading non-standard templates, like SQL.
      * @note Unlike \@\@\@ parsing in App, the parent's directory isn't added as a prefix to the template name.
@@ -338,7 +372,6 @@ class TemplateSet implements Debuggable,Directable
                 return Template::Init($Prefix.$P['Segments'][1],$K,$F,"?>{$Buf}");
             else
                 $this->Templates[$Prefix.$P['Segments'][1]] = Template::Init($Prefix.$P['Segments'][1],$Path,$F,"?>{$Buf}");
-
         }
         else
         {
