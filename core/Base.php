@@ -272,7 +272,12 @@ abstract class Log
         // CLI - always direct
         if( Request::Init()['IsCLI'] === TRUE )
         {
-            error_log("\r\n".str_replace(array("\r\n","\n"),"\r\n",$Msg),4);
+            // no log set - output using SAPI log
+            if( empty(ini_get('error_log')) )
+                error_log("\r\n".str_replace(array("\r\n","\n"),"\r\n",$Msg),4);
+            // use log file
+            else
+                error_log("\r\n".str_replace(array("\r\n","\n"),"\r\n",$Msg),0);
         }
         // We're on Windows so do it all in one shot and change line endings - assumes IIS - goes to php.log file
         else if( App::IsWindows() === TRUE )
