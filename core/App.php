@@ -401,8 +401,9 @@ abstract class App
             if( !empty($this->ExactMatch) )
                 $this->ps->Execute($this->ExactMatch);
 
-            // and finally begin rendering at the Base.tpl template
-            $this->html->Base();
+            // and finally begin rendering at the Base.tpl template (if we have html, i.e. not CLI)
+            if( isset($this->html) )
+                $this->html->Base();
         }
     }
 

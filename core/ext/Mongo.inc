@@ -379,7 +379,8 @@ class MongoKVS extends \asm\KeyValueSet
      *
      * @note Unlike it's base class, this will NOT reference the array passed in.  Use Export() to access the updated array.
      * @note Link() uses references for linking an existing array (document).
-     * @note If the constraint 0 records this will succeed but be "empty."  getter/setter calls will throw exceptions in this case.
+     * @note If the constraint returns 0 records this will succeed but be "empty."  getter/setter calls will throw exceptions in this case.
+     * @note count($obj) will return the number of fields if a record is found.  This class doesn't handle multiple records.
      */
     public function __construct( \MongoCollection $MDC,$Constraint = array() )
     {
