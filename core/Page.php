@@ -131,7 +131,7 @@ class PageSet implements Debuggable
      *  - Executing it's Function, if any
      *
      * @param array $Page The Page Struct to execute.
-     * @retval mixed The value returned by the function, if any.
+     * @retval mixed The value returned by the function, or NULL.
      * @throws Exception Directive object ... doesn't exist while executing Page ...
      *
      * @note It is not enforced that the Page must exist in the PageSet, i.e. this can be used to execute any Page.
@@ -161,6 +161,10 @@ class PageSet implements Debuggable
         {
             // this automatically executes class::func when an array... sweet
             return $Page['Function']($asmapp);
+        }
+        else
+        {
+            return NULL;
         }
     }
 

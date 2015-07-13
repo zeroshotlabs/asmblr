@@ -490,6 +490,8 @@ class TemplateSet implements Debuggable,Directable
      * @param string $Name The Template name to stack.
      * @param string $Stack The Stack to add to which is created if needed.
      * @throws Exception Template '$Name' does not exist for stack $Stack.
+     *
+     * @note This won't work for nested templates, such as admin_js_login.
      */
     public function Stack( $Name,$Stack )
     {
