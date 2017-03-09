@@ -512,3 +512,199 @@ class MongoKVS extends \asm\KeyValueSet
 }
 
 
+
+
+/**
+ * Manage an element of an asmblr Struct (PHP array) as an ordered list in it's Mongo collection.
+ *
+ * This manages a sub-document $ListElement within an single record as an ordered list, implementing CRUDC for the list.
+ *
+ * @note Currently the document is linked only by _id.
+ *
+ * @todo Perhaps add some Debuggable awareness like MongoDB has.
+ */
+class MongoList
+// implements CRUDC
+{
+    protected $MDC;
+    protected $Record;
+    protected $ListElement = 'MongoList';
+
+
+    /**
+     * Create a new MongoList object.
+     *
+     * $Constraint is taken as a findOne() compatible query to find a single record which will be managed by the object.
+     *
+     * If $Constraint doesn't produce one record, an exception is thrown.
+     *
+     * $ListElement is the element within the record that will be managed as a list.  It is created or overwritten.
+     *
+     * @param MongoCollection $MDC The Mongo collection the array is stored in.
+     * @param array $Constraint findOne() compatible lookup constraint.
+     * @param string $ListElement The name of the element to treat as an ordered list.
+     * @param NULL $ListElement Default of 'MongoList' element name will be used.
+     * @throws Exception Linked document doesn't contain _id.
+     */
+    public function __construct( \MongoCollection $MDC,$Constraint,$ListElement = NULL )
+    {
+        $this->MDC = $MDC;
+
+        $R = $this->MDC->findOne($Constraint);
+        if( !empty($R) )
+            $this->Link($R);
+        else
+            throw new Exception('Constraint produced no records.');
+
+        if( !empty($ListElement) )
+            $this->ListElement = $ListElement;
+    }
+
+
+    /**
+     * Create (insert) an item into the list.
+     *
+     * @param mixed $Item The item to insert.
+     * @param null $Position Append the item to the list (default).
+     * @param integer Position to insert to, counted from 0.
+     * @throws Exception Invalid Position - must be an integer or NULL.
+     *
+     * @note Note the difference between a $Position of NULL and 0.
+     * @note The item is always inserted as it's own full element within the list.
+     */
+    public function CREATE( $Item,$Position = NULL )
+    {
+        if( $Position === NULL )
+        {
+            $this->MDC->update(array('_id'=>$this->Record['_id']),
+                               array('$push'=>array($this->ListElement=>$Item)));
+        }
+        else if( is_int($Position) )
+        {
+            $this->MDC->update(array('_id'=>$this->Record['_id']),
+                               array('$push'=>array($this->ListElement=>array('$each'=>array($Item),'$position'=>$Position))));
+        }
+        else
+        {
+            throw new Exception('Invalid Position - must be an integer or NULL.');
+        }
+    }
+
+    /**
+     * Read one or more items.
+     *
+     * @param NULL $Start Read all items (default).
+     * @param integer $Start The item position to read, counted from 0.
+     * @param integer $Length Number of items to read from $Start if $Start is not NULL.
+     * @throws Exception Invalid Start or Length - must be an integer or NULL.
+     * @retval array List of one or more item.
+     *
+     * @note Even if a Start/Length is provided, the returned list of items will be 0 indexed.
+     *
+     * @todo May want to implement MongoCollection::aggregate to order/filter the items (rather than just a slice).
+     * @todo _id=>1 prevents the rest of the document from being returned; might be a read option?
+     */
+    public function READ( $Start = NULL,$Length = 1 )
+    {
+        if( $Start === NULL )
+            $Slice = array('_id'=>1,$this->ListElement=>1);
+        else if( is_integer($Start) && is_integer($Length) )
+            $Slice = array('_id'=>1,$this->ListElement=>array('$slice'=>array($Start,$Length)));
+        else
+            throw new Exception('Invalid Start or Length - must be an integer or NULL.');
+
+        $R = $this->MDC->findOne(array('_id'=>$this->Record['_id']),$Slice);
+
+        // if we want to single item only (not as a part of a list)
+        // return $Slice[$this->ListElement]['$slice'][1]===1?current($R[$this->ListElement]):$R[$this->ListElement];
+
+        if( !empty($R[$this->ListElement]) )
+            return $R[$this->ListElement];
+        else
+            return array();
+    }
+
+    /**
+     * Shorthand method for MongoList::READ()
+     */
+    public function __invoke( $Start = NULL,$Length = 1 )
+    {
+        return $this->READ($Start,$Length);
+    }
+
+    /**
+     * Update a single item.
+     *
+     * @param array $Item The new value of the item.
+     * @param integer $Position Position of item to update, counted from 0.
+     * @throws Exception Invalid Position - must be an integer.
+     *
+     * @note This will completely overwrite the item with the new value.
+     * @note If $Position is out of bounds, Mongo will pad the list with NULL elements.
+     */
+    public function UPDATE( $Item,$Position )
+    {
+        if( !is_int($Position) )
+            throw new Exception('Invalid Position - must be an integer.');
+
+        $this->MDC->update(array('_id'=>$this->Record['_id']),
+                           array('$set'=>array($this->ListElement.'.'.$Position=>$Item)));
+    }
+
+    /**
+     * Delete a single item.
+     *
+     * @param integer $Position Position of item to delete, counted from 0.
+     * @throws Exception Invalid Position - must be an integer.
+     */
+    public function DELETE( $Position )
+    {
+        if( !is_int($Position) )
+            throw new Exception('Invalid Position - must be an integer.');
+
+        $this->MDC->findAndModify(array('_id'=>$this->Record['_id']),array('$unset'=>array($this->ListElement.'.'.$Position=>TRUE)));
+        $this->MDC->update(array('_id'=>$this->Record['_id']),array('$pull'=>array($this->ListElement=>NULL)));
+    }
+
+    /**
+     * Counts items in a list.
+     *
+     * @retval integer The count of list items.
+     */
+    public function COUNT()
+    {
+        return count($this->READ());
+    }
+
+    /**
+     * Link to a Mongo document (array) using _id.
+     *
+     * If a document is already linked it is silently discarded.
+     *
+     * @param $ArrayRef A reference to an array.
+     * @throws Exception Linked document doesn't contain _id.
+     *
+     * @note The memory resident array isn't kept in sync with what's updated in Mongo - always use READ().
+     *
+     * @todo Add PrimaryKey parameter so it's not only _id.
+     */
+    public function Link( &$ArrayRef )
+    {
+        if( empty($ArrayRef['_id']) )
+            throw new Exception('Linked document doesn\'t contain _id.');
+
+        $this->Record = &$ArrayRef;
+    }
+
+    /**
+     * Returns a reference to the record used for managing the list.
+     *
+     * @note The ListElement in this local array isn't kept updated and shouldn't be used - always use READ().
+     */
+    public function &GetRecord()
+    {
+        return $this->Record;
+    }
+
+}
+
