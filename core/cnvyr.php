@@ -262,8 +262,10 @@ abstract class cnvyrsrv
         else
         {
             $Payload = static::$TemplateSet->Render(static::$TemplateToken);
+
             if( $cc->PassthruMode === FALSE )
             {
+
                 if( !empty(static::$Ops) )
                     $Payload = $cc->ToAPI($Payload,static::$Ops);
             }
@@ -277,7 +279,7 @@ abstract class cnvyrsrv
 
         // will auto-cache if config allows
         if( $cc->PassthruMode === FALSE )
-            $cc->ToCache($Payload,static::$CachePrefix,static::$Filename);
+            $cc->ToCache($app,$Payload,static::$Filename);
         else
             static::$Ops['gzip'] = FALSE;
 
@@ -366,7 +368,7 @@ abstract class cnvyrsrv
                 $Payload = $cc->ToAPI($Payload,static::$Ops);
 
             // will cache if config allows
-            $cc->ToCache($Payload,static::$CachePrefix,static::$Filename);
+            $cc->ToCache($app,$Payload,static::$Filename);
         }
         else
             static::$Ops['gzip'] = FALSE;
@@ -630,11 +632,14 @@ class cnvyrc extends restr
      *
      * @see cnvyrsrv::FromCache()
      */
-    public function ToCache( $Payload,$Prefix,$Filename )
+    public function ToCache( \asm\App $app,$Payload,$Filename )
     {
         if( !empty($this->Config['cnvyrCacheLocal']) )
         {
-            $CacheFile = $Prefix.'_'.$Filename;
+            $CacheFile = $app->Config['cnvyrPrefix'].'_'.implode('_',$app->Request['MatchPath']['Segments']);
+//            $CacheFile = $app->Config['cnvyrPrefix'].'_'.$app->Request['MatchPath']['Segments'][1].'_'.$app->Request['MatchPath']['Segments'][2]
+//            $CacheFile = $Prefix.'_'.$Filename;
+
             return file_put_contents($this->Config['cnvyrCacheDir'].'/'.$CacheFile,$Payload);
         }
         else
