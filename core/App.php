@@ -620,12 +620,15 @@ abstract class App
         $XPR = new \DOMXPath($DOM);
 
         $Tabs = array();
-        $R = $XPR->query('//ul[@id="sheet-menu"]/li/a');
+        // previous version of google sheets - 4/27/17
+        // $R = $XPR->query('//ul[@id="sheet-menu"]/li/a');
+        $R = $XPR->query('//ul[@id="sheet-menu"]/li');
 
         foreach( $R as $V )
         {
-            // tabs must be uniquely named
-            $Tabs[$V->textContent] = str_replace(array('switchToSheet(\'','\')'),'',$V->getAttribute('onclick'));
+            // previous version of google sheets - 4/27/17
+            // $Tabs[$V->textContent] = str_replace(array('switchToSheet(\'','\')'),'',$V->getAttribute('onclick'));
+            $Tabs[$V->textContent] = str_replace('sheet-button-','',$V->getAttribute('id'));
         }
 
         foreach( $Tabs as $Name => $ID )

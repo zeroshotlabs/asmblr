@@ -175,6 +175,7 @@ abstract class cnvyrsrv
         else if( PHP_SAPI === 'fpm-fcgi' )
         {
             // nginx generally sets correct etag/last-modified/content-length headers based on the cached file
+            // it seems that nginx will end the request when serving an image, but not CSS or Javascript
             header('X-Accel-Redirect: '.static::$XAccelRedirectBase.$Filename);
         }
         // apache2 with mod_xsendfile
