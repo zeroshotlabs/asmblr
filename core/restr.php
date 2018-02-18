@@ -446,7 +446,7 @@ class restr extends \asm\LinkSet implements Debuggable
             }
             else
             {
-                $K = explode(':',$V);
+                $K = explode(':',$V,2);
                 $Headers[strtolower(trim($K[0]))] = trim($K[1]);
             }
         }
