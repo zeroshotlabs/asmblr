@@ -597,7 +597,7 @@ abstract class HTTP
             'csv'=>'text/csv',
 
             'eot'=>'application/vnd.ms-fontobject','svg'=>'image/svg+xml','otf'=>'application/x-font-opentype',
-            'ttf'=>'application/x-font-ttf','woff'=>'application/font-woff',
+            'ttf'=>'application/x-font-ttf','woff'=>'application/font-woff','woff2'=>'font/woff2',
 
             'gif'=>'image/gif','jpeg'=>'image/jpeg','jpg'=>'image/jpeg','png'=>'image/png',
             'ico'=>'image/x-icon','favicon'=>'image/x-icon',
@@ -836,7 +836,10 @@ abstract class HTTP
      */
     public static function ContentType( $Type,$Charset = '' )
     {
-        header('Content-Type: '.static::ResolveContentType($Type).(empty($Charset)?'':"; charset={$Charset}"));
+        if( $Type === Null )
+            llog($_SERVER['REQUEST_URI']);
+        else
+            header('Content-Type: '.static::ResolveContentType($Type).(empty($Charset)?'':"; charset={$Charset}"));
     }
 
     /**

@@ -288,7 +288,6 @@ abstract class App
         // Calculate app-wide URLs and request info based on the current request
         Request::CalcURLs($this->Request,$this->Config['BaseURL']);
 
-
         // instantiate core system objects
         // this sets dynamic properties - know your names
 
@@ -321,6 +320,9 @@ abstract class App
      */
     public function Execute()
     {
+        echo 'asdfad';
+        var_dump($PreContinue);
+
         // if not running as a CLI, first honor our ForceBaseHostname and ForceHTTPS settings
         if( $this->Request['IsCLI'] === FALSE && (!empty($this->Config['ForceBaseHostname']) && $this->Request['IsBaseHostname'] === FALSE) )
         {
@@ -333,7 +335,6 @@ abstract class App
             $this->Request['Scheme'] = 'https';
             HTTP::Location($this->Request);
         }
-
 
         // match pages against the MatchPath to determine our executing page(s)
         $this->OrderedMatch = $this->ExactMatch = array();
@@ -474,7 +475,7 @@ abstract class App
      *
      * @note errcontext can be huge.
      */
-    public function ErrorHandler( $errno,$errstr,$errfile,$errline,$errcontext )
+    public function ErrorHandler( $errno,$errstr,$errfile,$errline,$errcontext = NULL )
     {
         // error surpressed with @
         if( error_reporting() === 0 )
@@ -572,10 +573,73 @@ abstract class App
      */
     protected function BuildManifest( $ManifestURL )
     {
-        // only new google spreadsheets in asmblr 4.2
-        $Manifest = $this->Manifestd($ManifestURL);
+        // Pages/PageMaps are numeric arrays of one of more page sets
+        // Directives are app-wide directives executed for every request.
+        // DataSheets are an associative array - by sheet name - of general purpose data (key/value)
+        $Manifest = array('AppRoot'=>$this->AppRoot,'Config'=>array(),'Directives'=>array(),
+                            'Pages'=>array(),'PageMaps'=>array(),'Templates'=>array(),'DataSheets'=>array());
+
+        $fp = fopen($this->AppRoot.'/config.csv','r');
+        while( $line = fgetcsv($fp) )
+        {
+            // blank line
+            if( trim(implode('',$line)) === '' )
+                continue;
+
+            foreach( $line as $k => $l )
+                $line[$k] = trim($l);
+
+            // directive
+            if( strcasecmp($line[0],'directive') === 0 )
+            {
+                $Manifest['Directives'][] = array($line[1],trim($line[2]),$line[3]);
+
+            }
+
+            // page
+            else if( strcasecmp($line[0],'page') === 0 )
+            {
+                // public static function Init( $Name,$Path,$Status,$Function = NULL )
+                $P = Page::Init($line[1],$line[2],$line[3],$this->ParseFunctionName($line[4]));
+                $Manifest['Pages'][$P['Name']] = $P;
+                $Manifest['PageMaps'][$P['Path']] = $P['Name'];
+                $LastPage = $P['Name'];
+            }
+
+            // template (TBD)
+            else if( strcasecmp($line[0],'template') === 0 )
+            {
+
+            }
+            // sub directive - for Pages
+            else if( empty($line[0]) )
+            {
+                if( strcasecmp($line[1],'directive') === 0 )
+                {
+                    $Manifest['Pages'][$LastPage]['Directives'][] = array($line[2],$line[3],$line[4]);
+                }
+            }
+
+            // global config
+            else
+            {
+                if( strcasecmp($line[0],'SitewideFunction') === 0 )
+                    $Manifest['Config'][$line[0]] = $this->ParseFunctionName($line[1]);
+                else
+                    $Manifest['Config'][$line[0]] = trim($line[1]);
+            }        
+        }
+
+        $Manifest['Pages']['sw'] = $Manifest['Pages'];
+        $Manifest['PageMaps']['sw'] = $Manifest['PageMaps'];
 
         return $Manifest;
+
+
+        // // only new google spreadsheets in asmblr 4.2
+        // $Manifest = $this->Manifestd($ManifestURL);
+
+        // return $Manifest;
     }
 
 
@@ -694,6 +758,8 @@ abstract class App
         if( empty($Manifest['Config']) )
             throw new Exception("Couldn't find a config tab for {$this->AppRoot}.");
 
+        echo json_encode($Manifest);
+
         return $Manifest;
     }
 
@@ -763,7 +829,7 @@ abstract class App
                 else
                 {
                     if( $L[0] === 'SitewideFunction' )
-                    {
+                    {                        
                         $Tab['Config']['SitewideFunction'] = $this->ParseFunctionName($L[1]);
                     }
                     else

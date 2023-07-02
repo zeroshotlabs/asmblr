@@ -151,10 +151,10 @@ class PageSet implements Debuggable
         // would like to streamline this somehow
         foreach( $Page['Directives'] as $V )
         {
-            if( empty($asmapp->$V[0]) )
+            if( empty($asmapp->{$V[0]}) )
                 throw new Exception("Directive object '{$V[0]}' doesn't exist while executing Page '{$Page['Name']}'.");
             else
-                $asmapp->$V[0]->ApplyDirective($V[1],$V[2]);
+                $asmapp->{$V[0]}->ApplyDirective($V[1],$V[2]);
         }
 
         if( !empty($Page['Function']) )

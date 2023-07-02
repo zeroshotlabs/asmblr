@@ -269,9 +269,13 @@ class TemplateSet implements Debuggable,Directable
                 // same below - App::BuildFile() prepends the opening tag for eval()
                 // we don't check CacheApp since for @@@ frags they will always be in body
                 if( empty($RenderingTemplate['Path']) )
+                {
                     eval($RenderingTemplate['Body']);
+                }
                 else
+                {
                     include $RenderingTemplate['Path'];
+                }
             }
             else
             {
