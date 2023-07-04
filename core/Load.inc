@@ -2,8 +2,8 @@
 /**
  * @file Load.inc asmblr loader and global helper functions.
  * @author Stackware, LLC
- * @version 4.2
- * @copyright Copyright (c) 2012-2014 Stackware, LLC. All Rights Reserved.
+ * @version 5.0
+ * @copyright Copyright (c) 2012-2023 Stackware, LLC. All Rights Reserved.
  * @copyright Licensed under the GNU General Public License
  * @copyright See COPYRIGHT.txt and LICENSE.txt.
  */
@@ -44,6 +44,7 @@ require(ASM_ROOT.'Base.php');
 require(ASM_ROOT.'Request.php');
 
 require(ASM_ROOT.'App.php');
+require(ASM_ROOT.'AppT.php');
 
 require(ASM_ROOT.'Page.php');
 require(ASM_ROOT.'Template.php');

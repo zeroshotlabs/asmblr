@@ -2,8 +2,8 @@
 /**
  * @file Request.php Request data and management.
  * @author Stackware, LLC
- * @version 4.2
- * @copyright Copyright (c) 2012-2014 Stackware, LLC. All Rights Reserved.
+ * @version 5.0
+ * @copyright Copyright (c) 2012-2023 Stackware, LLC. All Rights Reserved.
  * @copyright Licensed under the GNU General Public License
  * @copyright See COPYRIGHT.txt and LICENSE.txt.
  */

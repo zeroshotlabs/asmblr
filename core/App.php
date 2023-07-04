@@ -2,8 +2,8 @@
 /**
  * @file App.php asmblr application controller.
  * @author Stackware, LLC
- * @version 4.2
- * @copyright Copyright (c) 2012-2014 Stackware, LLC. All Rights Reserved.
+ * @version 5.0
+ * @copyright Copyright (c) 2012-2023 Stackware, LLC. All Rights Reserved.
  * @copyright Licensed under the GNU General Public License
  * @copyright See COPYRIGHT.txt and LICENSE.txt.
  */
@@ -19,6 +19,7 @@ namespace asm;
  * @note This is your GOD anti-pattern and includes dynamic properties.  The
  *       mess goes here, so the rest is clean.
  */
+
 abstract class App
 {
     /**
@@ -226,7 +227,7 @@ abstract class App
             if( (@include "{$this->CacheDir}{$this->Hostname}.manifest.inc") === FALSE )
             {
                 $this->BuiltManifest = TRUE;
-                $this->Manifest = $this->BuildManifest($App['ManifestURL']);
+                $this->Manifest = $this->BuildManifest(empty($App['ConfigCSV'])?$this->AppRoot.'/config.csv':$App['ConfigCSV']);
                 file_put_contents("{$this->CacheDir}{$this->Hostname}.manifest.inc",'<?php $this->Manifest = '.var_export($this->Manifest,TRUE).';');
             }
         }
@@ -235,7 +236,7 @@ abstract class App
             // clear an existing cache - defaults to above path
             $this->BuiltManifest = TRUE;
             $this->ClearManifestCache();
-            $this->Manifest = $this->BuildManifest($App['ManifestURL']);
+            $this->Manifest = $this->BuildManifest(empty($App['ConfigCSV'])?$this->AppRoot.'/config.csv':$App['ConfigCSV']);
         }
 
         // config variables defined in the manifest's Config tab (even if empty) can be
@@ -259,7 +260,7 @@ abstract class App
         else
             $Dirs = array();
 
-        // build/cache our app file
+        // build & cache our app file
         if( $this->CacheApp === TRUE )
         {
             // this will set $this->Templates if already cached
@@ -270,6 +271,7 @@ abstract class App
                 include "{$this->CacheDir}{$this->Hostname}.app.inc";
             }
         }
+        // just build - ITS ALWAYS BUILT?!?!
         else
         {
             // clear an existing cache - defaults to above path
@@ -295,6 +297,7 @@ abstract class App
         // this PageSet will be used for routing and link creation
         // other pagesets/linkers can be instantiated manually if needed
         // note that we use isset because an empty routing PS is ok
+        // @todo this is only hacked around currently
         if( empty($this->RoutingPS) || !isset($this->Pages[$this->RoutingPS]) )
             throw new Exception("Invalid routing page set {$this->RoutingPS} for '{$this->Hostname}'");
 
@@ -302,6 +305,7 @@ abstract class App
         $this->lp = new LinkPage($this->ps,$this,$this->Request['SiteURL']);
 
         // links for cnvyr managed resources (images, css, js, fonts/etc)
+        // @todo likely can delete
         $this->lc = new Linkcnvyr($this->ps,$this,$this->Request['SiteURL']);
     }
 
@@ -320,9 +324,6 @@ abstract class App
      */
     public function Execute()
     {
-        echo 'asdfad';
-        var_dump($PreContinue);
-
         // if not running as a CLI, first honor our ForceBaseHostname and ForceHTTPS settings
         if( $this->Request['IsCLI'] === FALSE && (!empty($this->Config['ForceBaseHostname']) && $this->Request['IsBaseHostname'] === FALSE) )
         {
@@ -402,7 +403,7 @@ abstract class App
             if( !empty($this->ExactMatch) )
                 $this->ps->Execute($this->ExactMatch);
 
-            // and finally begin rendering at the Base.tpl template (if we have html, i.e. not CLI)
+            // and finally begin rendering at the Base.tpl template (if we have html, i.e. not CLI - @todo though this hardwires us)
             if( isset($this->html) )
                 $this->html->Base();
         }
@@ -563,15 +564,12 @@ abstract class App
 
 
     /**
-     * Build the application's manifest from a Google Spreadsheet.
+     * Build the application's manifest from a local CSV.
      *
-     * A manifest URL will look something like:
-     *   https://docs.google.com/spreadsheets/d/SOME_STRING_CHARS/pubhtml
-     *
-     * @param string $ManifestURL The URL of the Google Spreadsheet.
+     * @param string $ManifestURL The path of the .csv
      * @retval array The application's manifest.
      */
-    protected function BuildManifest( $ManifestURL )
+    protected function BuildManifest( $ConfigCSV )
     {
         // Pages/PageMaps are numeric arrays of one of more page sets
         // Directives are app-wide directives executed for every request.
@@ -579,7 +577,8 @@ abstract class App
         $Manifest = array('AppRoot'=>$this->AppRoot,'Config'=>array(),'Directives'=>array(),
                             'Pages'=>array(),'PageMaps'=>array(),'Templates'=>array(),'DataSheets'=>array());
 
-        $fp = fopen($this->AppRoot.'/config.csv','r');
+        $fp = fopen($ConfigCSV,'r');
+
         while( $line = fgetcsv($fp) )
         {
             // blank line
@@ -630,398 +629,11 @@ abstract class App
             }        
         }
 
+        // @todo hack hardwired pageset name
         $Manifest['Pages']['sw'] = $Manifest['Pages'];
         $Manifest['PageMaps']['sw'] = $Manifest['PageMaps'];
 
         return $Manifest;
-
-
-        // // only new google spreadsheets in asmblr 4.2
-        // $Manifest = $this->Manifestd($ManifestURL);
-
-        // return $Manifest;
-    }
-
-
-    /**
-     * Extract the tabs of a Google Spreadsheet as CSV strings.
-     *
-     * @param string $ManifestURL The URL of the Google Spreadsheet.
-     * @throws Exception Manifest doesn't appear published.
-     * @throws Exception Couldn't find a config tab.
-     * @retval array The application's manifest.
-     *
-     * @note This supports reading the manifest from a local HTML file as well.
-     */
-    protected function Manifestd( $ManifestURL )
-    {
-        // read in the HTML version which we scrape for each of the tabs
-        $Buf = file_get_contents($ManifestURL);
-
-        if( stripos($ManifestURL,'http') !== FALSE )
-        {
-            $Headers = \asm\restr::ParseHeaders($http_response_header);
-
-            if( empty($Headers['http']) || strpos($Headers['http'],'200') === FALSE )
-                throw new Exception("Manifest doesn't appear published in {$this->AppRoot}");
-        }
-        else if( empty($Buf) )
-        {
-            throw new Exception("Local manifest not readable from \"{$ManifestURL}\"");
-        }
-
-
-        libxml_use_internal_errors(TRUE);
-        $DOM = new \DOMDocument;
-        $DOM->strictErrorChecking = FALSE;
-        $DOM->preserveWhiteSpace = TRUE;
-        $DOM->formatOutput = TRUE;
-        $DOM->xmlStandalone = TRUE;
-        $DOM->recover = TRUE;
-        $DOM->resolveExternals = FALSE;
-        @$DOM->loadHTML($Buf);
-
-        $XPR = new \DOMXPath($DOM);
-
-        $Tabs = array();
-        // previous version of google sheets - 4/27/17
-        // $R = $XPR->query('//ul[@id="sheet-menu"]/li/a');
-        $R = $XPR->query('//ul[@id="sheet-menu"]/li');
-
-        foreach( $R as $V )
-        {
-            // previous version of google sheets - 4/27/17
-            // $Tabs[$V->textContent] = str_replace(array('switchToSheet(\'','\')'),'',$V->getAttribute('onclick'));
-            $Tabs[$V->textContent] = str_replace('sheet-button-','',$V->getAttribute('id'));
-        }
-
-        foreach( $Tabs as $Name => $ID )
-        {
-            // may be handy someday
-            // $TabCSVd = fopen('php://temp','rw');
-
-            $Tab = array();
-
-            $R = $XPR->query("//div[@id=\"{$ID}\"]//tbody//tr");
-            foreach( $R as $K => $V )
-            {
-                $Line = array();
-                foreach( $V->getElementsByTagName('td') as $K2 => $V2 )
-                {
-                    $Line[] = "\"{$V2->textContent}\"";
-                }
-
-                // will break if value contains comma
-                $Tab[] = implode(',',$Line);
-            }
-
-            $Tabs[$Name] = $Tab;
-        }
-
-        // Pages/PageMaps are numeric arrays of one of more page sets
-        // Directives are app-wide directives executed for every request.
-        // DataSheets are an associative array - by sheet name - of general purpose data (key/value)
-        $Manifest = array('AppRoot'=>$this->AppRoot,'Config'=>array(),'Directives'=>array(),
-                            'Pages'=>array(),'PageMaps'=>array(),'Templates'=>array(),'DataSheets'=>array());
-
-        // now actually build the manifest from the CSV tabs
-        foreach( $Tabs as $Label => $B )
-        {
-            $Tab = $this->ParseTabCSV($B);
-
-            // some elements may be empty, but that's ok so use isset
-            if( isset($Tab['Config']) )
-            {
-                $Manifest['Config'] = $Tab['Config'];
-                $Manifest['Directives'] = $Tab['Directives'];
-            }
-            else if( isset($Tab['PageSetName']) )
-            {
-                $Manifest['Pages'][$Tab['PageSetName']] = $Tab['Pages'];
-                $Manifest['PageMaps'][$Tab['PageSetName']] = $Tab['PageMaps'];
-            }
-            else if( isset($Tab['Templates']) )
-            {
-                $Manifest['Templates'] = $Tab['Templates'];
-            }
-            else if( isset($Tab['DataSheet']) )
-            {
-                $Manifest['DataSheets'][$Label] = $Tab['DataSheet'];
-            }
-            else
-            {
-                trigger_error("Skipping unknown tab structure with name '{$Label}'");
-            }
-        }
-
-        // if no config something isn't right
-        if( empty($Manifest['Config']) )
-            throw new Exception("Couldn't find a config tab for {$this->AppRoot}.");
-
-        echo json_encode($Manifest);
-
-        return $Manifest;
-    }
-
-
-    /**
-     * Parse an array of CSV lines from a Google Spreadsheet tab into a manifest section.
-     *
-     * @param array $B An array of CSV lines.
-     * @retval array A normalized manifest section.
-     */
-    protected function ParseTabCSV( $B )
-    {
-        // config tab - Key, Value
-        // directives must have a $ in the key column (column 0) - comma notation isn't currently supported
-        // multiple columns for a single key will cause the key to be an array containing all values
-        if( strpos($B[0],'"Key","Value"') !== FALSE )
-        {
-            $Tab = array('Config'=>array(),'Directives'=>array());
-
-            array_shift($B);
-            foreach( $B as $L )
-            {
-                // skip comments
-                if( substr(trim($L,', "'),0,2) === '//' )
-                    continue;
-
-                $L = str_getcsv($L);
-
-                // always trim whitespace
-                foreach( $L as $K => $V )
-                    $L[$K] = trim($V);
-
-                // remove empty columns so our column count is accurate - a bit hacky but works for now
-                $L2 = array();
-                foreach( $L as $V )
-                {
-                    if( $V === '' )
-                        continue;
-                    else
-                        $L2[] = trim($V);
-                }
-
-                $L = $L2;
-
-                // skip blank lines
-                if( implode('',$L) === '' )
-                    continue;
-
-                // a directive in the config tab is recognized by having a $ as the first char of the key
-                // comma notation isn't currently supported in the config tab - here we normalize true/false/null
-                // into PHP types, but we don't do for page directives - we probably should
-                if( $L[0][0] === '$' )
-                {
-                    $T = strtolower($L[2]);
-
-                    if( $T === 'false' )
-                        $L[2] = FALSE;
-                    else if( $T === 'true' )
-                        $L[2] = TRUE;
-                    else if( $T === 'null' )
-                        $L[2] = NULL;
-
-                    $Tab['Directives'][] = array(str_replace('$','',$L[0]),$L[1],$L[2]);
-                }
-                // otherwise taken as a key/value config parameter and trim/normalize
-                // a blank column 0 rolls the value into the previous key which is converted to an array
-                else
-                {
-                    if( $L[0] === 'SitewideFunction' )
-                    {                        
-                        $Tab['Config']['SitewideFunction'] = $this->ParseFunctionName($L[1]);
-                    }
-                    else
-                    {
-                        $Tab['Config'][$L[0]] = '';
-
-                        // support multiple values as multiple columns
-                        for( $i = 1; $i < 20; ++$i )
-                        {
-                            // trim and normalize to boolean/NULL if a value was set.
-                            if( isset($L[$i]) )
-                            {
-                                $V = trim($L[$i]);
-                                $V2 = strtolower($V);
-
-                                if( $V2 === 'false' )
-                                    $V = FALSE;
-                                else if( $V2 === 'true' )
-                                    $V = TRUE;
-                                else if( $V2 === 'null' )
-                                    $V = NULL;
-
-                                if( $i > 1 && is_array($Tab['Config'][$L[0]]) === FALSE )
-                                    $Tab['Config'][$L[0]] = array($Tab['Config'][$L[0]],$V);
-                                else if( $i > 1 )
-                                    $Tab['Config'][$L[0]][] = $V;
-                                else
-                                    $Tab['Config'][$L[0]] = $V;
-                            }
-                        }
-                    }
-                }
-            }
-
-            return $Tab;
-        }
-        // pages tab - Name, Path, Status, Function, Directives
-        // a 6th column in the header is required as a unique token for the page set (will clobber)
-        else if( strpos($B[0],'"Name","Path","Status"') !== FALSE )
-        {
-            $L = array_shift($B);
-
-            $L = str_getcsv($L);
-
-            if( empty($L[5]) )
-            {
-                trigger_error('Skipping invalid Page header - no PageSet Name: '.implode(',',$L));
-                return array();
-            }
-
-            $PageSetName = trim($L[5]);
-
-            $LastPage = '';
-            $Page = $PageMap = array();
-            foreach( $B as $L )
-            {
-                // skip comments
-                if( substr(trim($L,', "'),0,2) === '//' )
-                    continue;
-
-                $L = str_getcsv($L);
-
-                // always trim whitespace
-                foreach( $L as $K => $V )
-                    $L[$K] = trim($V);
-
-                // have a full page entry
-                if( !empty($L[0]) )
-                {
-                    $P = Page::Init($L[0],$L[1],$L[2],$this->ParseFunctionName($L[3]));
-                    $Page[$P['Name']] = $P;
-                    $PageMap[$P['Path']] = $P['Name'];
-                    $LastPage = $P['Name'];
-                }
-
-                // have directives - if starts at column 4, then append to previous page
-                if( !empty($L[4]) )
-                {
-                    if( !empty($L[5]) )
-                        $D = array($L[4],$L[5],$L[6]);
-                    else
-                        $D = explode(',',$L[4]);
-
-                    // squelch errors because sometime only two parameters and no trailing comma
-                    // but this could also result in invalid directives
-                    if( !empty($LastPage) )
-                        $Page[$LastPage]['Directives'][] = array(str_replace('$','',@$D[0]),@$D[1],@$D[2]);
-                }
-            }
-
-            return array('PageSetName'=>$PageSetName,'Pages'=>$Page,'PageMaps'=>$PageMap);
-        }
-        // templates tab - Name, Function - we just store the name/function mapping and the rest is init in the AppFile
-        // name must contain a prefix if the template file is in a sub-directory
-        else if( strpos($B[0],'"Name","Function"') !== FALSE )
-        {
-            $Tab = array('Templates'=>array());
-
-            array_shift($B);
-            foreach( $B as $L )
-            {
-                // skip comments
-                if( substr(trim($L,', "'),0,2) === '//' )
-                    continue;
-
-                $L = str_getcsv($L);
-
-                // always trim whitespace
-                foreach( $L as $K => $V )
-                    $L[$K] = trim($V);
-
-                // skip blank lines
-                if( empty($L[0]) )
-                    continue;
-                else
-                    $Tab['Templates'][$L[0]] = $this->ParseFunctionName($L[1]);
-            }
-
-            return $Tab;
-        }
-        // data sheet tab - must have ID as first column - simply a set of key (column headers) and values (rows/cells)
-        // ID is used if provided for each row, or the row number is used
-        else if( strpos($B[0],'"ID"') === 0 )
-        {
-            $Tab = array('DataSheet'=>array());
-
-            $Keys = str_getcsv($B[0]);
-
-            array_shift($B);
-            $LastID = '';
-            foreach( $B as $RowID => $L )
-            {
-                // skip comments
-                if( substr(trim($L,', "'),0,2) === '//' )
-                    continue;
-
-                $L = str_getcsv($L);
-
-                // always trim whitespace
-                foreach( $L as $K => $V )
-                    $L[$K] = trim($V);
-
-                // skip blank lines - this is a bit tricky/different for data sheets
-                if( trim(implode('',$L)) === '' )
-                    continue;
-
-                // if both the first and second columns are empty, we'll fold the remaining columns
-                // into the previous row's respective keys
-                if( isset($L[0]) && isset($L[1]) && $L[0] === '' && $L[1] === '' )
-                {
-                    foreach( $Keys as $I => $V )
-                    {
-                        if( $I < 2 )
-                            continue;
-
-                        if( empty($L[$I]) )
-                            continue;
-
-                        if( isset($Tab['DataSheet'][$LastID][$V]) )
-                        {
-                            if( is_array($Tab['DataSheet'][$LastID][$V]) === FALSE )
-                                $Tab['DataSheet'][$LastID][$V] = array($Tab['DataSheet'][$LastID][$V]);
-                        }
-                        // this probably never happens
-                        else
-                            $Tab['DataSheet'][$LastID][$V] = array();
-
-                        $Tab['DataSheet'][$LastID][$V][] = $L[$I];
-                    }
-                }
-                // new full row
-                else
-                {
-                    if( $L[0] === '' )
-                        $LastID = $ID = $RowID;
-                    else
-                        $LastID = $ID = $L[0];
-
-                    foreach( $Keys as $I => $V )
-                    {
-                        if( $I === 0 )
-                            continue;
-
-                        $Tab['DataSheet'][$LastID][$V] = $L[$I];
-                    }
-                }
-            }
-
-            return $Tab;
-        }
-
-        return array();
     }
 
 
@@ -1046,6 +658,7 @@ abstract class App
      *       TemplateSet::LoadFile upon rendering.  This helps with debugging since PHP's error messages
      *       will reference a real file/line.
      * @note Only files with the following extensions are loaded: <tt> .inc .php .tpl .html .js .css </tt>
+     * @note This doesn't include vendor or themes.
      */
     protected function BuildApp( $Dirs = array() )
     {
@@ -1126,12 +739,22 @@ abstract class App
             }
         }
 
+        // @todo quick hack though this approach should probably be applied to pageset, and app for the lib
+        // this has also resulted in a couple of other hacks
+        $Templates = $this->html->LoadDir($Dirs['templates'][0],$this,TRUE);
+
+        
+        return "<?php\n\n{$AppFile} \n\n \$this->Templates = ".var_export($Templates,TRUE).';';
+
+        // // @todo @see TemplateSet::LoadDir
+        // throw new Exception("BuildApp TODO - templates");
+/* 
         // subdirectories ARE prefixed and merge any Function definition from the manifest
         // see also TemplateSet::Load()
         $Templates = array();
         foreach( $Dirs['templates'] as $D )
         {
-            $AppFile .= "\n\n\n/*** {$D} ***/";
+            $AppFile .= "\n\n\n / *** {$D} *** /";
             $dir = new \RecursiveDirectoryIterator($D,$Flags);
             $fs = new \RecursiveIteratorIterator($dir);
             foreach( $fs as $K => $V )
@@ -1190,9 +813,8 @@ abstract class App
                     }
                 }
             }
-        }
+        } */
 
-        return "<?php\n\n{$AppFile} \n\n \$this->Templates = ".var_export($Templates,TRUE).';';
     }
 
 

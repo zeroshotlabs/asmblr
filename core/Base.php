@@ -2,8 +2,8 @@
 /**
  * @file Base.php Base classes.
  * @author Stackware, LLC
- * @version 4.2
- * @copyright Copyright (c) 2012-2014 Stackware, LLC. All Rights Reserved.
+ * @version 5.0
+ * @copyright Copyright (c) 2012-2023 Stackware, LLC. All Rights Reserved.
  * @copyright Licensed under the GNU General Public License
  * @copyright See COPYRIGHT.txt and LICENSE.txt.
  */
@@ -272,8 +272,11 @@ abstract class Log
         // CLI - always direct
         if( Request::Init()['IsCLI'] === TRUE )
         {
+            $t = ini_get('error_log');
+            llog($t);
+
             // no log set - output using SAPI log
-            if( empty(ini_get('error_log')) )
+            if( empty($t) )
                 error_log("\r\n".str_replace(array("\r\n","\n"),"\r\n",$Msg),4);
             // use log file
             else
@@ -293,7 +296,7 @@ abstract class Log
         else
         {
             foreach( explode("\n",trim($Msg) ) as $Line )
-                error_log($Line,4);
+                error_log(trim($Line)."\n",4);
         }
     }
 

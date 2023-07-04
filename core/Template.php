@@ -2,8 +2,8 @@
 /**
  * @file Template.php Text templating and rendering.
  * @author Stackware, LLC
- * @version 4.2
- * @copyright Copyright (c) 2012-2014 Stackware, LLC. All Rights Reserved.
+ * @version 5.0
+ * @copyright Copyright (c) 2012-2023 Stackware, LLC. All Rights Reserved.
  * @copyright Licensed under the GNU General Public License
  * @copyright See COPYRIGHT.txt and LICENSE.txt.
  */
@@ -83,6 +83,11 @@ abstract class Template extends Struct
 class TemplateSet implements Debuggable,Directable
 {
     use Debugged;
+
+    /**
+     * 
+     */
+    protected $TemplateInit = '\asm\Template::Init';
 
     /**
      * @var boolean $DebugDisplay
@@ -330,80 +335,83 @@ class TemplateSet implements Debuggable,Directable
             $F = array();
 
         if( $Return )
-            return Template::Init($Name,'',$F,"?>{$Str}");
+            return "$this->TemplateInit"($Name,'',$F,"?>{$Str}");
         else
-            $this->Templates[$Name] = Template::Init($Name,'',$F,"?>{$Str}");
+            $this->Templates[$Name] = "$this->TemplateInit"($Name,'',$F,"?>{$Str}");
     }
 
 
     /**
-     * Load a template from a file.
+     * Load templates from a directory.
      *
-     * This will load a template from disk and create a Template Struct for it.  The Struct may
-     * then be returned, or added to the TemplateSet's managed templates.
-     *
-     * @param string $Path The absolute path to the template file.
+     * This loads all templates from a directory and subdirectories.  Subdir templates' names
+     * are prefixed with the subdir's name.
+     * 
+     * Only array('php','inc','tpl','html','css','js') are loaded.
+     * 
+     * @param string $Path The absolute path to the template directory.
      * @param App $app The application's object.
-     * @param boolean $Return TRUE to return the Template Struct, otherwise added to the TemplateSet.
-     * @retval Template Template Struct if $Return is TRUE.
-     *
-     * @note This is typically only used for loading non-standard templates, like SQL.
-     * @note Unlike \@\@\@ parsing in App, the parent's directory isn't added as a prefix to the template name.
-     * @todo This needs to be reviewed/merged with App::BuildApp() template loading.
+     * @param boolean $Return TRUE to return the templates as an array, otherwise add them to the current TemplateSet.
+     * @retval array Array of Template Struct or TRUE.
+     * @throws Exception Directory isn't readable.
      */
-    public function LoadFile( $Path,\asm\App $app,$Return = FALSE )
+    public function LoadDir( $Path,\asm\App $app,$Return = FALSE )
     {
-        $P = Path::Init($Path);
-        $P = Path::Bottom($P,2);
+        // PHP Bug - can't use FilesystemIterator::CURRENT_AS_PATHNAME |  FilesystemIterator::KEY_AS_FILENAME with recursive dirs
+        $Flags = \FilesystemIterator::SKIP_DOTS | \FilesystemIterator::UNIX_PATHS;
 
-        if( $P['Segments'][0] !== 'templates' )
-            $Prefix = $P['Segments'][0].'_';
-        else
-            $Prefix = '';
+        $dir = new \RecursiveDirectoryIterator($Path,$Flags);
+        $fs = new \RecursiveIteratorIterator($dir);
 
-        $Buf = file_get_contents($Path);
-
-        if( strpos(substr($Buf,0),"\n@@@") === FALSE )
+        $Templates = [];
+        foreach( $fs as $K => $V )
         {
+            $PI = pathinfo($K);
+            if( in_array(strtolower($PI['extension']),array('php','inc','tpl','html','css','js')) === FALSE )
+                continue;
+
+            $P = Path::Init($K);
+            $P = Path::Bottom($P,2);
+
+            if( $P['Segments'][0] !== 'templates' )
+                $Prefix = $P['Segments'][0].'_';
+            else
+                $Prefix = '';
+
+            $Buf = file_get_contents($K);
+
             $P['Segments'][1] = pathinfo($P['Segments'][1],PATHINFO_FILENAME);
 
-            if( !empty($app->Manifest['Templates'][$Prefix.$P['Segments'][1]]) )
-                $F = $app->Manifest['Templates'][$Prefix.$P['Segments'][1]];
+            // save if a template function is specified in the config - does this still work?
+            if( !empty($this->Manifest['Templates'][$Prefix.$P['Segments'][1]]) )
+                $F = $this->Manifest['Templates'][$Prefix.$P['Segments'][1]];
             else
                 $F = array();
 
-            if( $Return )
-                return Template::Init($Prefix.$P['Segments'][1],$K,$F,"?>{$Buf}");
+            // if we're not caching, don't store the body - it'll be include()'d in TemplateSet::__call()
+            // if we are, prepend the start tag so that it can be eval()'d without string munging
+            // same for below
+            if( empty($this->CacheApp) )
+                $Buf = '';
             else
-                $this->Templates[$Prefix.$P['Segments'][1]] = Template::Init($Prefix.$P['Segments'][1],$Path,$F,"?>{$Buf}");
+                $Buf = "?>{$Buf}";
+
+            $Templates[$Prefix.$P['Segments'][1]] = "$this->TemplateInit"($Prefix.$P['Segments'][1],$K,$F,$Buf);
+        }
+
+        if( $Return )
+        {
+            $this->Templates = $Templates;
+            return $Templates;
         }
         else
         {
-            $B = preg_split("/\s*@@@(\w+[a-zA-Z0-9\-]*)/m",$Buf,0,PREG_SPLIT_DELIM_CAPTURE|PREG_SPLIT_NO_EMPTY);
-            $CNT = count($B);
-            $Templates = array();
-            for( $i = 0; $i < $CNT; $i+=2 )
-            {
-                if( !empty($app->Manifest['Templates'][$B[$i]]) )
-                    $F = $app->Manifest['Templates'][$B[$i]];
-                else
-                    $F = array();
-
-                $Templates[$B[$i]] = Template::Init($B[$i],'',$F,"?>{$B[$i+1]}");
-            }
-
-            if( $Return )
-            {
-                return $Templates;
-            }
-            else
-            {
-                foreach( $Templates as $K => $V )
-                {
-                    $this->Templates[$K] = $V;
-                }
-            }
+            $this->Templates = $Templates;
+            return TRUE;
         }
+
+        // @todo might need another option for build app (or it can do it itself)
+        // return "<?php\n\n{$AppFile} \n\n \$this->Templates = ".var_export($Templates,TRUE).';';
     }
 
     /**
@@ -479,7 +487,7 @@ class TemplateSet implements Debuggable,Directable
             if( isset($this->Templates[$DestName]) )
                 $this->Templates[$Name] = &$this->Templates[$DestName];
             else
-                $this->Templates[$Name] = Template::Init($DestName,"unknown DestName '{$DestName}'",'','   ');
+                $this->Templates[$Name] = "$this->TemplateInit"($DestName,"unknown DestName '{$DestName}'",'','   ');
         }
     }
 

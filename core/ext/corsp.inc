@@ -2,8 +2,8 @@
 /**
  * @file corsp.inc CORS transparent proxy.
  * @author Stackware, LLC
- * @version 4.2
- * @copyright Copyright (c) 2012-2014 Stackware, LLC. All Rights Reserved.
+ * @version 5.0
+ * @copyright Copyright (c) 2012-2023 Stackware, LLC. All Rights Reserved.
  * @copyright Licensed under the GNU General Public License
  * @copyright See COPYRIGHT.txt and LICENSE.txt.
  */
@@ -91,35 +91,5 @@ function corsp( $app )
 
     echo $R;
     exit;
-}
-
-
-/**
- * Oh PHP - for < 5.4 - might get deprecated since we need 5.6 overall
- */
-if( !function_exists('getallheaders') )
-{
-    function getallheaders()
-    {
-        $Headers = array();
-        foreach( $_SERVER as $K => $V )
-        {
-            if( stripos($K,'http') === 0 )
-            {
-                $K = str_replace(' ','-',ucwords(strtolower(str_replace('_',' ',substr($K,5)))));
-                $Headers[$K] = $V;
-            }
-            else if( $K === 'CONTENT_TYPE' )
-            {
-                $Headers['Content-Type'] = $V;
-            }
-            else if( $K === 'CONTENT_LENGTH' )
-            {
-                $Headers['Content-Length'] = $V;
-            }
-        }
-
-        return $Headers;
-    }
 }
 
