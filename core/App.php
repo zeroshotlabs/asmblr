@@ -740,7 +740,7 @@ abstract class App
         }
 
         // @todo quick hack though this approach should probably be applied to pageset, and app for the lib
-        // this has also resulted in a couple of other hacks
+        // this has also resulted in a couple of other hacks, though maybe good
         $Templates = $this->html->LoadDir($Dirs['templates'][0],$this,TRUE);
 
         

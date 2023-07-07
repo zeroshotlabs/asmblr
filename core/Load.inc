@@ -19,10 +19,12 @@ define('ASM_ROOT',__DIR__.DIRECTORY_SEPARATOR);
  * Shorthand for Log::Log().
  *
  * @see Log::Log()
+ * @todo This could probably be improved according to named params.
  */
 function llog( $Msg,$Level = 'LOG',$Backtrace = NULL,$Context = NULL )
 {
-    \asm\Log::Log($Msg,$Level,$Backtrace,$Context);
+    foreach( func_get_args() as $V )
+        \asm\Log::Log($V,$Level,$Backtrace,$Context);
 }
 
 
