@@ -35,9 +35,6 @@ interface Debuggable
      *
      * Debugging behavior is determined only by the object itself and should
      * be on when a configured DebugToken is present in $_SERVER.
-     *
-     * Implementations of this method should typically check that the object
-     * has already been App::Wire()'d.
      */
     public function DebugOn( $Label = NULL );
 
@@ -63,6 +60,51 @@ interface KVS extends \Iterator,\Countable,\ArrayAccess
     public function __unset( $Key );
 
     public function Export();
+}
+
+/**
+ * Data Access Object
+ * Flexible data object allowing array access mapped to properties by default.
+ */
+trait DAO
+{
+    public function __get( $Key )
+    {
+        return isset($this->$Key)?$this->$Key:NULL;
+    }
+
+    public function offsetGet( $Key ): mixed
+    {
+        return isset($this->$Key)?$this->$Key:NULL;        
+    }
+
+    public function __set( $Key,$Value ): void
+    {
+        $this->$Key = $Value;
+    }
+
+    public function offsetSet( $Key,$Value ): void
+    {
+        $this->$Key = $Value;
+    }
+
+    public function __isset( $Key ): bool
+    {
+        return isset($this->$Key);
+    }
+    public function offsetExists( $Key ): bool
+    {
+        return $this->__isset($Key);        
+    }
+    public function __unset( $Key )
+    {
+        unset($this->$Key);
+        return TRUE;
+    }
+    public function offsetUnset( $Key ): void
+    {
+        unset($this->$Key);
+    }
 }
 
 
@@ -293,6 +335,7 @@ abstract class Log
 
         }
         // Assume Linux and log line-by-line for easier reading.
+        // @todo Would love to be able to flush these before the end of the request?
         else
         {
             foreach( explode("\n",trim($Msg) ) as $Line )
@@ -593,6 +636,7 @@ abstract class HTTP
             'js4329'=>'application/javascript','javascript4329'=>'application/javascript',
 
             'xml'=>'text/xml',
+            'app_xml'=>'application/xml',
 
             'text'=>'text/plain',
             'txt'=>'text/plain',
@@ -821,6 +865,12 @@ abstract class HTTP
             header("Last-Modified: $DateTime");
             return TRUE;
         }
+    }
+
+    public static function RetryAfter( $Seconds )
+    {
+        header("Retry-After: $Seconds");
+        return TRUE;
     }
 
     /**
@@ -2019,6 +2069,9 @@ abstract class Path extends Struct
      */
     public static function Bottom( $Haystack,$Limit = 0 )
     {
+        if( is_string($Haystack) )
+            $Haystack = self::Init($Haystack);
+
         if( $Limit > 0 )
         {
             $H2 = $Haystack;
