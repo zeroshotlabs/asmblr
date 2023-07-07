@@ -32,7 +32,7 @@ abstract class Template extends Struct
      * @var array $Skel
      * The base structure of a Template.
      */
-    protected static $Skel = array('Name'=>'','Function'=>array(),'Path'=>'','Body'=>'');
+    protected static $Skel = ['Name'=>'','Function'=>array(),'Path'=>'','Body'=>''];
 
 
     /**
@@ -84,10 +84,12 @@ class TemplateSet implements Debuggable,Directable
 {
     use Debugged;
 
-    /**
-     * 
-     */
     protected $TemplateInit = '\asm\Template::Init';
+
+    /**
+     * File extensions for LoadDir to load - others ignored.
+     */
+    protected $IncludeExts = ['php','inc','tpl','html','css','js'];
 
     /**
      * @var boolean $DebugDisplay
@@ -109,14 +111,14 @@ class TemplateSet implements Debuggable,Directable
      *
      * @note Unless App::$CacheApp is TRUE, these won't contain a body (it's pulled from the filesystem upon render).
      */
-    protected $Templates = array();
+    protected $Templates = [];
 
     /**
      * @var array $Connected
      * Array of TemplateSet::Connect()'d variables that are made
      * available within all templates during rendering.
      */
-    protected $Connected = array();
+    protected $Connected = [];
 
     /**
      * @var array $Stacks
@@ -125,7 +127,7 @@ class TemplateSet implements Debuggable,Directable
      * @see TemplateSet::Stack
      * @see TemplateSet::Unstack
      */
-    protected $Stacks = array();
+    protected $Stacks = [];
 
     /**
      * Create a TemplateSet.
@@ -136,7 +138,7 @@ class TemplateSet implements Debuggable,Directable
     public function __construct( \asm\App $App )
     {
         $this->App = $App;
-        // may change
+        // @todo should review/change re other notes
         $this->Templates = $App->Templates;
     }
 
@@ -236,6 +238,7 @@ class TemplateSet implements Debuggable,Directable
      *
      * @param string $Name A ReMap()'d Name or Template Name to render.
      * @param array $Args Optional render-time arguments as an associative array of keys/value variables.
+     * @retval doesn't return
      *
      * @note This uses eval() to do the rendering.
      * @note Template functions cannot ReMap() the template they are executing under, though they can
@@ -267,13 +270,8 @@ class TemplateSet implements Debuggable,Directable
                         $$K = $V;
                 }
 
-                // this is clunky for now but for dev/non-caching needed for easy debugging
-                // and proper error messages from PHP
-
-                // assume we haven't loaded things from disk, or that we have and we eval()
-                // same below - App::BuildFile() prepends the opening tag for eval()
-                // we don't check CacheApp since for @@@ frags they will always be in body
-                if( empty($RenderingTemplate['Path']) )
+                // if caching render from memory, otherwise pull from the filesystem for better PHP error message
+                if( $this->App->CacheApp )
                 {
                     eval($RenderingTemplate['Body']);
                 }
@@ -298,10 +296,15 @@ class TemplateSet implements Debuggable,Directable
                             $$K = $V;
                     }
 
-                    if( empty($RenderingTemplate['Path']) )
+                    // if caching render from memory, otherwise pull from the filesystem for better PHP error message
+                    if( $this->App->CacheApp )
+                    {
                         eval($RenderingTemplate['Body']);
+                    }
                     else
+                    {
                         include $RenderingTemplate['Path'];
+                    }
                 }
             }
         }
@@ -325,6 +328,7 @@ class TemplateSet implements Debuggable,Directable
      * @note The template is ephemeral and not written to disk and the Path must be kept empty.
      * @note Setting a function for the template is not supported.  If the template exists and has a function, it will be preserved.
      *
+     * @todo review per updates and LoadDir/LoadFile
      * @see TemplateSet::LoadFile()
      */
     public function LoadString( $Name,$Str,\asm\App $app,$Return = FALSE )
@@ -364,37 +368,31 @@ class TemplateSet implements Debuggable,Directable
         $fs = new \RecursiveIteratorIterator($dir);
 
         $Templates = [];
+        $CWD = Path::Bottom($Path);
         foreach( $fs as $K => $V )
         {
             $PI = pathinfo($K);
-            if( in_array(strtolower($PI['extension']),array('php','inc','tpl','html','css','js')) === FALSE )
+            if( in_array(strtolower($PI['extension']),$this->IncludeExts) === FALSE )
                 continue;
 
             $P = Path::Init($K);
             $P = Path::Bottom($P,2);
 
-            if( $P['Segments'][0] !== 'templates' )
+            if( $P['Segments'][0] !== $CWD )
                 $Prefix = $P['Segments'][0].'_';
             else
                 $Prefix = '';
 
-            $Buf = file_get_contents($K);
 
             $P['Segments'][1] = pathinfo($P['Segments'][1],PATHINFO_FILENAME);
 
-            // save if a template function is specified in the config - does this still work?
+            // @todo save if a template function is specified in the config - does this still work?
             if( !empty($this->Manifest['Templates'][$Prefix.$P['Segments'][1]]) )
                 $F = $this->Manifest['Templates'][$Prefix.$P['Segments'][1]];
             else
                 $F = array();
 
-            // if we're not caching, don't store the body - it'll be include()'d in TemplateSet::__call()
-            // if we are, prepend the start tag so that it can be eval()'d without string munging
-            // same for below
-            if( empty($this->CacheApp) )
-                $Buf = '';
-            else
-                $Buf = "?>{$Buf}";
+            $Buf = '?>'.file_get_contents($K);
 
             $Templates[$Prefix.$P['Segments'][1]] = "$this->TemplateInit"($Prefix.$P['Segments'][1],$K,$F,$Buf);
         }
@@ -652,7 +650,7 @@ class TemplateSet implements Debuggable,Directable
         if( isset($this->Templates[$Name]) )
         {
             $T = $this->Templates[$Name];
-            $Buf = "\${$this->DebugToken}::{$Name} as {$T['Name']} called from {$BT}";
+            $Buf = "\${$this->DebugToken}::{$Name} as {$Name} called from {$BT}";
         }
         else
         {
