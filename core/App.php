@@ -605,7 +605,7 @@ abstract class App
                 $LastPage = $P['Name'];
             }
 
-            // template (TBD)
+            // @todo template functions
             else if( strcasecmp($line[0],'template') === 0 )
             {
 
@@ -625,7 +625,7 @@ abstract class App
                 if( strcasecmp($line[0],'SitewideFunction') === 0 )
                     $Manifest['Config'][$line[0]] = $this->ParseFunctionName($line[1]);
                 else
-                    $Manifest['Config'][$line[0]] = trim($line[1]);
+                    $Manifest['Config'][$line[0]] = $this->ParseConfigValue($line[1]);
             }        
         }
 
@@ -817,6 +817,17 @@ abstract class App
 
     }
 
+    protected function ParseConfigValue( $F )
+    {
+        $F = trim($F);
+
+        if( strcasecmp($F,'true') === 0 )
+            return TRUE;
+        else if( strcasecmp($F,'false') === 0 )
+            return FALSE;
+        else
+            return $F;
+    }
 
     /**
      * Helper method for normalizing and parsing a function string name into a callable
