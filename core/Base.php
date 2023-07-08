@@ -235,6 +235,7 @@ abstract class Log
      *
      * @note This expects that the error handlers and Request are already initialized.
      * @todo Add Email support.
+     * @todo this needs update - $asmapp is old
      *
      * @note Chrome PHP doesn't announce itself so we're not supporting it anymore
      */
@@ -247,8 +248,6 @@ abstract class Log
         // if this isn't even set we likely have a problem very early on so just dump the message and hope
         if( !isset($asmapp->Config['LogPublic']) )
             exit("CRITICAL: $Msg");
-
-        $LogPublic = $asmapp->Config['LogPublic'];
 
         if( count(debug_backtrace()) > 100 )
         {
@@ -273,7 +272,8 @@ abstract class Log
         else
         {
             // detect FirePHP or ChromePHP or fallback to Log::Sys()
-            if( $LogPublic === TRUE )
+            // @todo update with https://craig.is/writing/chrome-logger   https://github.com/ccampbell/chromephp
+            if( $asmapp->Config['LogPublic'] === TRUE )
             {
                 if( Request::IsFirePHP() )
                     Log::Wildfire($Msg,$Level,$Backtrace,$Context);
@@ -305,9 +305,13 @@ abstract class Log
      * @note This uses error_log() 0 and 4 on Windows and Linux, respectively.
      * @todo Context and Backtrace are currently ignored.
      * @todo Do we want to use syslog() instead (for GAE PHP)?
+     * @todo Log entry length limits are a drag - how to force multiple seperate entries
+     *       in the logs (seperate timestamps)?
      */
     public static function Sys( $Msg,$Level = 'LOG',$Backtrace = NULL,$Context = NULL )
     {
+        // ini_set('log_errors_max_len', 0);
+
         if( !is_string($Msg) )
             $Msg = Debug::Dump($Msg);
 
@@ -315,7 +319,6 @@ abstract class Log
         if( Request::Init()['IsCLI'] === TRUE )
         {
             $t = ini_get('error_log');
-            llog($t);
 
             // no log set - output using SAPI log
             if( empty($t) )
@@ -334,12 +337,24 @@ abstract class Log
 */
 
         }
-        // Assume Linux and log line-by-line for easier reading.
+        // Assume Linux and log line-by-line for easier reading - lines less than 300 so they don't get clipped
         // @todo Would love to be able to flush these before the end of the request?
         else
         {
             foreach( explode("\n",trim($Msg) ) as $Line )
-                error_log(trim($Line)."\n",4);
+            {
+                // ,3,"/tmp/asmblr.log"
+                // @todo still not right - recompile to extend the log size? how to do multiple seperate entries?
+                error_log($Line.PHP_EOL);
+
+                // $l = strlen($Line);
+                // $i = 0;
+                // do {
+                //     error_log("\n H".substr($Line,$i,($i+=300))."\n",4);
+                //     $l -= 300;
+                // } while( $l >= 300 );
+            }
+
         }
     }
 
@@ -867,7 +882,7 @@ abstract class HTTP
         }
     }
 
-    public static function RetryAfter( $Seconds )
+    public static function RetryAfter( $Seconds = 30 )
     {
         header("Retry-After: $Seconds");
         return TRUE;
