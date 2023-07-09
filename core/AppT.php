@@ -14,8 +14,10 @@ namespace asm;
  * App controller with theming - will likely fully replace standard App
  */
 #[\AllowDynamicProperties]
-abstract class AppT extends \asm\App
+abstract class AppT extends \asm\App implements Debuggable
 {
+    use Debugged;
+
     /**
      * @var array $Theme
      * An active theme, if set.
@@ -44,7 +46,8 @@ abstract class AppT extends \asm\App
 
 
         // general purpose key/value store for in-template info (meta-tags, CSS classes, etc)
-        $this->page = new \asm\KeyValueSet;
+        // @note changed - now the page is always created in the template set and we just link to it
+        $this->page = $this->html->page;
 
         // session based UI messages/alerts
         $this->msg = new \asm\Messager;
@@ -54,7 +57,8 @@ abstract class AppT extends \asm\App
 
         // templates need access to some of these Connect() them in
         // if you later Connect() something using the same name it will overwrite the object here
-        $this->html->Connect(array('lp'=>$this->lp,'lc'=>$this->lc,'page'=>$this->page,'msg'=>$this->msg,'vr'=>$this->vr));
+        // @todo maybe decouple this a bit, move page/msg/etc to the templateset constructor
+        $this->html->Connect(array('lp'=>$this->lp,'lc'=>$this->lc,'msg'=>$this->msg,'vr'=>$this->vr));
     }
 
 
@@ -155,7 +159,7 @@ abstract class AppT extends \asm\App
             {
                 // var_dump($this->OrderedMatch);
                 // var_dump($this->ExactMatch);
-                
+
                 // we have an ordered match (and no exact match)
                 if( !empty($this->OrderedMatch) )
                 {
@@ -213,7 +217,10 @@ abstract class AppT extends \asm\App
         if( $ContentType === 'application/octet-stream' )
             HTTP::_400();
 
-        $FSPath = $this->Theme['DOC_ROOT'].'/'.$MatchPathStr;
+        $FSPath = $this->Theme['DOC_ROOT'].$MatchPathStr;
+
+        if( $this->IsDebug() )
+            llog("Theme FS Path: $FSPath");
 
         // if we don't find the file then it's a 404
         if( !is_file($FSPath) )
@@ -221,6 +228,7 @@ abstract class AppT extends \asm\App
             $this->NoPageHandler();
         }
         // we found it so passthru and no rendering will happen
+        // @todo implement nginx passthru xcnvyr style
         else
         {
             HTTP::ContentType($ContentType);

@@ -130,6 +130,13 @@ class TemplateSet implements Debuggable,Directable
     protected $Stacks = [];
 
     /**
+     * @var \asm\KeyValueSet $page
+     * Shared K/V store - do not overuse vs Connect().
+     */
+    public $page;
+
+
+    /**
      * Create a TemplateSet.
      *
      * @param App $App Application's App object.
@@ -138,8 +145,12 @@ class TemplateSet implements Debuggable,Directable
     public function __construct( \asm\App $App )
     {
         $this->App = $App;
+
+        // page is always created - removed from Appt
+        $this->page = new \asm\KeyValueSet;
         // @todo should review/change re other notes
         $this->Templates = $App->Templates;
+
     }
 
     /**
@@ -258,6 +269,9 @@ class TemplateSet implements Debuggable,Directable
         {
             $RenderingTemplate = $this->Templates[$Name];
 
+            // auto local $page
+            $page = $this->page;
+
             if( empty($RenderingTemplate['Function']) )
             {
                 // scope the connected variables plus any arguments
@@ -308,6 +322,14 @@ class TemplateSet implements Debuggable,Directable
                 }
             }
         }
+    }
+
+    public function render_return( $Name )
+    {
+        ob_start();
+        $this->__call($Name,[]);
+        $t = ob_get_clean();
+        return $t;
     }
 
     /**
