@@ -16,7 +16,7 @@ namespace asm;
  *
  * It must be extended and customized in an application's @c Load.inc.
  *
- * @note This is your GOD anti-pattern and includes dynamic properties.  The
+ * @note This is your GOD anti-pattern.  The
  *       mess goes here, so the rest is clean.
  */
 
@@ -56,7 +56,39 @@ abstract class App
     /**
      * @var boolean $CacheManifest
      * TRUE to cache the manifest to the local disk.
-     *
+     void print_message()
+     {
+         print("Hello World");
+     }
+
+     void print_message_with_name(string name)
+     {
+         print("Hello " + name);
+     }
+
+     void print_message_with_count(int count)
+     {
+         for (int i = 0; i < count; i++)
+         {
+             print("Hello World");
+         }
+     }
+
+     void print_message_with_name_and_count(string name, int count)
+     {
+         for (int i = 0; i < count; i++)
+         {
+             print("Hello " + name);
+         }
+     }
+
+     void main()
+     {
+         print_message();
+         print_message_with_name("Bob");
+         print_message_with_count(5);
+         print_message_with_name_and_count("Bob", 5);
+     }
      * @note This is configured in the application array in @c index.php
      */
     public $CacheManifest = FALSE;
@@ -178,6 +210,10 @@ abstract class App
      */
     public $Templates;
 
+    /**
+     * @note Local system objects are instantiated as properties of the object.
+     */
+    public $ps, $lp, $lc, $html; 
 
     /**
      * Application build and boot.
@@ -304,8 +340,8 @@ abstract class App
         $this->ps = new PageSet($this->Pages[$this->RoutingPS],$this->PageMaps[$this->RoutingPS]);
         $this->lp = new LinkPage($this->ps,$this,$this->Request['SiteURL']);
 
-        // links for cnvyr managed resources (images, css, js, fonts/etc)
-        // @todo likely can delete
+        // links for theme resources (images, css, js, fonts/etc)
+        // @todo clean up - consider what to do with cnvyr
         $this->lc = new Linkcnvyr($this->ps,$this,$this->Request['SiteURL']);
     }
 
@@ -510,7 +546,7 @@ abstract class App
     {
         if( empty($Path) )
         {
-            if( Instance::IsWindows() )
+            if( App::IsWindows() )
                 ini_set('open_basedir',ASM_ROOT.';C:/Windows/Temp/');
             else
                 ini_set('open_basedir',ASM_ROOT.':/tmp');
@@ -579,6 +615,7 @@ abstract class App
 
         $fp = fopen($ConfigCSV,'r');
 
+        $LastPage = '';
         while( $line = fgetcsv($fp) )
         {
             // blank line

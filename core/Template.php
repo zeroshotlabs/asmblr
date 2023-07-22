@@ -269,14 +269,16 @@ class TemplateSet implements Debuggable,Directable
         {
             $RenderingTemplate = $this->Templates[$Name];
 
-            // auto local $page
-            $page = $this->page;
-
+            // always reference local $page
+            ${'page'} = $this->page;
+//var_dump(get_defined_vars());
             if( empty($RenderingTemplate['Function']) )
             {
                 // scope the connected variables plus any arguments
                 foreach( $this->Connected as $K => $V )
+                {
                     $$K = $V;
+                }
 
                 if( !empty($Args[0]) )
                 {

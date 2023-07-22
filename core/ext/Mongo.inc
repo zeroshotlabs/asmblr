@@ -13,6 +13,8 @@
  * to each class but do not interfere with native functionality.
  *
  * Additional utility classes are also included.
+ * 
+ * @deprecated for now.
  */
 namespace asm;
 

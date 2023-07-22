@@ -70,7 +70,7 @@ function corsp( $app )
     }
     else
     {
-        llog("Unknown method for corsp: {$SERVER['REQUEST_METHOD']}");
+        llog("Unknown method for corsp: {$_SERVER['REQUEST_METHOD']}");
         \asm\HTTP::_400();
     }
 

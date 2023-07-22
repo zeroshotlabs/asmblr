@@ -11,6 +11,8 @@
  * This extension is composed of two classes, MySQL and MySQLSet, which extend PHP's
  * native mysqli class and asmblr's TemplateSet, respectively.  They add functionality
  * to each but do not interefere with native functionality.
+ * 
+ * @deprecated for now.
  */
 namespace asm;
 
@@ -49,7 +51,7 @@ class MySQL extends \mysqli implements Debuggable,CRUDC
 
         if( $this->query($SQL) === FALSE )
         {
-            throw new Exception("{$this->WiredAs}::CREATE Error: {$this->error}");
+            throw new Exception("{$Table}::CREATE Error: {$this->error}");
         }
         else if( $this->warning_count === 0 )
         {
@@ -91,7 +93,7 @@ class MySQL extends \mysqli implements Debuggable,CRUDC
             $this->DebugCRUDC('READ',$Table,$SQL);
 
         if( ($R = $this->query($SQL)) === FALSE )
-            throw new Exception("{$this->WiredAs}::READ Error: {$this->error}");
+            throw new Exception("$Table: READ Error: {$this->error}");
         else
             return $R->fetch_all(MYSQLI_ASSOC);
     }
@@ -392,7 +394,7 @@ class MySQLSet extends TemplateSet
      */
     public function __invoke( $Mixed,$Surround = '\'',$Separator = ',' )
     {
-        if( is_array($Mixed) || $Mixed instanceof Traversible )
+        if( is_array($Mixed) || $Mixed instanceof \Traversable )
         {
             $S = '';
             $i = 0;

@@ -36,6 +36,7 @@ namespace asm;
  * @todo Possibly add countries, date, time, AM/PM, and more... and extract to additional classes.
  *       http://komunitasweb.com/2009/03/10-practical-php-regular-expression-recipes/
  * @todo Reviewing of what's "empty" and what's not may be needed.
+ * @todo This is so 2005 - we need to AI it.
  */
 abstract class enUS
 {
@@ -196,7 +197,7 @@ abstract class enUS
             $Str = preg_replace(array(static::$NoUseStopWords,static::$NoAlphaNum),array('-','-'),$Str);
 
         // do we need to trim each word that's returned?
-        $Words = preg_split("/[\ \-{$Delims}]+/",$Str,NULL,PREG_SPLIT_NO_EMPTY);
+        $Words = preg_split("/[\ \-{$Delims}]+/",$Str,0,PREG_SPLIT_NO_EMPTY);
 
         if( $DeDupe === TRUE )
             return array_unique($Words);

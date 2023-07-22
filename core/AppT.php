@@ -57,7 +57,7 @@ abstract class AppT extends \asm\App implements Debuggable
 
         // templates need access to some of these Connect() them in
         // if you later Connect() something using the same name it will overwrite the object here
-        // @todo maybe decouple this a bit, move page/msg/etc to the templateset constructor
+        // @todo maybe decouple this a bit, move msg/etc to the templateset constructor
         $this->html->Connect(array('lp'=>$this->lp,'lc'=>$this->lc,'msg'=>$this->msg,'vr'=>$this->vr));
     }
 

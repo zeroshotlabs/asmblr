@@ -329,6 +329,7 @@ abstract class Request extends Struct
      * @note ChromePHP doesn't currently announce itself so this has little use and isn't supported anymore.
      *       https://github.com/ccampbell/chromelogger/issues/8
      * @note Manually toggle LogPublic config variable to TRUE/FALSE until they fix this.
+     * @todo Revise.
      */
     public static function IsChromePHP()
     {

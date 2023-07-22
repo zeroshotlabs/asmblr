@@ -43,6 +43,8 @@ function asm()
  * Require the asmblr source code.
  */
 require(ASM_ROOT.'Base.php');
+require(ASM_ROOT.'DAO.php');
+
 require(ASM_ROOT.'Request.php');
 
 require(ASM_ROOT.'App.php');

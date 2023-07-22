@@ -66,7 +66,7 @@ interface KVS extends \Iterator,\Countable,\ArrayAccess
  * Data Access Object
  * Flexible data object allowing array access mapped to properties by default.
  */
-trait DAO
+trait DAOt
 {
     public function __get( $Key )
     {
@@ -463,7 +463,7 @@ abstract class Log
         $T = json_encode($H);
 
         // this often requires output_buffering = on since most output will be on it's way before this is called
-        header('X-ChromePhp-Data: '.base64_encode(utf8_encode($T)));
+        header('X-ChromePhp-Data: '.base64_encode(mb_convert_encoding($T,'UTF-8')));
     }
 }
 
@@ -1344,12 +1344,13 @@ abstract class Struct
     /**
      * Convert a string, or recursively convert an array, to UTF-8.
      *
-     * @param array $A A reference to the array to convert.
-     * @param string $A A reference to the string to convert.
+     * @param array,string $A A reference to the array to convert.
+     *                        A reference to the string to convert.
      *
      * @todo Full testing when fed strangely encoded strings.
+     * @note Changes original value.
      */
-    public static function ToUTF8( &$A )
+    public static function ToUTF8( &$A ): void
     {
         if( is_array($A) === TRUE )
         {
@@ -1404,8 +1405,8 @@ abstract class Is
         else if( is_array($Subject2) === FALSE )
             throw new Exception('Subject2 is not an array.');
 
-        $S1 = static::KeyMask($Ignore,$Subject1);
-        $S2 = static::KeyMask($Ignore,$Subject2);
+        $S1 = Struct::KeyMask($Ignore,$Subject1);
+        $S2 = Struct::KeyMask($Ignore,$Subject2);
 
         if( array_keys($S1) === array_keys($S2) )
         {
@@ -1413,7 +1414,7 @@ abstract class Is
             {
                 if( ($Recurse === TRUE) && (is_array($S1[$K]) === TRUE && is_array($S2[$K]) === TRUE) )
                 {
-                    if( static::IsEqual($S1[$K],$S2[$K],$Ignore) === FALSE )
+                    if( self::Equal($S1[$K],$S2[$K],$Ignore) === FALSE )
                         return FALSE;
                 }
                 else if( (static::What($K,$S1) !== static::What($K,$S2)) )
@@ -1503,7 +1504,7 @@ abstract class Is
      */
     public static function Bool( $Needle,$Haystack )
     {
-        return (isset($Haystack[$Needle]) === TRUE && is_boolean($Haystack[$Needle]) === TRUE);
+        return (isset($Haystack[$Needle]) === TRUE && is_bool($Haystack[$Needle]) === TRUE);
     }
 
     /**
@@ -2106,7 +2107,7 @@ abstract class Path extends Struct
      * By default this returns an array in increasing path size, i.e. most general to
      * most specific.
      *
-     * @param string $Path The Path Struct.
+     * @param array $Path The Path Struct.
      * @param boolean $Inc FALSE to iterate in decreasing path size, i.e. most specific to most general.
      * @retval array Ordered path segments.
      *
@@ -2293,7 +2294,7 @@ abstract class Hostname extends Struct
      * By default this returns an array in increasing hostname size, i.e. most general to
      * most specific.
      *
-     * @param string $Hostname The Hostname Struct.
+     * @param array $Hostname The Hostname Struct.
      * @param boolean $Inc Iterate in increasing hostname size, i.e., most general to most specific.
      * @retval array Ordered hostname sub-domains.
      *
@@ -2449,7 +2450,7 @@ abstract class URL extends Struct
         if( $Password !== NULL )
             static::SetPassword($Password,$URL);
         if( $Fragment !== NULL )
-            static::SetFragment($Fragment,URL);
+            static::SetFragment($Fragment,$URL);
 
         return $URL;
     }
@@ -2807,7 +2808,7 @@ abstract class URLEncoded extends Struct
      */
     public static function ToString( $URLEncoded,$Prefix = '?' )
     {
-        return ($Tmp = http_build_query($URLEncoded,NULL,'&',PHP_QUERY_RFC3986))===''?'':"{$Prefix}{$Tmp}";
+        return ($Tmp = http_build_query($URLEncoded,'','&',PHP_QUERY_RFC3986))===''?'':"{$Prefix}{$Tmp}";
     }
 }
 
@@ -2928,7 +2929,7 @@ class KeyValueSet implements KVS,Directable
      * @retval integer The number of key/value pairs.
      * @note Implement SPL's Countable interface.
      */
-    public function count()
+    public function count(): int
     {
         return count($this->KV);
     }
@@ -2937,7 +2938,7 @@ class KeyValueSet implements KVS,Directable
      * @note Implement SPL's Iterator interface.
      * @note This is where KeyValueSet::$KVPosition and KeyValueSet::$KVLength are initialized.
      */
-    public function rewind()
+    public function rewind(): void
     {
         $this->KVLength = count($this->KV);
         $this->KVPosition = 0;
@@ -2967,7 +2968,7 @@ class KeyValueSet implements KVS,Directable
      * @note Implement SPL's Iterator interface.
      * @note Uses {@link $KVPosition}.
      */
-    public function next()
+    public function next(): void
     {
         ++$this->KVPosition;
         next($this->KV);
@@ -2978,7 +2979,7 @@ class KeyValueSet implements KVS,Directable
      * @note Implement SPL's Iterator interface.
      * @note Uses {@link $KVPosition} and {@link $KVLength}.
      */
-    public function valid()
+    public function valid(): bool
     {
         return ($this->KVPosition < $this->KVLength);
     }
@@ -2995,7 +2996,7 @@ class KeyValueSet implements KVS,Directable
     /**
      * @note Implement SPL's ArrayAccess interface.
      */
-    public function offsetSet( $Key,$Value )
+    public function offsetSet( $Key,$Value ): void
     {
         $this->__set($Key,$Value);
     }
@@ -3004,7 +3005,7 @@ class KeyValueSet implements KVS,Directable
      * @retval boolean
      * @note Implement SPL's ArrayAccess interface.
      */
-    public function offsetExists( $Key )
+    public function offsetExists( $Key ): bool
     {
         return $this->__isset($Key);
     }
@@ -3012,7 +3013,7 @@ class KeyValueSet implements KVS,Directable
     /**
      * @note Implement SPL's ArrayAccess interface.
      */
-    public function offsetUnset( $Key )
+    public function offsetUnset( $Key ): void
     {
         $this->__unset($Key);
     }

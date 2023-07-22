@@ -11,6 +11,9 @@ namespace asm;
 
 
 /**
+ * 
+ * @todo what to do with this?  may be useful as an internal function call for serving minified stuff or even optimized images directly without going through an API
+ * 
  * cnvyr serve (cnvyrsrv) provides pre-assembled page functions for operating on assests using the
  * <a href="http://cnvyr.io/">cnvyr.io online minifying/thumbnailer API</a> and delivering the result.
  *
@@ -105,7 +108,7 @@ abstract class cnvyrsrv
     protected static $CachePrefix = '';
 
     /**
-     * @var asm::TemplateSet $TemplateSet
+     * @var \asm\TemplateSet $TemplateSet
      * For text/template assets, the TemplateSet used to render the templates.
      *
      * @see ResolveRequest
@@ -218,13 +221,13 @@ abstract class cnvyrsrv
      *
      * If no $Ops are set, no API calls will be performed and the asset will only be cached.
      *
-     * @param asm::App $app The application's app object.
+     * @param \asm\App $app The application's app object.
      * @param array $Ops The operations to perform on the asset or bundle.
      * @param string $OriginDir The directory containing the asset, relative to the TemplateSet's base directory.
      * @param string $CachePrefix The prefix to prepend to the cached file.
      * @param string $Filename The filename of the bundle or file.
      * @param string $ContentType The content type of the bundle or file.
-     * @param asm::TemplateSet $TemplateSet The TemplateSet containing the asset(s).
+     * @param \asm\TemplateSet $TemplateSet The TemplateSet containing the asset(s).
      *
      * @note Since asmblr doesn't lowercase the request URL by default, this method will be cache sensitive
      *       when operating on a case-sensitive filesystem, i.e. Linux.
@@ -241,7 +244,7 @@ abstract class cnvyrsrv
         $cc = new cnvyrc($app);
 
         // we have a bundle - a bundle's ops will be overwritten if they're passed as an argument
-        if( ($Payload = static::ResolveBundle(static::$Filename,static::$TemplateSet)) !== NULL )
+        if( ($Payload = static::ResolveBundle(static::$Filename,self::$TemplateSet)) !== NULL )
         {
             // passthru mode - simply concat each file
             if( $cc->PassthruMode === TRUE )
@@ -325,7 +328,7 @@ abstract class cnvyrsrv
      * This will scale to a 200px wide optimized thumbnail.  Assets are served from the @c media directory, but are
      * prefixed with @c imgthumb when cached, which also matches the request's URL base path.
      *
-     * @param asm::App $app The application's app object.
+     * @param \asm\App $app The application's app object.
      * @param array $Ops The operations to perform on the asset or bundle.
      * @param string $OriginDir The directory containing the asset, relative to App::AppRoot.
      * @param string $CachePrefix The prefix to prepend to the cached file.
@@ -576,8 +579,8 @@ class cnvyrc extends restr
      *
      * This will trigger a HTTP 500 error and exit if the API call fails.
      *
-     * @param string $Payload A string that's the payload to operate on.
-     * @param array $Payload An array of strings to bundle and perform operations on (CSS/JS only).
+     * @param string,array $Payload A string that's the payload to operate on.
+     *                     $Payload An array of strings to bundle and perform operations on (CSS/JS only).
      * @param array $Ops Associative array of ops for the API to perform.
      * @retval string The processed result from the cnvyr.io API.
      */
@@ -708,6 +711,8 @@ class Linkcnvyr extends LinkPage
      * @retval string The absolute URL of the cnvyr served resource.
      *
      * @note $Ops will be constructed as an encoded 'c' query parameter.  Some installs of asmblr may not support custom $Ops.
+     * 
+     * @todo needs update for themes
      */
     public function __invoke( $Handler = NULL,$Filename = '',$Ops = array() )
     {

@@ -11,6 +11,8 @@
  * This extension is composed of two classes, SQLSrv and MySQLSet, which wrap PHP's
  * native sqlsrv functions and extend TemplateSet, respectively.  They add functionality
  * to each but do not interfere with native functionality.
+ * 
+ * @deprecated for now.
  */
 namespace asm;
 
