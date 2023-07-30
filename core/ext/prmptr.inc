@@ -10,22 +10,10 @@
 namespace asm;
 
 
-enum ValidResponseTypes
+class prompt extends DAO
 {
-    case json;
-    case xml;
-}
-
-/***
- * @todo considering advancements in objects, we should have a data-object that isn't based on an array, like a struct is.
- * here is a quick base data obj - see the DAO trait in Base
- */
-class prompt implements \ArrayAccess
-{
-    use \asm\DAO;
-
     // if we want to use chatgpt have to specify the model:  'model' => 'text-davinci-003',
-    // functions not supported currently
+    // functions not supported currently (asmblr template functions)
     // protected static $Skel = ['Name'=>'','Function'=>array(),'Model'=>'','Ask'=>'','Tries'=>1,'MaxTokens'=>1024,'Temp'=>1.0];
 
     public function __construct( public string $Name,public string $Path,public string $Ask,public array $Func = [],public string $Model = '',
@@ -35,29 +23,79 @@ class prompt implements \ArrayAccess
 
     // ( $Name,$Path,$Function = array(),$Body = '' )
     //($Prefix.$P['Segments'][1],$K,$F,$Buf);
-    public static function new()
+    public static function new(): static
     {
         $args = func_get_args();
-        return new self($args[0],$args[1],file_get_contents($args[1]));
-    }
-    
-    public function IsValid( enum $ValidResponseTypes,$Token = NULL )
-    {
-        if( $Token === NULL )
-            $Token = $this->ValidationToken;
-
-//        if( strpos($))
-
+        return new static($args[0],$args[1],file_get_contents($args[1]));
     }
 }
 
-class response extends prompt
+
+class response extends DAO
 {
-    protected string $ValidationToken = '|!|';
+    public $id,$type,$model,$response,$index,$logprobs,$finishReason,$result;
+
+//    protected $ValidResponseTypes = ['json','xml','text'];
+    protected $ValidationToken = '|!|';
+
 
     public function __construct( $response )
     {
-        llog($response);
+        $this->id = $response['id'];
+        $this->type = $response['object'];
+        $this->created = strtotime($response['created']);
+        $this->model = $response['model'];
+
+        if( isset($response['choices'][0]) )
+        {
+            $this->response = trim($response['choices'][0]['text']);
+            $this->index = $response['choices'][0]['index'];
+            $this->logprobs = $response['choices'][0]['logprobs'];
+            $this->finish_reason = $response['choices'][0]['finish_reason'];
+        }
+    }
+
+    // automatically called upon getting a result
+    public function IsValid()
+    {
+        if( strpos((string)$this->response,$this->ValidationToken) === 0 )
+        {
+            $this->response = trim(substr($this->response,strlen($this->ValidationToken)));
+            return TRUE;
+        }
+        else
+            return FALSE;
+    }
+
+    public function IsJSON()
+    {
+        if( $this->response[0] === '[' || $this->response[0] === '{' )
+        {
+            $this->result = json_decode(mb_convert_encoding($this->response,"UTF-8"));
+
+            if( $this->result !== NULL )
+                return TRUE;
+            else
+            {
+                llog('NULL JSON result');
+                return FALSE;
+            }
+        }
+        else
+            return FALSE;
+    }
+
+    public function IsXML( $validation = null )
+    {
+        $xml = simplexml_load_string((string)$this->response,NULL,LIBXML_DTDVALID);
+
+        if( $xml )
+        {
+            $this->result = $xml;
+            return TRUE;
+        }
+        else
+            return FALSE;
     }
 }
 
@@ -72,16 +110,14 @@ class prmptr extends \asm\TemplateSet
 
     public function __construct( \asm\App $App )
     {
-        $this->App = $App;
-        // @todo should change re other stuff
-        $this->Templates = $App->Templates;
+        parent::__construct($App);
 
         $this->IncludeExts[] = 'md';
     }
 
     public function ConnectAPI( $Vars )
     {
-        // yeah!
+        // yeah!   probably should be passed in
         global $creds;
 
         $this->client = \OpenAI::factory()->withBaseUri($creds->AOAI['BaseURI'].'/'.$creds->AOAI['Model'])
@@ -117,22 +153,75 @@ class prmptr extends \asm\TemplateSet
     //     }
     // }
     
-
-    // // public string $Name,public string $Ask,public string $Func = '',public string $Model = '',
-    // // public int $Tries = 1,public int $MaxTokens = 1024,public float $Temp = 1.0
-    public function complete( string $Name,int $tries = 1,int $max_tokens = 1024,float $temp = 1.0 )
+    public function chat( string $Name,array $roles = [],int $tries = 1,int $max_tokens = 1024,float $temp = 1.0,bool $rreturn = FALSE )
     {
         if( $this->client === NULL )
             $this->ConnectAPI(array());
 
-
-        ob_start();
-        $this->__call($Name,[]);
-        $prompt = ob_get_clean();
+        $chat = $this->render_return($Name);
+        if( $rreturn )
+            return $chat;
+        var_dump($this->page);
+        exit;
 
         if( $this->IsDebug() )
         {
-            llog("starting $Name try of $tries");
+            llog("starting chat $Name try of $tries");
+            file_put_contents('/home/tmp/last_chat',$chat);
+        }
+
+        while( $tries-- )
+        {
+            // to use chatgpt specify the model:  'model' => 'text-davinci-003'
+            // for azure, like this, the model is provided upon connect/endpoint
+            $response = $this->client->chat()->create([
+                'message' => $chat,
+                'max_tokens' => $max_tokens,
+                'temperature' => $temp
+                ]);
+
+            if( $this->IsDebug() )
+                llog($response);
+
+            if( count($response->choices) > 1 )
+            {
+                llog('Trying again - More than one answer for chat: '.substr($chat,0,32).'...');
+                llog($response);
+                llog('Trying again - More than one answer for chat: '.substr($chat,0,32).'...');
+                continue;
+            }
+
+            if( $this->IsDebug() )
+            {
+                llog("response for $Name try of $tries");
+                file_put_contents('/home/tmp/last_chat',\json_serialize($response),FILE_APPEND);
+            }
+
+            $result = new response($response);
+
+            // requires the validation token to at least be present - the rest of validation (JSON/XML/etc) is left to the caller
+//                return $result;
+
+            llog("{$tries} tries for ".substr(trim($prompt),0,32));
+        }
+
+        return NULL;        
+    }
+
+    // // public string $Name,public string $Ask,public string $Func = '',public string $Model = '',
+    // // public int $Tries = 1,public int $MaxTokens = 1024,public float $Temp = 1.0
+    public function complete( string $Name,int $tries = 1,int $max_tokens = 1024,float $temp = 1.0,bool $rreturn = FALSE )
+    {
+        if( $this->client === NULL )
+            $this->ConnectAPI(array());
+
+        $prompt = $this->render_return($Name);
+        if( $rreturn )
+            return $prompt;
+
+        if( $this->IsDebug() )
+        {
+            llog("starting completion $Name try of $tries");
             file_put_contents('/home/tmp/last_prompt',$prompt);
         }
 
@@ -140,52 +229,33 @@ class prmptr extends \asm\TemplateSet
         {
             // to use chatgpt specify the model:  'model' => 'text-davinci-003'
             // for azure, like this, the model is provided upon connect
-            $result = $this->client->completions()->create([
+            $response = $this->client->completions()->create([
                 'prompt' => $prompt,
                 'max_tokens' => $max_tokens,
                 'temperature' => $temp
                 ]);
 
             if( $this->IsDebug() )
-                llog($result);
+                llog($response);
 
-            if( count($result->choices) > 1 )
+            if( count($response->choices) > 1 )
             {
-                llog('Trying again - More than one answer for prompt: '.substr($prompt,0,32).'...');
-                llog($result);
-                llog('Trying again - More than one answer for prompt: '.substr($prompt,0,32).'...');
+                llog('Trying again - More than one answer for prompt: '.substr(trim($prompt),0,32).'...');
+                llog($response);
+                llog('Trying again - More than one answer for prompt: '.substr(trim($prompt),0,32).'...');
                 continue;
             }
     
-            // doesn't pay attention to result metrics yet; cheap check to detect JSON response
-            # $r = ['id'=>$result->id,'ts'=>$result->created];
-    
-            if( !empty($result->choices[0]->text) )
-            {
-                $rstr = trim($result->choices[0]->text);
-                //JSON :)
-                if( $rstr[0] === '[' || $rstr === '{' )
-                {
-                    $r = json_decode($rstr);
-                    if( $r !== NULL )
-                        return $r;
-                }
-                else
-                {
-                    if( !empty($rstr) )
-                        return $rstr;
-                }
-            }
-            else
-            {
-                llog("Unexpected response: ",$result);
-            }
+            $result = new response($response);
 
-            llog("{$tries} tries for ".substr($prompt,0,32));
+            // requires the validation token to at least be present - the rest of validation (JSON/XML/etc) is left to the caller
+            if( $result->IsValid() )
+                return $result;
+
+            llog("{$tries} tries for ".substr(trim($prompt),0,32));
         }
 
         return NULL;
     }
-
 }
 
