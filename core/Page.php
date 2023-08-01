@@ -101,6 +101,9 @@ class PageSet implements Debuggable
     {
         $this->Pages = $Pages;
         $this->PageMap = $PageMap;
+
+        // @todo could go in a abstract?
+        $this->DebugToken = get_class($this);
     }
 
     /**
@@ -124,21 +127,36 @@ class PageSet implements Debuggable
     }
 
     /**
-     * Execute a Page.
+     * Execute a Page, i.e. Function.
      *
      * Execution of a Page entails:
      *  - Appying it's Directives, if any
      *  - Executing it's Function, if any
      *
      * @param array $Page The Page Struct to execute.
+     * @param string $Page The Page name in the active pageset.
      * @retval mixed The value returned by the function, or NULL.
      * @throws Exception Directive object ... doesn't exist while executing Page ...
+     * @throws Exception Unknown page '$Page' for Execute()-by-name.
      *
-     * @note It is not enforced that the Page must exist in the PageSet, i.e. this can be used to execute any Page.
+     * @note It is not enforced that the Page must exist in the PageSet, i.e. this can be used to execute any Page struct.
+     * @todo We can probably always use page name, whereas app/match returns a struct.
+     * @todo "Active pageset" is sort of amorphous.  This should be streamlined,  between cli/web.
      */
     public function Execute( $Page )
     {
         global $asmapp;
+
+        if( is_string($Page) )
+        {
+            if( empty($this->Pages[$Page]) )
+                throw new Exception("Unknown page '$Page' for Execute()-by-name.");
+
+            $Page = $this->Pages[$Page];
+        }
+
+        if( !empty($Page['Path']) && $asmapp->IsCLI() )
+            throw new Exception("Page \"{$Page['Name']}\" has path during CLI execution");
 
         if( isset($_SERVER[$this->DebugToken]) )
         {
@@ -169,19 +187,21 @@ class PageSet implements Debuggable
     }
 
     /**
-     * Enable debugging, overridding default Label behavior.
+     * Toggle debugging, or set to a specific state.
      *
-     * Log messages are always labeled with the class name.
-     *
-     * @param boolean $Label TRUE to output debug info.
+     * @param boolean $Set Explicitly set debugging TRUE or FALSE.
+     * @param string $Mark Not empty to mark logs when toggled.
+     * @todo this is broken according to our interfaces.
      */
-    public function DebugOn( $Label = NULL )
+    public function DebugToggle( bool $Set = NULL, string $Mark = NULL )
     {
-        $this->DebugToken = get_class($this);
-        $_SERVER[$this->DebugToken] = TRUE;
+        if( !is_bool($Set) )
+            $Set = empty($_SERVER[$this->DebugToken])?TRUE:FALSE;
 
-        if( $Label === TRUE )
-            $this->DebugDisplay = TRUE;
+        $this->DebugDisplay = $_SERVER[$this->DebugToken] = $Set;
+
+        if( $Mark !== NULL )
+            llog("$Mark DebugToggle($Set)");
     }
 
     /**
