@@ -44,6 +44,7 @@ abstract class Request extends Struct
      */
     protected static $Request = NULL;
 
+    const MIN_ARGC = 3;
 
     /**
      * Get the current request's data.
@@ -53,9 +54,8 @@ abstract class Request extends Struct
      *
      * This detects whether a request appears to be coming from a web server or CLI.
      *
-     * When executed from the CLI, the first command line argument (argv[1]) must be the URL
-     * of the request, for example hostname.com/page-url - other parts of the URL, such as the scheme,
-     * are ignored.
+     * When executed from the CLI, the first command line argument (argv[1]) must be the hostname
+     * of the app, for example hostname.com.
      *
      * @param boolean $Rebuild Force a rebuild of the request data from scratch.
      * @retval array The normalized request data.
@@ -71,20 +71,18 @@ abstract class Request extends Struct
         $Request = static::$Skel;
 
         // we're running as a CLI
+        // @todo Nicify argv/argc (pr)
+
         if( !empty($_SERVER['argv']) )
         {
+            if( $_SERVER['argc'] < self::MIN_ARGC )
+                throw new Exception("CLI execution requires at least two arguments: php DOC_ROOT/index.php {hostname} {pagename} arg ...");
+
             $Request['IsCLI'] = TRUE;
-            $Request['Hostname'] = Hostname::Init(gethostname());
-
-            if( empty($_SERVER['argv'][1]) )
-                exit(PHP_EOL.'Page URL not provided via command line.'.PHP_EOL.PHP_EOL);
-
-            $T = URL::Init($_SERVER['argv'][1]);
-            $Request['Hostname'] = $T['Hostname'];
-            $Request['Path'] = $T['Path'];
-
-            if( empty($Request['Hostname']) || empty($Request['Path']) )
-                exit(PHP_EOL.'Invalid hostname or path - must of the form hostname.com/page-url'.PHP_EOL.PHP_EOL);
+            $Request['Hostname'] = Hostname::Init($_SERVER['argv'][1]);
+            $Request['PageName'] = $_SERVER['argv'][2];
+            $Request['argv'] = $_SERVER['argv'];
+            $Request['argc'] = $_SERVER['argc'];
         }
         else
         {
@@ -164,6 +162,9 @@ abstract class Request extends Struct
         }
         else
         {
+            /**
+             * @todo what's the * for?
+             */
             $BaseURL = URL::Init(str_replace('*',Hostname::ToString($SiteURL['Hostname']),$BaseURL));
 
             if( !empty($BaseURL['Scheme']) )
@@ -305,7 +306,6 @@ abstract class Request extends Struct
             return \asm\URL::ToString($U);
         }
     }
-
 
     /**
      * Determine whether the request appears to be from a mobile device.

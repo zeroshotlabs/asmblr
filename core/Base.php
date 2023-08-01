@@ -1745,6 +1745,9 @@ abstract class Path extends Struct
      */
     public static function ToString( $Path,$EncodeType = NULL )
     {
+        if( empty($Path) )
+            return '';
+
         if( $Path['IsRoot'] === TRUE )
         {
             return $Path['Separator'];
