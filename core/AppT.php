@@ -37,7 +37,7 @@ abstract class AppT extends \asm\App implements Debuggable
      */
     public function __construct( $App,$Request )
     {
-        // tmp hack
+        // @todo tmp hack - probably need path config
         $t = APP_ROOT."/templates";
 
         $this->html = new \asm\enUSHTMLSet($this,$t);
@@ -65,23 +65,26 @@ abstract class AppT extends \asm\App implements Debuggable
     /**
      * Match pages, apply app directives, execute SitewideFunction, execute pages, and render templates.
      *
-     * This enforces the @c ForceBaseHostname and @c ForceHTTPS config settings if not running as a CLI.
+     * This enforces the @c ForceBaseHostname and @c ForceHTTPS config settings.
      *
      * @throws Exception Directive object doesn't exist.
+     * @throws Exception Use ExecuteCLI() for appropriate execution.
      *
-     * @note While the resulting logic is about the same as asmblr's core, the implementation is different and adds themes.
      * @note Theme matching is done based on the OS filesystem and original case of the request (like cnvyr, unlike pages).
+     * @todo Make theme matching case-insensitive.  maybe.
      */
     public function Execute()
     {
-        // if not running as a CLI, first honor our ForceBaseHostname and ForceHTTPS settings
-        if( $this->Request['IsCLI'] === FALSE && (!empty($this->Config['ForceBaseHostname']) && $this->Request['IsBaseHostname'] === FALSE) )
+        if( $this->Request['IsCLI'] === TRUE )
+            throw new Exception('Use ExecuteCLI().');
+
+        if( (!empty($this->Config['ForceBaseHostname']) && $this->Request['IsBaseHostname'] === FALSE) )
         {
             $this->Request['Hostname'] = $this->Request['BaseURL']['Hostname'];
             HTTP::Location($this->Request);
         }
 
-        if( $this->Request['IsCLI'] === FALSE && (!empty($this->Config['ForceHTTPS']) && $this->Request['Scheme'] !== 'https') )
+        if( (!empty($this->Config['ForceHTTPS']) && $this->Request['Scheme'] !== 'https') )
         {
             $this->Request['Scheme'] = 'https';
             HTTP::Location($this->Request);
@@ -208,6 +211,37 @@ abstract class AppT extends \asm\App implements Debuggable
         }
     }
 
+    /**
+     * Executes a single named function.
+     * 
+     * @note No hierarchal path matching is done, nor is the SitewideFunction executed.  Sitewide directives are run.
+     */
+    public function ExecuteCLI( string $Page )
+    {
+        // apply app-wide directives
+        foreach( $this->Manifest['Directives'] as $V )
+        {
+            if( empty($this->{$V[0]}) )
+                throw new Exception("Directive object '{$V[0]}' doesn't exist while executing app for '{$this->Config['Hostname']}'.");
+            else
+                $this->{$V[0]}->ApplyDirective($V[1],$V[2]);
+        }
+
+        $this->ps->Execute($Page);
+    }
+
+    /**
+     * Determine whether the application is running from the command line.
+     * 
+     * @retval bool TRUE is the application is running from the command line.
+     * 
+     * @note Based on argv/argc.
+     */
+    public function IsCLI()
+    {
+        return $this->Request['IsCLI'];
+    }
+
     // will 404 if the file isn't found
     public function TryTheme( $MatchPathStr )
     {
@@ -220,7 +254,7 @@ abstract class AppT extends \asm\App implements Debuggable
         $FSPath = $this->Theme['DOC_ROOT'].$MatchPathStr;
 
         if( $this->IsDebug() )
-            llog("Theme FS Path: $FSPath");
+            llog("Theme FS Path: $FSPath\nMatch Path: $MatchPathStr\nContent Type: $ContentType");
 
         // if we don't find the file then it's a 404
         if( !is_file($FSPath) )
@@ -267,5 +301,4 @@ abstract class AppT extends \asm\App implements Debuggable
 
         $this->Theme = $T;
     }
-
 }
