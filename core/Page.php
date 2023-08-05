@@ -176,10 +176,11 @@ class PageSet implements Debuggable
                 $asmapp->{$V[0]}->ApplyDirective($V[1],$V[2]);
         }
 
+        // @todo test/finalize
         if( !empty($Page['Function']) )
         {
             // page objects - probably moving to this - seems like it could be better
-            if( strpos($Page['Function'],'->') !== FALSE )
+            if( is_string($Page['Function']) && strpos($Page['Function'],'->') !== FALSE )
             {
                 $p = explode('->',$Page['Function']);
                 $asmapp->page_obj = new $p[0]($asmapp);
