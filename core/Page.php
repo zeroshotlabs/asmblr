@@ -145,6 +145,7 @@ class PageSet implements Debuggable
      */
     public function Execute( $Page )
     {
+        // @todo we should pass this in in the constructor
         global $asmapp;
 
         if( is_string($Page) )
@@ -156,7 +157,7 @@ class PageSet implements Debuggable
         }
 
         if( !empty($Page['Path']) && $asmapp->IsCLI() )
-            throw new Exception("Page \"{$Page['Name']}\" has path during CLI execution");
+            throw new Exception("Page \"{$Page['Name']}\" has path during CLI execution - they are called by name.");
 
         if( isset($_SERVER[$this->DebugToken]) )
         {
@@ -177,8 +178,19 @@ class PageSet implements Debuggable
 
         if( !empty($Page['Function']) )
         {
-            // this automatically executes class::func when an array... sweet
-            return $Page['Function']($asmapp);
+            // page objects - probably moving to this - seems like it could be better
+            if( strpos($Page['Function'],'->') !== FALSE )
+            {
+                $p = explode('->',$Page['Function']);
+                $asmapp->page_obj = new $p[0]($asmapp);
+                return $asmapp->page_obj->{$p[1]}();
+            }
+            // static function exec - old style
+            else
+            {
+                // this automatically executes class::func when an array... sweet
+                return $Page['Function']($asmapp);
+            }
         }
         else
         {
