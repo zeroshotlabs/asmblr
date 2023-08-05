@@ -249,7 +249,7 @@ class TemplateSet implements Debuggable,Directable
      *
      * @param string $Name A ReMap()'d Name or Template Name to render.
      * @param array $Args Optional render-time arguments as an associative array of keys/value variables.
-     * @retval doesn't return
+     * @retval void|string If an $args of RReturn is TRUE the rendered template is returned.
      *
      * @note This uses eval() to do the rendering.
      * @note Template functions cannot ReMap() the template they are executing under, though they can
@@ -271,67 +271,52 @@ class TemplateSet implements Debuggable,Directable
 
             // always reference local $page
             ${'page'} = $this->page;
-//var_dump(get_defined_vars());
-            if( empty($RenderingTemplate['Function']) )
+
+            if( !empty($RenderingTemplate['Function']) )
             {
-                // scope the connected variables plus any arguments
-                foreach( $this->Connected as $K => $V )
-                {
+                // a no render
+                if( ($RenderingTemplate['Function']($this->Connected,$Args,$this->App)) === FALSE )
+                    return NULL;
+            }
+
+            // continue with render
+            // scope the connected variables plus any arguments; variables can be Connect()'d by the function
+            foreach( $this->Connected as $K => $V )
+                $$K = $V;
+
+            if( !empty($Args[0]) )
+                foreach( $Args[0] as $K => $V )
                     $$K = $V;
-                }
 
-                if( !empty($Args[0]) )
-                {
-                    foreach( $Args[0] as $K => $V )
-                        $$K = $V;
-                }
-
-                // if caching render from memory, otherwise pull from the filesystem for better PHP error message
-                if( $this->App->CacheApp )
+            // if caching render from memory, otherwise pull from the filesystem for better PHP error message
+            // return if specified
+            if( $this->App->CacheApp )
+            {
+                if( empty($Args['RReturn']) )
                 {
                     eval($RenderingTemplate['Body']);
                 }
                 else
                 {
-                    include $RenderingTemplate['Path'];
+                    ob_start();
+                    eval($RenderingTemplate['Body']);
+                    return ob_get_clean();
                 }
             }
             else
             {
-                // the function should expect arguments $this->Connected,$Args,$App
-                if( ($RenderingTemplate['Function']($this->Connected,$Args,$this->App)) !== FALSE )
+                if( empty($Args['RReturn']) )
                 {
-                    // scope the connected variables plus any arguments
-                    // we have to do this here again since our function may connect variables... probably a slicker way...
-                    foreach( $this->Connected as $K => $V )
-                        $$K = $V;
-
-                    if( !empty($Args[0]) )
-                    {
-                        foreach( $Args[0] as $K => $V )
-                            $$K = $V;
-                    }
-
-                    // if caching render from memory, otherwise pull from the filesystem for better PHP error message
-                    if( $this->App->CacheApp )
-                    {
-                        eval($RenderingTemplate['Body']);
-                    }
-                    else
-                    {
-                        include $RenderingTemplate['Path'];
-                    }
+                    include $RenderingTemplate['Path'];
+                }
+                else
+                {
+                    ob_start();
+                    include $RenderingTemplate['Path'];
+                    return ob_get_clean();
                 }
             }
         }
-    }
-
-    public function render_return( $Name )
-    {
-        ob_start();
-        $this->__call($Name,[]);
-        $t = ob_get_clean();
-        return $t;
     }
 
     /**
