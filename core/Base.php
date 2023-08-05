@@ -605,17 +605,25 @@ abstract class Inc
     }
 
     /**
-     * Load an extension that's bundled with asmblr under the /ext/ directory.
+     * Load an extension that's bundled with asmblr under the ext/ directory.
      *
-     * @c $ExtLoader is case-sensitive and should include an extension.
+     * @c $ExtLoader is tried in the following way, relative to ext/:
+     *   - literally as a filename
+     *   - as a directory with a Load.inc
+     * 
+     * It is case-sensitive.
      *
-     * @param string $ExtLoader The extension's loader filename.
+     * @param string $ExtLoader The extension's loader filename or directory.
      *
-     * @note This uses require() and does not provide security/filtering.
+     * @note This uses require() so pay attention.
+     * @todo Improve path handling ASM_EXT_ROOT is hardwired currently.
      */
     public static function Ext( $ExtLoader )
     {
-        require(ASM_ROOT."ext".DIRECTORY_SEPARATOR.$ExtLoader);
+        if( is_file(ASM_EXT_ROOT.$ExtLoader) )
+            require(ASM_EXT_ROOT.$ExtLoader);
+        else if( is_dir(ASM_EXT_ROOT.$ExtLoader) )
+            require(ASM_EXT_ROOT.$ExtLoader.'Load.inc');
     }
 }
 

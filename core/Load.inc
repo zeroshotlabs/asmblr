@@ -10,9 +10,10 @@
 
 
 /**
- * asmblr root directory.
+ * asmblr root and extension directories.
  */
 define('ASM_ROOT',__DIR__.DIRECTORY_SEPARATOR);
+define('ASM_EXT_ROOT',ASM_ROOT.'ext'.DIRECTORY_SEPARATOR);
 
 
 /**
