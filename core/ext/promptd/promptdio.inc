@@ -1,107 +1,19 @@
 <?php
 /**
- * @file prmptr.inc Prompt templating with Azure/OpenAI.
+ * @file promptdio.inc Prompt templating with Azure/OpenAI.
  * @author Stackware, LLC
  * @version 5.0
  * @copyright Copyright (c) 2012-2023 Stackware, LLC. All Rights Reserved.
  * @copyright Licensed under the GNU General Public License
  * @copyright See COPYRIGHT.txt and LICENSE.txt.
  */
-namespace asm;
+namespace asm\promptd;
 
 
-class prompt extends DAO
-{
-    // if we want to use chatgpt have to specify the model:  'model' => 'text-davinci-003',
-    // functions not supported currently (asmblr template functions)
-    // protected static $Skel = ['Name'=>'','Function'=>array(),'Model'=>'','Ask'=>'','Tries'=>1,'MaxTokens'=>1024,'Temp'=>1.0];
-
-    public function __construct( public string $Name,public string $Path,public string $Ask,public array $Func = [],public string $Model = '',
-                                 public int $Tries = 1,public int $MaxTokens = 1024,public float $Temp = 1.0 )
-    {
-    }
-
-    // ( $Name,$Path,$Function = array(),$Body = '' )
-    //($Prefix.$P['Segments'][1],$K,$F,$Buf);
-    public static function new(): static
-    {
-        $args = func_get_args();
-        return new static($args[0],$args[1],file_get_contents($args[1]));
-    }
-}
-
-
-class response extends DAO
-{
-    public $id,$type,$model,$response,$index,$logprobs,$finishReason,$result;
-
-//    protected $ValidResponseTypes = ['json','xml','text'];
-    protected $ValidationToken = '|!|';
-
-
-    public function __construct( $response )
-    {
-        $this->id = $response['id'];
-        $this->type = $response['object'];
-        $this->created = strtotime($response['created']);
-        $this->model = $response['model'];
-
-        if( isset($response['choices'][0]) )
-        {
-            $this->response = trim($response['choices'][0]['text']);
-            $this->index = $response['choices'][0]['index'];
-            $this->logprobs = $response['choices'][0]['logprobs'];
-            $this->finish_reason = $response['choices'][0]['finish_reason'];
-        }
-    }
-
-    // automatically called upon getting a result
-    public function IsValid()
-    {
-        if( strpos((string)$this->response,$this->ValidationToken) === 0 )
-        {
-            $this->response = trim(substr($this->response,strlen($this->ValidationToken)));
-            return TRUE;
-        }
-        else
-            return FALSE;
-    }
-
-    public function IsJSON()
-    {
-        if( $this->response[0] === '[' || $this->response[0] === '{' )
-        {
-            $this->result = json_decode(mb_convert_encoding($this->response,"UTF-8"));
-
-            if( $this->result !== NULL )
-                return TRUE;
-            else
-            {
-                llog('NULL JSON result');
-                return FALSE;
-            }
-        }
-        else
-            return FALSE;
-    }
-
-    public function IsXML( $validation = null )
-    {
-        $xml = simplexml_load_string((string)$this->response,NULL,LIBXML_DTDVALID);
-
-        if( $xml )
-        {
-            $this->result = $xml;
-            return TRUE;
-        }
-        else
-            return FALSE;
-    }
-}
-
-
-
-class prmptr extends \asm\TemplateSet
+/**
+ * Manages prompts as text templates and executes them against OpenAI/ChatGPT
+ */
+class promptdio extends \asm\TemplateSet
 {
     protected $client = NULL;
 
@@ -112,18 +24,20 @@ class prmptr extends \asm\TemplateSet
     {
         parent::__construct($App);
 
-        $this->IncludeExts[] = 'md';
+        $this->IncludeExts += ['md','php','html'];
     }
 
-    public function ConnectAPI( $Vars )
+    public function ConnectAPI(): \OpenAI\Client
     {
         // yeah!   probably should be passed in
         global $creds;
 
-        $this->client = \OpenAI::factory()->withBaseUri($creds->AOAI['BaseURI'].'/'.$creds->AOAI['Model'])
-                        ->withHttpHeader('api-key',$creds->AOAI['APIKey'])
-                        ->withQueryParam('api-version',$creds->AOAI['APIVersion'])
-                        ->make();
+        $this->client = \OpenAI::factory()->withBaseUri($creds->AZOAI['BaseURI'].'/'.$creds->AZOAI['Model'])
+                                ->withHttpHeader('api-key',$creds->AZOAI['APIKey'])
+                                ->withQueryParam('api-version',$creds->AZOAI['APIVersion'])
+                                ->make();
+        
+        return $this->client;
     }
 
     // // public function __construct( public string $Name,public string $Ask,public string $Func = '',public string $Model = '',
@@ -153,21 +67,29 @@ class prmptr extends \asm\TemplateSet
     //     }
     // }
     
-    public function chat( string $Name,array $roles = [],int $tries = 1,int $max_tokens = 1024,float $temp = 1.0,bool $rreturn = FALSE )
+    public function chat( string $Name = NULL,string $blob = NULL,array $roles = [],int $tries = 1,int $max_tokens = 1024,float $temp = 1.0,bool $rreturn = FALSE )
     {
         if( $this->client === NULL )
-            $this->ConnectAPI(array());
+            $this->ConnectAPI();
 
-        $chat = $this->render_return($Name);
+        if( !$Name && !$blob )
+            throw new \Exception('prmptdio::chat() requires a prompt $Name or $Blob');
+
+        if( $Name )
+            $chat = $this->$Name(RReturn:TRUE);
+        else
+        {
+            $chat = $blob;
+            $Name = 'blob('.strlen($blob).')';
+        }
+
         if( $rreturn )
             return $chat;
-        var_dump($this->page);
-        exit;
 
         if( $this->IsDebug() )
         {
             llog("starting chat $Name try of $tries");
-            file_put_contents('/home/tmp/last_chat',$chat);
+            file_put_contents('/tmp/last_chat',$chat);
         }
 
         while( $tries-- )
@@ -194,15 +116,11 @@ class prmptr extends \asm\TemplateSet
             if( $this->IsDebug() )
             {
                 llog("response for $Name try of $tries");
-                file_put_contents('/home/tmp/last_chat',\json_serialize($response),FILE_APPEND);
+                file_put_contents('/tmp/last_chat',json_encode($response),FILE_APPEND);
             }
 
-            $result = new response($response);
-
             // requires the validation token to at least be present - the rest of validation (JSON/XML/etc) is left to the caller
-//                return $result;
-
-            llog("{$tries} tries for ".substr(trim($prompt),0,32));
+            return new response($response);
         }
 
         return NULL;        
@@ -210,19 +128,29 @@ class prmptr extends \asm\TemplateSet
 
     // // public string $Name,public string $Ask,public string $Func = '',public string $Model = '',
     // // public int $Tries = 1,public int $MaxTokens = 1024,public float $Temp = 1.0
-    public function complete( string $Name,int $tries = 1,int $max_tokens = 1024,float $temp = 1.0,bool $rreturn = FALSE )
+    public function complete( string $Name = NULL,string $blob = NULL,int $tries = 1,int $max_tokens = 1024,float $temp = 1.0,bool $rreturn = FALSE )
     {
         if( $this->client === NULL )
-            $this->ConnectAPI(array());
+            $this->ConnectAPI();
 
-        $prompt = $this->render_return($Name);
+        if( !$Name && !$blob )
+            throw new \Exception('prmptdio::complete() requires a prompt $Name or $Blob');
+
+        if( $Name )
+            $prompt = $this->$Name(RReturn:TRUE);
+        else
+        {
+            $prompt = $blob;
+            $Name = 'blob('.strlen($prompt).')';
+        }
+
         if( $rreturn )
             return $prompt;
 
         if( $this->IsDebug() )
         {
             llog("starting completion $Name try of $tries");
-            file_put_contents('/home/tmp/last_prompt',$prompt);
+            file_put_contents('/tmp/last_prompt',$prompt);
         }
 
         while( $tries-- )
@@ -258,4 +186,3 @@ class prmptr extends \asm\TemplateSet
         return NULL;
     }
 }
-
