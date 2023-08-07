@@ -15,6 +15,10 @@
 define('ASM_ROOT',__DIR__.DIRECTORY_SEPARATOR);
 define('ASM_EXT_ROOT',ASM_ROOT.'ext'.DIRECTORY_SEPARATOR);
 
+/**
+ * Current working/execution root directory; not the APP_ROOT.
+ */
+define('CWD_ROOT',getcwd().DIRECTORY_SEPARATOR);
 
 /**
  * Shorthand for Log::Log().

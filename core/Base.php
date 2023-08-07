@@ -623,7 +623,7 @@ abstract class Inc
         if( is_file(ASM_EXT_ROOT.$ExtLoader) )
             require(ASM_EXT_ROOT.$ExtLoader);
         else if( is_dir(ASM_EXT_ROOT.$ExtLoader) )
-            require(ASM_EXT_ROOT.$ExtLoader.'Load.inc');
+            require(ASM_EXT_ROOT.$ExtLoader.DIRECTORY_SEPARATOR.'Load.inc');
     }
 }
 

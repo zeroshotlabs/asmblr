@@ -37,7 +37,7 @@ abstract class AppT extends \asm\App implements Debuggable
      */
     public function __construct( $App,$Request )
     {
-        // @todo tmp hack - probably need path config
+        // @todo tmp hack - probably need path config or anything except this
         $t = APP_ROOT."/templates";
 
         $this->html = new \asm\enUSHTMLSet($this,$t);

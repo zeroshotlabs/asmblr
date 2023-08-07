@@ -14,6 +14,6 @@ for more details.
 Please see http://www.gnu.org/licenses/gpl.txt for a copy of the
 GNU General Public License.
 
-The asmblr project is hosted at http://asmblr.org
+The asmblr project is hosted at https://asmblr.ai
 
 asmblr is a trademark of Stackware, LLC.
