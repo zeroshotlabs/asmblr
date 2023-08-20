@@ -20,50 +20,34 @@ define('ASM_EXT_ROOT',ASM_ROOT.'ext'.DIRECTORY_SEPARATOR);
  */
 define('CWD_ROOT',getcwd().DIRECTORY_SEPARATOR);
 
-/**
- * Shorthand for Log::Log().
- *
- * @see Log::Log()
- * @todo This could probably be improved according to named params.
- */
-function llog( $Msg,$Level = 'LOG',$Backtrace = NULL,$Context = NULL )
-{
-    foreach( func_get_args() as $V )
-        \asm\Log::Log($V,$Level,$Backtrace,$Context);
-}
 
-
-/**
- * Shorthand for getting the $app object.
- *
- * @note Do not overuse.
- */
-function asm()
-{
-    return $GLOBALS['asmapp'];
-}
 
 
 /**
  * Require the asmblr source code.
  */
-require(ASM_ROOT.'Base.php');
-require(ASM_ROOT.'DAO.php');
+require(ASM_ROOT.'exception.php');
+require(ASM_ROOT.'types.php');
+require(ASM_ROOT.'debug.php');
 
-require(ASM_ROOT.'Request.php');
+require(ASM_ROOT.'HTTP.php');
 
-require(ASM_ROOT.'App.php');
-require(ASM_ROOT.'AppT.php');
+require(ASM_ROOT.'request.php');
 
-require(ASM_ROOT.'Page.php');
-require(ASM_ROOT.'Template.php');
+require(ASM_ROOT.'config.php');
+require(ASM_ROOT.'asmd.php');
+
+// require(ASM_ROOT.'App.php');
+// require(ASM_ROOT.'AppT.php');
+
+// require(ASM_ROOT.'Page.php');
+require(ASM_ROOT.'endpoint.php');
+require(ASM_ROOT.'template.php');
 require(ASM_ROOT.'Link.php');
-
-require(ASM_ROOT.'restr.php');
-require(ASM_ROOT.'cnvyr.php');
 
 require(ASM_ROOT.'Misc.php');
 
 // Load the default en-US locale
+// @todo update according to FAIQ - probably require promptd
 require(ASM_ROOT.'enUS.php');
 

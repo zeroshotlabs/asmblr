@@ -56,39 +56,7 @@ abstract class App
     /**
      * @var boolean $CacheManifest
      * TRUE to cache the manifest to the local disk.
-     void print_message()
-     {
-         print("Hello World");
-     }
-
-     void print_message_with_name(string name)
-     {
-         print("Hello " + name);
-     }
-
-     void print_message_with_count(int count)
-     {
-         for (int i = 0; i < count; i++)
-         {
-             print("Hello World");
-         }
-     }
-
-     void print_message_with_name_and_count(string name, int count)
-     {
-         for (int i = 0; i < count; i++)
-         {
-             print("Hello " + name);
-         }
-     }
-
-     void main()
-     {
-         print_message();
-         print_message_with_name("Bob");
-         print_message_with_count(5);
-         print_message_with_name_and_count("Bob", 5);
-     }
+     * 
      * @note This is configured in the application array in @c index.php
      */
     public $CacheManifest = FALSE;
@@ -243,6 +211,24 @@ abstract class App
      */
     public function __construct( $App,$Request,$ConfigOverride = array() )
     {
+        // load config
+        // determine configured site URL (Base) and restrictions
+        // determine request (and requested URL)
+        // calculate delta betwen the two
+        //      -- different hostname/scheme/port
+        //      -- differences in path, including root and matching part
+        //      -- if any differences require a redirect, do so with adjustments
+        //          use HTTPExceptions/anon functions
+        //      -- start matching pages
+        //          start with most specific (bottom) match, followed by directory matches
+        //          given request of /admin/list
+        //              page URL = /admin/       matches request /admin/anything
+        //              page URL = /admin/list   matches only request /admin/list
+        //          Two pages will execute, in order unless the first page returns FALSE
+        
+
+
+
         $this->Hostname = $App['Hostname'];
         $this->AppRoot = $App['AppRoot'];
         $this->CacheManifest = $App['CacheManifest'];
@@ -342,7 +328,7 @@ abstract class App
 
         // links for theme resources (images, css, js, fonts/etc)
         // @todo clean up - consider what to do with cnvyr
-        $this->lc = new Linkcnvyr($this->ps,$this,$this->Request['SiteURL']);
+        # $this->lc = new Linkcnvyr($this->ps,$this,$this->Request['SiteURL']);
     }
 
     /**

@@ -11,15 +11,15 @@ namespace asm;
 
 
 /**
- * A Page represents a unit of application logic for a Path or hierarchy of Paths.
+ * A Page represents a unit of application logic for a Path or hierarchy of Paths, or by name.
  *
  * A Page contains one trigger absolute Path, a Name, an optional function, and none, one or more
  * Directives.  The Path and Name must be unique within a PageSet.
  *
- * Pages are usually executed and managed by a PageSet, forming the "control layer".  PageSets and
- * Pages are managed through the manifest.
+ * Pages are executed and managed by a PageSet, forming the "control layer".  PageSets and
+ * Pages are managed through the config.
  */
-abstract class Page extends Struct
+abstract class Page extends DAO
 {
     /**
      * @var array $Skel
@@ -39,14 +39,14 @@ abstract class Page extends Struct
      *
      * @note The Path should not be encoded.
      */
-    public static function Init( $Name,$Path,$Status,$Function = NULL )
+    public function __construct( protected $Name,protected $Path, protected $Status,protected $Function = NULL )
     {
         $Page = static::$Skel;
 
         $Page['Name'] = $Name;
 
         $Page['Path'] = strtolower($Path);
-        $Page['PathStruct'] = Path::Init($Page['Path']);
+        $Page['PathStruct'] = Path::str($Page['Path']);
 
         $Page['Status'] = $Status;
 

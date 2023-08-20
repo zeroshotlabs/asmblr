@@ -20,24 +20,29 @@ class promptdio extends \asm\TemplateSet
     protected $TemplateInit = '\asm\prompt::new';
 
 
-    public function __construct( \asm\App $App )
+    public function __construct( \asm\App $App,$creds,$connect = TRUE )
     {
+        $this->IncludeExts += ['md','php','html'];
+
         parent::__construct($App);
 
-        $this->IncludeExts += ['md','php','html'];
+        if( $connect === TRUE )
+            $this->ConnectAPI($creds);
     }
 
-    public function ConnectAPI(): \OpenAI\Client
+    public function ConnectAPI( object $creds ): void
     {
-        // yeah!   probably should be passed in
-        global $creds;
-
-        $this->client = \OpenAI::factory()->withBaseUri($creds->AZOAI['BaseURI'].'/'.$creds->AZOAI['Model'])
-                                ->withHttpHeader('api-key',$creds->AZOAI['APIKey'])
-                                ->withQueryParam('api-version',$creds->AZOAI['APIVersion'])
-                                ->make();
-        
-        return $this->client;
+        try
+        {
+            $this->client = \OpenAI::factory()->withBaseUri($creds->BaseURI.'/'.$creds->Model)
+                                    ->withHttpHeader('api-key',$creds->APIKey)
+                                    ->withQueryParam('api-version',$creds->APIVersion)
+                                    ->make();
+        }
+        catch( \Exception $e )
+        {
+            throw new \Exception('Unable to connect to OpenAI/ChatGPT');
+        }
     }
 
     // // public function __construct( public string $Name,public string $Ask,public string $Func = '',public string $Model = '',
@@ -70,7 +75,7 @@ class promptdio extends \asm\TemplateSet
     public function chat( string $Name = NULL,string $blob = NULL,array $roles = [],int $tries = 1,int $max_tokens = 1024,float $temp = 1.0,bool $rreturn = FALSE )
     {
         if( $this->client === NULL )
-            $this->ConnectAPI();
+            throw new \Exception("No GPT connected $Name");
 
         if( !$Name && !$blob )
             throw new \Exception('prmptdio::chat() requires a prompt $Name or $Blob');
@@ -119,7 +124,7 @@ class promptdio extends \asm\TemplateSet
                 file_put_contents('/tmp/last_chat',json_encode($response),FILE_APPEND);
             }
 
-            // requires the validation token to at least be present - the rest of validation (JSON/XML/etc) is left to the caller
+            // requires the validation token to at least be present, if set - the rest of validation (JSON/XML/etc) is left to the caller
             return new response($response);
         }
 
@@ -131,7 +136,7 @@ class promptdio extends \asm\TemplateSet
     public function complete( string $Name = NULL,string $blob = NULL,int $tries = 1,int $max_tokens = 1024,float $temp = 1.0,bool $rreturn = FALSE )
     {
         if( $this->client === NULL )
-            $this->ConnectAPI();
+            throw new \Exception("No GPT connected $Name");
 
         if( !$Name && !$blob )
             throw new \Exception('prmptdio::complete() requires a prompt $Name or $Blob');

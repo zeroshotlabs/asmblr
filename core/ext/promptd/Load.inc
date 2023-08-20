@@ -11,7 +11,7 @@ namespace asm\promptd;
 
 define('ASM_EXT_PROMPTD_ROOT',__DIR__.DIRECTORY_SEPARATOR);
 
-require(ASM_EXT_PROMPTD_ROOT.'lib.inc');
-require(ASM_EXT_PROMPTD_ROOT.'promptd.inc');
-require(ASM_EXT_PROMPTD_ROOT.'promptdio.inc');
+require(ASM_EXT_PROMPTD_ROOT.'lib.php');
+require(ASM_EXT_PROMPTD_ROOT.'promptd.php');
+require(ASM_EXT_PROMPTD_ROOT.'promptdio.php');
 

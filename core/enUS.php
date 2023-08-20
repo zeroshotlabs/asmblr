@@ -9,6 +9,7 @@
  */
 namespace asm;
 
+return;
 
 /**
  * Tools for working with US English text, delimited strings (tags), and forms.

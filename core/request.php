@@ -1,6 +1,6 @@
 <?php
 /**
- * @file Request.php Request data and management.
+ * @file Request.php A HTTP or CLI request.
  * @author Stackware, LLC
  * @version 5.0
  * @copyright Copyright (c) 2012-2023 Stackware, LLC. All Rights Reserved.
@@ -8,112 +8,103 @@
  * @copyright See COPYRIGHT.txt and LICENSE.txt.
  */
 namespace asm;
+use asm\types\hostname,asm\types\encoded,asm\types\path;
+
+
 
 
 /**
  * Current request data.
  *
- * The Request Struct encapsulates and normalizes the raw request data for both %HTTP and CLI requests.
+ * The Request DAO encapsulates and normalizes the raw request data for both HTTP
+ * and CLI requests.
  *
- * It is used by App to calculate application URLs and determine whether the request
- * came from a web browser or from the command line.  It's often used throughout an
- * application to access information about the current request.
+ * It is used by asmd to calculate application URLs and determine whether the request
+ * came from a web browser or from the command line, and is used throughout an app.
  *
- * $_GET and $_POST data is not included.
+ * Request data, like $_GET and $_POST, nor headers, are included.
  *
  * This Struct is a "singleton" - once it's been initialized, it's values are persisted
  * in the $Request static variable (though it can be re-generated).
- *
- * @note Request is compatible with URL methods.
  */
-abstract class Request extends Struct
+class Request
 {
-    /**
-     * @var array $Skel
-     * Base structure.
-     */
-    protected static $Skel = array('IsHTTPS'=>FALSE,'Scheme'=>'','Username'=>'','Password'=>'',
-    							   'Hostname'=>array(),'Port'=>'','Path'=>array(),'Query'=>array(),'Fragment'=>'','IsCLI'=>FALSE,
-                                   // these are calculated in CalcURLs()
-                                   'SiteURL'=>array(),'BaseURL'=>array(),'MatchPath'=>array(),
-                                   'IsBaseScheme'=>FALSE,'IsBaseHostname'=>FALSE,'IsBasePort'=>FALSE,'IsBasePath'=>FALSE);
+    public readonly \asm\URL $URL;
 
-    /**
-     * @var array $Request
-     * Current request data.
-     */
-    protected static $Request = NULL;
+//    'SiteURL'=>array(),'BaseURL'=>array(),'MatchPath'=>array(),
+//    'IsBaseScheme'=>FALSE,'IsBaseHostname'=>FALSE,'IsBasePort'=>FALSE,'IsBasePath'=>FALSE);
+
+    public readonly bool $IsCLI;
+    public readonly string $PageName;
+    public readonly array $argv;
+    public readonly int $argc;
+
+    public readonly bool $IsForwarded;
+    public readonly bool $IsHTTPS;
+    public readonly string $RemoteIP;
 
     const MIN_ARGC = 3;
 
     /**
-     * Get the current request's data.
+     * Build up and normalize data about the current request.
+     * 
+     * A request can either be HTTP or CLI.
      *
-     * Contains actual request data, normalized from $_SERVER.  No processing is performed
-     * except to cleanup the path.
-     *
-     * This detects whether a request appears to be coming from a web server or CLI.
-     *
-     * When executed from the CLI, the first command line argument (argv[1]) must be the hostname
-     * of the app, for example hostname.com.
-     *
-     * @param boolean $Rebuild Force a rebuild of the request data from scratch.
-     * @retval array The normalized request data.
-     *
-     * @note HTTP username/password isn't considered at all - using it in URLs will break IE/etc browsers.
-     * @todo Allow forging a request, i.e. pass in a URL and return the result.
+     * When executed from the CLI, the first argument (argv[1]) must be the hostname
+     * of the app, for example hostname.com, and the second argument (argv[2]) must be
+     * the page name.  Any additional arguments are passed to the page as a query string.
+     * 
+     * @todo consider SERVER_NAME/port/etc for GAE and similar environments (ports).
+     * @todo Handle CLI arguments better, including supporting options like --something, which
+     *       will be incorporated into the Config.
+     * @note HTTP auth isn't handled.
      */
-    public static function Init( $Rebuild = FALSE )
+    public function __construct()
     {
-        if( static::$Request !== NULL && $Rebuild === FALSE )
-            return static::$Request;
-
-        $Request = static::$Skel;
-
-        // we're running as a CLI
-        // @todo Nicify argv/argc (pr)
-
         if( !empty($_SERVER['argv']) )
         {
             if( $_SERVER['argc'] < self::MIN_ARGC )
-                throw new Exception("CLI execution requires at least two arguments: php DOC_ROOT/index.php {hostname} {pagename} arg ...");
+                throw new Exception("CLI execution requires at least two arguments: php DOC_ROOT/index.php {hostname} {pagename} args ...");
 
-            $Request['IsCLI'] = TRUE;
-            $Request['Hostname'] = Hostname::Init($_SERVER['argv'][1]);
-            $Request['PageName'] = $_SERVER['argv'][2];
-            $Request['argv'] = $_SERVER['argv'];
-            $Request['argc'] = $_SERVER['argc'];
+            $this->IsCLI = true;
+
+            $this->URL = URL::str($_SERVER['argv'][1]);
+            $this->PageName = $_SERVER['argv'][2];
+
+            // @todo need to handle argv better, or similar to a _GET
+            $this->argv = $_SERVER['argv'];
+            $this->argc= $_SERVER['argc'];
         }
         else
         {
-            $Request['Scheme'] = (empty($_SERVER['HTTPS'])||$_SERVER['HTTPS']==='off')?'http':'https';
+            $this->IsCLI = false;
 
-            // If the hostname can't be determined, it's now silently left empty
-            // TODO: does SERVER_NAME need to be first to support GAE/etc when on non-standard port?
-            if( !empty($_SERVER['HTTP_HOST']) )
-                $Request['Hostname'] = Hostname::Init($_SERVER['HTTP_HOST']);
-            else if( !empty($_SERVER['SERVER_NAME']) )
-                $Request['Hostname'] = Hostname::Init($_SERVER['SERVER_NAME']);
+            $this->IsForwarded = !empty($_SERVER['HTTP_X_FORWARDED_FOR']);
 
-//             $Request['Username'] = (string)static::Get('PHP_AUTH_USER',$_SERVER);
-//             $Request['Password'] = (string)static::Get('PHP_AUTH_PW',$_SERVER);
-
-            if( !empty($_SERVER['SERVER_PORT']) && ($_SERVER['SERVER_PORT'] !== '80') && ($_SERVER['SERVER_PORT'] !== '443') )
-                $Request['Port'] = $_SERVER['SERVER_PORT'];
-
-            if( empty($_SERVER['QUERY_STRING']) )
+            if( $this->IsForwarded )
             {
-                // no request and no query means we're likely being incorrectly executed via command line directly using the php-cgi binary
-                $Request['Path'] = Path::Init(empty($_SERVER['REQUEST_URI'])?'':rtrim(urldecode($_SERVER['REQUEST_URI']),'?'));
+                [$this->IsHTTPS,$Scheme] = ($_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https' ? [true,'https'] : [false,'http']);
+                $this->RemoteIP = $_SERVER['HTTP_X_FORWARDED_FOR'];
+
+                $Host = $_SERVER['HTTP_X_FORWARDED_HOST'];
+                $Port = (int) $_SERVER['HTTP_X_FORWARDED_PORT'];
             }
             else
             {
-                $Request['Path'] = Path::Init(urldecode(substr($_SERVER['REQUEST_URI'],0,strpos($_SERVER['REQUEST_URI'],'?'))));
-            }
-        }
+                [$this->IsHTTPS,$Scheme] = ($_SERVER['HTTPS'] ?? false === 'on' ? [true,'https'] : [false,'http']);
+                $this->RemoteIP = $_SERVER['REMOTE_ADDR'];
 
-        return (static::$Request = $Request);
+                $Host = $_SERVER['HTTP_HOST'];
+                $Port = (int) $_SERVER['SERVER_PORT'];
+            }
+
+            $Path = $_SERVER['DOCUMENT_URI'] ?? 'unknown';
+
+            // @todo does anyone use username:password@ anymore?  :)
+            $this->URL = new URL($Scheme,'','',hostname::str($Host),$Port,path::url($Path),encoded::arr($_GET),'');
+        }
     }
+
 
     /**
      * Calculate application URLs, paths and indicators.
@@ -358,7 +349,7 @@ abstract class Request extends Struct
  * The FileUpload Struct encapsulates information about one or
  * multiple file uploads as found in PHP's $_FILES superglobal.
  */
-abstract class FileUpload extends Struct
+abstract class FileUpload
 {
     protected static $Skel = array('Filename'=>'','ContentType'=>'','TmpPath'=>'',
                                    'Error'=>0,'FileSize'=>0);

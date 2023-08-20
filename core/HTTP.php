@@ -1,6 +1,6 @@
 <?php
 /**
- * @file HTTP.php URL, `asmblr application controller.
+ * @file HTTP.php URL and HTTP related tools.
  * @author Stackware, LLC
  * @version 5.0
  * @copyright Copyright (c) 2012-2023 Stackware, LLC. All Rights Reserved.
@@ -9,304 +9,34 @@
  */
 namespace asm;
 
-
-
-/**
- * Tools for manipulating a hostname.
- *
- * The structure of a Hostname is 0 through N subdomain parts,
- * counting from the TLD (root first, the same as \asm\Path).
- *
- * For example www.asmblr.org would be represented internally as:
- *
- *  @li @c 0: org
- *  @li @c 1: asmblr
- *  @li @c 2: www
- *
- * @note This does not support IDNA, nor checks for validity.
- * @note This does not include a port - @see URL.
- */
-class Hostname extends DAO
-{
-    /**
-     * Create a new Hostname object.
-     * 
-     * No validation is done amongst the arguments.
-     * 
-     * Use Hostname::str() instead.
-     */
-    public function __construct( public readonly array $Subdomains = [] )
-    { }
-
-    /**
-     * Create a new Hostname from a string.
-     *
-     * @param string $HostnameStr The hostname string to parse.
-     * @return \asm\Hostname A Hostname DAO.
-     * 
-     * @note The entire hostname is lowercased and it's NOT encoded.
-     */
-    public static function str( $HostnameStr )
-    {
-        if( !is_string($HostnameStr) || !empty($HostnameStr = trim($HostnameStr)) )
-        {
-            _stde("Hostname::str() - HostnameStr is not a string (".gettype($HostnameStr).")");
-            return NULL;
-        }
-
-        return new self(array_reverse(explode('.',strtolower(trim($HostnameStr,'. ')))));
-    }
-
-    /**
-     * Overload to return the hostname as a string.
-     */
-    public function __toString(): string
-    {
-        return implode('.',array_reverse($this->Subdomains));
-    }
-}
-
-
-/**
- * Tools for working with a UNIX or URL path.
- *
- * By default, a Path uses the forward slash @c / as a separator.  While the
- * back slash can be used, no handling of special Windows paths or drives is done.
- *
- * A Segment is what's contained between two separators, or a separator
- * and the end of the string, which implies a directory.
- *
- * @note No automatic encoding/decoding/escaping is done.
- * @note This is platform agnostic - it doesn't know if it's running under Windows or Unix.
- * @note This uses read-only and is not reusable.
- * @note This is not a security mechanism - use realpath().
- */
-class Path extends DAO
-{
-    /**
-     * Create a new Path object.
-     * 
-     * No validation is done amongst the arguments.
-     * 
-     * Use Path::path() or Path::url() instead.
-     */
-    public function __construct(
-        /**
-         * The path's separator.
-         */
-        public readonly string $Separator = '/',
-
-        /**
-         * TRUE if the path has a leading separator.
-         */
-        public readonly bool $IsABS = null,
-
-        /**
-         * TRUE if the path has a trailing separator.
-         */
-        public readonly bool $IsDir = null,
-
-        /**
-         * TRUE if the path is only the separator (IsDir and IsAbs will also be TRUE).
-         */
-        public readonly bool $IsRoot = null,
-
-        /**
-         * TRUE if the path is a shell path, otherwise it's escaped as a URL path.
-         */
-        public readonly bool $IsShell = null,
-
-        /**
-         * Numeric array of the pieces between the separators.
-         */
-        public readonly array $Segments = []
-    )
-    { }
-
-    /**
-     * Overload to return the path as a string.
-     * 
-     * This will properly encode the path string, according to $IsShell.
-     */
-    public function __toString(): string
-    {
-        if( $this->IsRoot === TRUE )
-        {
-            return $this->Separator;
-        }
-        else
-        {
-            if( $this->IsShell === FALSE )
-                $Segs = implode($this->Separator,array_map('rawurldecode',$this->Segments));
-            else
-                $Segs = implode($this->Separator,array_map('escapeshellcmd',$this->Segments));
-
-            return ($this->IsABS?$this->Separator:'').$Segs.($this->IsDir?$this->Separator:'');
-        }
-    }
-
-    /**
-     * Create a filesystem Path from a string.
-     *
-     * A backslash separator is automatically detected if there is one, otherwise a forward
-     * slash is the default.
-     *
-     * @param string $PathStr The path string to parse, an empty string, or NULL.
-     * @param string $Separator Specify a single character as a separator to use.
-     * @param bool $Shell TRUE if the path is a shell path, otherwise it'll be escaped as a URL path.
-     * @return \asm\Path A Path DAO.
-     *
-     * @note An empty or NULL $PathStr, or one that is simply multiple separators,
-     * 		 will be considered a root path.
-     */
-    public static function path( $PathStr,$Separator = NULL,$Shell = true ): \asm\Path
-    {
-        if( !is_string($PathStr) || !empty($PathStr = trim($PathStr)) )
-        {
-            _stde("Path::path() - PathStr is not a string (".gettype($PathStr).")");
-            return NULL;
-        }
-
-        if( empty($Separator) )
-            if( strpos($PathStr,'\\') !== FALSE )
-                $Separator = '\\';
-        else
-            $Separator = '/';
-
-        $Segments = [];
-
-        // a root path
-        if( empty($PathStr) || $PathStr === $Separator || trim($PathStr,$Separator) === '' )
-        {
-            $Segments[0] = $Separator;
-            $IsAbs = $IsDir = $IsRoot = TRUE;
-        }
-        else
-        {
-            $IsRoot = FALSE;
-            $IsAbs = $PathStr[0]===$Separator?TRUE:FALSE;
-            $IsDir = substr($PathStr,-1,1)===$Separator?TRUE:FALSE;
-            $Segments = preg_split("(\\{$Separator}+)",$PathStr,-1,PREG_SPLIT_NO_EMPTY);
-        }
-
-        return new self($Separator,$IsAbs,$IsDir,$IsRoot,$Shell,$Segments);
-    }
-
-    /**
-     * Create a URL Path from a string.
-     * 
-     * @param string $PathStr The path string to parse, an empty string, or NULL.
-     * @see \asm\Path::path()
-     */     
-    public static function url( $PathStr ): \asm\Path
-    {
-        return static::path($PathStr,'/',false);
-    }
-
-    /**
-     * Make all Segments lowercase.
-     * 
-     * Chainable.
-     */
-    public function lower(): \asm\Path
-    {
-        $this->Segments = array_map('strtolower',$this->Segments);
-        return $this;
-    }
-}
-
-
-/**
- * Tools for manipulating encoded key/value pairs, such as GET query strings and POST data.
- *
- * @note This should not be used for multipart/form-data (PHP_QUERY_RFC1738).
- * @note This uses http_build_query() with PHP_QUERY_RFC3986 (rawurlencode()).
- */
-class QueryString extends DAO
-{
-    public function __construct( public readonly $Pairs )
-    { }
-
-    public function __get( $Label ): mixed
-    {
-        return isset($this->Pairs[$Label])?$this->Pairs[$Label]:null;
-    }
-
-    public function __set( $Label,$Value ): void
-    {
-        $this->Pairs[$Label] = $Value;
-    }
-
-    public function count(): int
-    {
-        return count($this->Pairs);
-    }
-
-    /**
-     * Create a new QueryString DAO from a string.
-     *
-     * @param string $URLEncStr The URL encoded string to parse.
-     * @return \asm\QueryString A QueryString DAO.
-     *
-     * @note This uses parse_str().
-     */
-    public static function str( $QueryString ): \asm\QueryString
-    {
-        if( !is_string($QueryString) || !empty($QueryString = trim($QueryString)) )
-        {
-            _stde("QueryString::str() - QueryStringis not a string (".gettype($QueryString).")");
-            return null;
-        }
-
-        $Q = [];
-        parse_str($QueryString,$Q);
-        return new self($Q);
-    }
-
-    /**
-     * Create a string from the QueryString.
-     *
-     * @return string The URL encoded query string.
-     *
-     * @note This uses http_build_query() with the PHP_QUERY_RFC3986 encode type.
-     * @note A '?' is automatically prefixed.
-     */
-    public function __toString(): string
-    {
-        if( !empty($this) )
-            return '?'.http_build_query($this->Pairs,'','&',PHP_QUERY_RFC3986);
-        else
-            return '';
-    }
-}
-
-
 /**
  * Tools for manipulating a URL.
  *
  * The components of a URL are:
  *
  *  @li @c IsHTTPS: @c TRUE if the scheme is https.
- *  @li @c Scheme: Typically @c http or @c https.
- *  @li @c Username
- *  @li @c Password
- *  @li @c Hostname
- *  @li @c Port
- *  @li @c Path: A @c Path Struct
- *  @li @c Query: A @c URLEncoded Struct
- *  @li @c Fragment or @c #
+ *  @li @c scheme: Typically @c http or @c https.
+ *  @li @c username
+ *  @li @c password
+ *  @li @c hostname
+ *  @li @c port
+ *  @li @c path: A @c path Struct
+ *  @li @c encoded: A @c URLEncoded Struct
+ *  @li @c fragment or @c #
  *
  * @note This does not support full URL/URI pedantics and basically for HTTP.
  */
-class URL extends DAO
+class URL implements \Stringable
 {
-    // protected static $Skel = array('IsHTTPS'=>FALSE,'Scheme'=>'','Username'=>'','Password'=>'',
-    // 							   'Hostname'=>array(),'Port'=>'','Path'=>array(),'Query'=>array(),'Fragment'=>'');
+    // protected static $Skel = array('IsHTTPS'=>FALSE,'scheme'=>'','username'=>'','password'=>'',
+    // 							   'hostname'=>array(),'port'=>'','path'=>array(),'encoded'=>array(),'fragment'=>'');
 
     /**
      * TRUE if the scheme is https.
      */
     public readonly bool $IsHTTPS;
+
+//    public readonly \asm\hostname $hostname;
 
     /**
      * Create a new URL object.
@@ -320,27 +50,24 @@ class URL extends DAO
         /**
          * Typically http or https without '://'
          */
-        public readonly string $Scheme,
+        public readonly string $scheme,
 
-        public readonly string $Username,
+        public readonly string $username,
 
-        public readonly string $Password,
+        public readonly string $password,
 
-        public readonly \asm\Hostname $Hostname,
+        public readonly \asm\types\hostname $hostname,
 
-        public readonly int $Port,
+        public readonly int $port,
 
-        public readonly \asm\Path $Path,
+        public readonly \asm\types\path $path,
 
-        public readonly \asm\QueryString $Query,
+        public readonly \asm\types\encoded $encoded,
 
-        public readonly string $Fragment
+        public readonly string $fragment
     )
     {
-        if( $Scheme === 'https' )
-            $this->IsHTTPS = true;
-        else
-            $this->IsHTTPS = false;
+        $this->IsHTTPS = ($scheme === 'https');
     }
 
     /**
@@ -350,7 +77,7 @@ class URL extends DAO
      * 
      * @param string $URLStr The URL string to parse.
      * @throws Exception Malformed URL '$URLStr' (parse_url()).
-     * @return \asm\URL A URL DAO.
+     * @return \asm\URL A URL.
      *
      * @note This uses parse_url() and defaults to https if not specified. It attempts
      * to detect and auto-correct malformed URLs but it's not perfect; filename.html is
@@ -386,19 +113,19 @@ class URL extends DAO
         if( ($T = @parse_url(trim($URLStr))) === false )
             throw new Exception("Malformed URL '$URLStr' (parse_url()).");
 
-        $Scheme = strtolower($T['scheme'] ?? 'https');
-        $Hostname = Hostname::str($T['host'] ?? '');
-        $Port = $T['port'] ?? 0;
+        $scheme = strtolower($T['scheme'] ?? 'https');
+        $hostname = types\hostname::str($T['host'] ?? '');
+        $port = $T['port'] ?? 0;
 
-        $Username = $T['user'] ?? '';
-        $Password = $T['pass'] ?? '';
+        $username = $T['user'] ?? '';
+        $password = $T['pass'] ?? '';
 
-        $Path = Path::url($T['path'] ?? '');
+        $path = types\path::url($T['path'] ?? '');
 
-        $Query = QueryString::str($T['query'] ?? '');
-        $Fragment = $T['fragment'] ?? '';
+        $encoded = types\encoded::str($T['encoded'] ?? '');
+        $fragment = $T['fragment'] ?? '';
 
-        return new self($Scheme,$Username,$Password,$Hostname,$Port,$Path,$Query,$Fragment);
+        return new self($scheme,$username,$password,$hostname,$port,$path,$encoded,$fragment);
     }
 
     /**
@@ -411,39 +138,39 @@ class URL extends DAO
      */
     public function __toString(): string
     {
-        $host = (string) $this->Hostname;
+        $host = (string) $this->hostname;
         if( !empty($host) )
         {
-            if( $this->Port && $this->Port !== 80 && $this->Port !== 443 )
-                $host .= ":{$this->Port}";
+            if( $this->port && $this->port !== 80 && $this->port !== 443 )
+                $host .= ":{$this->port}";
 
             $auth = '';
-            if( !empty($this->Username) )
+            if( !empty($this->username) )
             {
-                $auth = rawurlencode($this->Username);
-                if( !empty($this->Password) )
-                    $auth .= ':'.rawurlencode($this->Password);
+                $auth = rawurlencode($this->username);
+                if( !empty($this->password) )
+                    $auth .= ':'.rawurlencode($this->password);
                 $auth .= '@';
             }
-            $host = "{$this->Scheme}://{$auth}{$host}";
+            $host = "{$this->scheme}://{$auth}{$host}";
         }
 
-        $path = (string) $this->Path;
-        $query = (string) $this->Query;
-        $frag = !empty($this->Fragment) ? '#'.rawurlencode($this->Fragment) : '';
+        $path = $this->path->as_abs();
+        $encoded = (string) $this->encoded;
+        $frag = !empty($this->fragment) ? '#'.rawurlencode($this->fragment) : '';
 
-        return "{$host}{$path}{$query}{$frag}";
+        return "{$host}{$path}{$encoded}{$frag}";
 
-        // // if a hostname is present, ensure a / for relative paths - otherwise use what Path has
-        // $Str .= (!empty($Str)&&empty($URL['Path']['IsAbs'])?'/':'').Path::ToString($URL['Path'],'url');
-        // $Str .= empty($URL['Query'])?'':URLEncoded::ToString($URL['Query']);
-        // $Str .= $URL['Fragment']===''?'':'#'.rawurlencode($URL['Fragment']);
+        // // if a hostname is present, ensure a / for relative paths - otherwise use what path has
+        // $Str .= (!empty($Str)&&empty($URL['path']['IsAbs'])?'/':'').path::ToString($URL['path'],'url');
+        // $Str .= empty($URL['encoded'])?'':URLEncoded::ToString($URL['encoded']);
+        // $Str .= $URL['fragment']===''?'':'#'.rawurlencode($URL['fragment']);
     }
 }
 
 
 
-    // /**  FROM QUERYSTRING
+    // /**  FROM encodedSTRING
     //  * Add or remove key/values in a URLEncoded Struct.
     //  *
     //  * $Needle is change string, an array of change strings, or an array
@@ -494,17 +221,17 @@ class URL extends DAO
     // /**
     //  * Helper for creating a URL authority part from a username and password.
     //  *
-    //  * @param string|NULL $Username The username, an empty string, or NULL.
-    //  * @param string|NULL $Password The password, an empty string, or NULL.
+    //  * @param string|NULL $username The username, an empty string, or NULL.
+    //  * @param string|NULL $password The password, an empty string, or NULL.
     //  * @retval string URL authority string, which may be an empty string.
     //  *
     //  * @note A password without a username will return an empty string.
     //  * @note Explicitly setting a username in a URL may be incompatible with some browsers, like IE.
     //  */
-    // public static function AuthorityToString( $Username,$Password )
+    // public static function AuthorityToString( $username,$password )
     // {
-    //     if( $Username !== NULL && $Username !== '' )
-    //         return rawurlencode($Username).($Password!==''&&$Password!==NULL?':'.rawurlencode($Password).'@':'@');
+    //     if( $username !== NULL && $username !== '' )
+    //         return rawurlencode($username).($password!==''&&$password!==NULL?':'.rawurlencode($password).'@':'@');
     //     else
     //         return '';
     // }
@@ -514,16 +241,16 @@ class URL extends DAO
     //  * $Needle is a change string or array of strings defining the changes to make:
     //  *  - @c >segment: append a segment to the path.
     //  *  - @c <segment: prepend a segment to the path.
-    //  *  - @c ?key=value: set a key/value in the query string.
-    //  *  - @c ?key=: delete a key/value in the query string.
-    //  *  - @c ?: delete entire query string.
+    //  *  - @c ?key=value: set a key/value in the encoded string.
+    //  *  - @c ?key=: delete a key/value in the encoded string.
+    //  *  - @c ?: delete entire encoded string.
     //  *  - @c \#fragment: set the URL fragment.
     //  *  - @c #: delete the URL fragment.
     //  *
     //  * $Needle may also combine segment, ?key=value and \#fragment change strings:
     //  *  - \c >new-segment?login=1&register=&redirect=1
     //  *
-    //  * This would append a new path segment, set login and redirect query variables
+    //  * This would append a new path segment, set login and redirect encoded variables
     //  * to 1, and remove the register variable.
     //  *
     //  * The array syntax for URLEncoded::Set() is also supported.
@@ -541,29 +268,29 @@ class URL extends DAO
     //     {
     //         if( is_array($V) )
     //         {
-    //             URLEncoded::Set($V,$Haystack['Query']);
+    //             URLEncoded::Set($V,$Haystack['encoded']);
     //             continue;
     //         }
     //         else if( !is_int($K) )
     //         {
-    //             URLEncoded::Set(array(array($K=>$V)),$Haystack['Query']);
+    //             URLEncoded::Set(array(array($K=>$V)),$Haystack['encoded']);
     //             continue;
     //         }
 
     //         $V2 = explode('#',$V);
     //         if( isset($V2[1]) )
-    //             static::SetFragment($V2[1],$Haystack);
+    //             static::Setfragment($V2[1],$Haystack);
 
     //         $V2 = explode('?',$V2[0]);
     //         if( isset($V2[1]) )
-    //             URLEncoded::Set($V2[1],$Haystack['Query']);
+    //             URLEncoded::Set($V2[1],$Haystack['encoded']);
 
     //         if( !empty($V2[0]) )
     //         {
     //             if( ($V2[0][0] === '>' || $V2[0][0] === '<') )
     //             {
-    //                 Path::Set($V2[0],$Haystack['Path']);
-    //                 $Haystack['Path']['IsAbs'] = TRUE;
+    //                 path::Set($V2[0],$Haystack['path']);
+    //                 $Haystack['path']['IsAbs'] = TRUE;
     //             }
     //             else
     //             {
@@ -579,9 +306,9 @@ class URL extends DAO
     //  * @param array $URL URL Struct.
     //  * @retval string The hostname string.
     //  */
-    // public static function Hostname( $URL )
+    // public static function hostname( $URL )
     // {
-    //     return Hostname::ToString($URL['Hostname']);
+    //     return hostname::ToString($URL['hostname']);
     // }
 
     // /**
@@ -590,43 +317,43 @@ class URL extends DAO
     //  * @param array $URL URL Struct.
     //  * @retval string The path string.
     //  */
-    // public static function Path( $URL )
+    // public static function path( $URL )
     // {
-    //     return Path::ToString($URL['Path'],'url');
+    //     return path::ToString($URL['path'],'url');
     // }
 
     // /**
     //  * Create a new URL from individual parts.
     //  *
-    //  * @param string $Scheme Typically http or https (:// is trimmed).
-    //  * @param string $Hostname Hostname.
-    //  * @param string|array $Path Path string or Path Struct.
-    //  * @param string|array $Query Query string or URLEncoded Struct.
-    //  * @param string|NULL $Port Optional port.
-    //  * @param string|NULL $Username Optional username.
-    //  * @param string|NULL $Password Optional password.
-    //  * @param string|NULL $Fragment Optional fragment.
+    //  * @param string $scheme Typically http or https (:// is trimmed).
+    //  * @param string $hostname hostname.
+    //  * @param string|array $path path string or path Struct.
+    //  * @param string|array $encoded encoded string or URLEncoded Struct.
+    //  * @param string|NULL $port Optional port.
+    //  * @param string|NULL $username Optional username.
+    //  * @param string|NULL $password Optional password.
+    //  * @param string|NULL $fragment Optional fragment.
     //  * @retval array The URL.
     //  *
     //  * @note Explicitly setting a username/password in a URL may be incompatible with some browsers, like IE.
     //  */
-    // public static function InitParts( $Scheme,$Hostname,$Path,$Query,$Port = NULL,$Username = NULL,$Password = NULL,$Fragment = NULL )
+    // public static function InitParts( $scheme,$hostname,$path,$encoded,$port = NULL,$username = NULL,$password = NULL,$fragment = NULL )
     // {
     //     $URL = static::$Skel;
 
-    //     static::SetScheme($Scheme,$URL);
-    //     static::SetHostname($Hostname,$URL);
-    //     static::SetPath($Path,$URL);
-    //     static::SetQuery($Query,$URL);
+    //     static::Setscheme($scheme,$URL);
+    //     static::Sethostname($hostname,$URL);
+    //     static::Setpath($path,$URL);
+    //     static::Setencoded($encoded,$URL);
 
-    //     if( $Port !== NULL )
-    //         static::SetPort($Port,$URL);
-    //     if( $Username !== NULL )
-    //         static::SetUsername($Username,$URL);
-    //     if( $Password !== NULL )
-    //         static::SetPassword($Password,$URL);
-    //     if( $Fragment !== NULL )
-    //         static::SetFragment($Fragment,$URL);
+    //     if( $port !== NULL )
+    //         static::Setport($port,$URL);
+    //     if( $username !== NULL )
+    //         static::Setusername($username,$URL);
+    //     if( $password !== NULL )
+    //         static::Setpassword($password,$URL);
+    //     if( $fragment !== NULL )
+    //         static::Setfragment($fragment,$URL);
 
     //     return $URL;
     // }
@@ -634,138 +361,138 @@ class URL extends DAO
     // /**
     //  * Change the scheme of a URL.
     //  *
-    //  * @param string $Scheme A string.
+    //  * @param string $scheme A string.
     //  * @param array $URL A URL Struct.
     //  *
     //  * @note This will affect the URL's IsHTTPS value.
     //  */
-    // public static function SetScheme( $Scheme,&$URL )
+    // public static function Setscheme( $scheme,&$URL )
     // {
-    //     $URL['Scheme'] = strtolower(trim(trim($Scheme,'://')));
-    //     $URL['IsHTTPS'] = $URL['Scheme']==='https'?TRUE:FALSE;
+    //     $URL['scheme'] = strtolower(trim(trim($scheme,'://')));
+    //     $URL['IsHTTPS'] = $URL['scheme']==='https'?TRUE:FALSE;
     // }
 
     // /**
-    //  * Change the Hostname of a URL.
+    //  * Change the hostname of a URL.
     //  *
-    //  * @param string|array $Hostname A string or Hostname Struct to set.
+    //  * @param string|array $hostname A string or hostname Struct to set.
     //  * @param array $URL A URL Struct.
-    //  * @throws Exception Hostname not a string or Hostname Struct.
+    //  * @throws Exception hostname not a string or hostname Struct.
     //  */
-    // public static function SetHostname( $Hostname,&$URL )
+    // public static function Sethostname( $hostname,&$URL )
     // {
-    //     if( is_string($Hostname) === TRUE )
-    //         $URL['Hostname'] = Hostname::Init($Hostname);
-    //     else if( is_array($Hostname) === TRUE )
-    //         $URL['Hostname'] = $Hostname;
+    //     if( is_string($hostname) === TRUE )
+    //         $URL['hostname'] = hostname::Init($hostname);
+    //     else if( is_array($hostname) === TRUE )
+    //         $URL['hostname'] = $hostname;
     //     else
-    //         throw new Exception("Hostname not a string or Hostname Struct.");
+    //         throw new Exception("hostname not a string or hostname Struct.");
     // }
 
     // /**
-    //  * Change the Path of a URL.
+    //  * Change the path of a URL.
     //  *
-    //  * @param string|Path $Path A string or Path Struct to set.
+    //  * @param string|path $path A string or path Struct to set.
     //  * @param array $URL A URL Struct.
-    //  * @throws Exception Path not a string or Path Struct.
+    //  * @throws Exception path not a string or path Struct.
     //  */
-    // public static function SetPath( $Path,&$URL )
+    // public static function Setpath( $path,&$URL )
     // {
-    //     if( is_string($Path) === TRUE )
-    //         $URL['Path'] = Path::Init($Path);
-    //     else if( isset($Path['Segments']) === TRUE )
-    //         $URL['Path'] = $Path;
-    //     else if( $Path !== NULL )
-    //         throw new Exception('Path not a string or Path Struct.');
+    //     if( is_string($path) === TRUE )
+    //         $URL['path'] = path::Init($path);
+    //     else if( isset($path['Segments']) === TRUE )
+    //         $URL['path'] = $path;
+    //     else if( $path !== NULL )
+    //         throw new Exception('path not a string or path Struct.');
     // }
 
     // /**
-    //  * Change the Query of a URL.
+    //  * Change the encoded of a URL.
     //  *
-    //  * @param string|array $Query A string or URLEncoded Struct to set.
+    //  * @param string|array $encoded A string or URLEncoded Struct to set.
     //  * @param array $URL A URL Struct.
-    //  * @throws Exception Query not a string or URLEncoded Struct.
+    //  * @throws Exception encoded not a string or URLEncoded Struct.
     //  */
-    // public static function SetQuery( $Query,&$URL )
+    // public static function Setencoded( $encoded,&$URL )
     // {
-    //     if( is_string($Query) === TRUE )
-    //         $URL['Query'] = URLEncoded::Init($Query);
-    //     else if( is_array($Query) === TRUE )
-    //         $URL['Query'] = $Query;
-    //     else if( $Query !== NULL )
-    //         throw new Exception("Query not a string or URLEncoded Struct.");
+    //     if( is_string($encoded) === TRUE )
+    //         $URL['encoded'] = URLEncoded::Init($encoded);
+    //     else if( is_array($encoded) === TRUE )
+    //         $URL['encoded'] = $encoded;
+    //     else if( $encoded !== NULL )
+    //         throw new Exception("encoded not a string or URLEncoded Struct.");
     // }
 
     // /**
-    //  * Change the Port of a URL.
+    //  * Change the port of a URL.
     //  *
-    //  * @param string|int $Port A string or integer.
+    //  * @param string|int $port A string or integer.
     //  * @param URL $URL A URL Struct.
     //  *
     //  * @note The port is always converted to a string.
     //  * @note If the port is 80 or 443, it is set as the empty string.
     //  */
-    // public static function SetPort( $Port,&$URL )
+    // public static function Setport( $port,&$URL )
     // {
-    //     if( in_array((string)$Port,array('','80','443')) === TRUE )
-    //         $URL['Port'] = '';
+    //     if( in_array((string)$port,array('','80','443')) === TRUE )
+    //         $URL['port'] = '';
     //     else
-    //         $URL['Port'] = (string) $Port;
+    //         $URL['port'] = (string) $port;
     // }
 
     // /**
-    //  * Change the Username of a URL.
+    //  * Change the username of a URL.
     //  *
-    //  * @param string $Username A string.
+    //  * @param string $username A string.
     //  * @param array $URL A URL Struct.
     //  *
     //  * @note Explicitly setting a username in a URL may be incompatible with some browsers, like IE.
     //  */
-    // public static function SetUsername( $Username,&$URL )
+    // public static function Setusername( $username,&$URL )
     // {
-    //     $URL['Username'] = $Username===NULL?$URL['Username']:$Username;
+    //     $URL['username'] = $username===NULL?$URL['username']:$username;
     // }
 
     // /**
-    //  * Change the Password of a URL.
+    //  * Change the password of a URL.
     //  *
-    //  * @param string $Password A string.
+    //  * @param string $password A string.
     //  * @param array $URL A URL Struct.
     //  *
-    //  * @note A Username check is not done.
+    //  * @note A username check is not done.
     //  * @note Explicitly setting a password in a URL may be incompatible with some browsers, like IE.
     //  */
-    // public static function SetPassword( $Password,&$URL )
+    // public static function Setpassword( $password,&$URL )
     // {
-    //     $URL['Password'] = $Password===NULL?$URL['Password']:$Password;
+    //     $URL['password'] = $password===NULL?$URL['password']:$password;
     // }
 
     // /**
-    //  * Change or delete the Fragment of a URL.
+    //  * Change or delete the fragment of a URL.
     //  *
-    //  * @param string $Fragment Fragment or a single # to delete an existing one.
+    //  * @param string $fragment fragment or a single # to delete an existing one.
     //  * @param array $URL A URL Struct.
     //  */
-    // public static function SetFragment( $Fragment,&$URL )
+    // public static function Setfragment( $fragment,&$URL )
     // {
-    //     if( $Fragment === '#' )
-    //         $URL['Fragment'] = '';
-    //     else if( $Fragment !== NULL )
-    //         $URL['Fragment'] = ltrim($Fragment,'#');
+    //     if( $fragment === '#' )
+    //         $URL['fragment'] = '';
+    //     else if( $fragment !== NULL )
+    //         $URL['fragment'] = ltrim($fragment,'#');
     // }
 
 
 
-    //   WAS HOSTNAME
+    //   WAS hostname
     // /**
-    //  * Create a string from the Hostname array.
+    //  * Create a string from the hostname array.
     //  *
-    //  * @param array $Hostname A Hostname Struct.
+    //  * @param array $hostname A hostname Struct.
     //  * @retval string The hostname string.
     //  */
-    // public static function ToString( $Hostname )
+    // public static function ToString( $hostname )
     // {
-    //     return implode('.',array_reverse($Hostname));
+    //     return implode('.',array_reverse($hostname));
     // }
 
     // /**
@@ -789,14 +516,14 @@ class URL extends DAO
     // }
 
     // /**
-    //  * Prepend or append a subdomain in a Hostname.
+    //  * Prepend or append a subdomain in a hostname.
     //  *
     //  * $Needle is a string defining the change to make:
     //  *  - \c <subdomain: prepend the subdomain.
     //  *  - \c >subdomain: append the subdomain.
     //  *
     //  * @param string $Needle Direction and subdomain to add.
-    //  * @param array $Haystack Hostname Struct.
+    //  * @param array $Haystack hostname Struct.
     //  * @retval int The position the subdomain was added.
     //  * @retval NULL Operation not recognized.
     //  *
@@ -818,15 +545,15 @@ class URL extends DAO
     //  * Search for and return the position of a sub-domain.
     //  *
     //  * @param string $Needle The sub-domain to search for.
-    //  * @param array $Hostname The Hostname Struct to search.
+    //  * @param array $hostname The hostname Struct to search.
     //  * @retval int The position of the sub-domain.
     //  * @retval FALSE The sub-domain was not found.
     //  *
     //  * @note The search is case-sensitive.
     //  */
-    // public static function Search( $Needle,$Hostname )
+    // public static function Search( $Needle,$hostname )
     // {
-    //     return array_search($Needle,$Hostname);
+    //     return array_search($Needle,$hostname);
     // }
 
     // /**
@@ -834,10 +561,10 @@ class URL extends DAO
     //  *
     //  * In a hostname such as www.asmblr.org, "org" is the top most sub-domain.
     //  *
-    //  * @param array $Haystack Hostname Struct.
+    //  * @param array $Haystack hostname Struct.
     //  * @param int $Limit Optional number of sub-domains to read, starting from 1.
     //  * @retval string The single top-most sub-domain.
-    //  * @retval array The specified number of top-most sub-domains as a new Hostname Struct.
+    //  * @retval array The specified number of top-most sub-domains as a new hostname Struct.
     //  */
     // public static function Top( $Haystack,$Limit = 0 )
     // {
@@ -852,10 +579,10 @@ class URL extends DAO
     //  *
     //  * In a hostname such as www.asmblr.org, "www" is the bottom most sub-domain.
     //  *
-    //  * @param array $Haystack Hostname Struct.
+    //  * @param array $Haystack hostname Struct.
     //  * @param int $Limit Optional number of sub-domains to read, starting from 1.
     //  * @retval string The single bottom-most sub-domain.
-    //  * @retval array The specified number of bottom-most sub-domains as a new Hostname Struct.
+    //  * @retval array The specified number of bottom-most sub-domains as a new hostname Struct.
     //  */
     // public static function Bottom( $Haystack,$Limit = 0 )
     // {
@@ -867,7 +594,7 @@ class URL extends DAO
 
 
     // /**
-    //  * Iterate through a Hostname sub-domain by sub-domain, left to right or right to left.
+    //  * Iterate through a hostname sub-domain by sub-domain, left to right or right to left.
     //  *
     //  * This creates an array containing increasingly more or less specific versions of
     //  * the same hostname.
@@ -875,16 +602,16 @@ class URL extends DAO
     //  * By default this returns an array in increasing hostname size, i.e. most general to
     //  * most specific.
     //  *
-    //  * @param array $Hostname The Hostname Struct.
+    //  * @param array $hostname The hostname Struct.
     //  * @param boolean $Inc Iterate in increasing hostname size, i.e., most general to most specific.
     //  * @retval array Ordered hostname sub-domains.
     //  *
     //  * @note Each hostname returned will have a leading period and no trailing period.
     //  */
-    // public static function Order( $Hostname,$Inc = TRUE )
+    // public static function Order( $hostname,$Inc = TRUE )
     // {
     //     $P = array();
-    //     foreach( $Hostname as $K => $V )
+    //     foreach( $hostname as $K => $V )
     //         $P[] = ".{$V}".($K>0?$P[$K-1]:'');
 
     //     if( $Inc === TRUE )
@@ -902,8 +629,8 @@ class URL extends DAO
     //  * If $Src has the same segment at the same position as $Dest, it is
     //  * skipped.  Otherwise, $Src segments are appended to $Dest.
     //  *
-    //  * @param Path $Src The Path to merge in.
-    //  * @param Path $Dest A reference to the base Path to merge into.
+    //  * @param path $Src The path to merge in.
+    //  * @param path $Dest A reference to the base path to merge into.
     //  *
     //  * @note All comparisions are type strict (===).
     //  * @note This is a no-op if $Src IsRoot is TRUE.
@@ -936,8 +663,8 @@ class URL extends DAO
     //  * If $Mask contains the same segments in the same positions as $Base,
     //  * remove those matching segments from $Base.
     //  *
-    //  * @param Path $Mask The Path that masks segments.
-    //  * @param Path $Base The Path that will have segments removed.
+    //  * @param path $Mask The path that masks segments.
+    //  * @param path $Base The path that will have segments removed.
     //  * @retval void
     //  *
     //  * @note This is implemented using array_diff() and array_values().
@@ -964,16 +691,16 @@ class URL extends DAO
     //  *  - The first character is a forward slash or a backslash.
     //  *  - The second character is a colon (for Windows paths).
     //  *
-    //  * @param string $Path The string to check.
-    //  * @throws Exception Path is not a string.
+    //  * @param string $path The string to check.
+    //  * @throws Exception path is not a string.
     //  * @retval boolean TRUE if the string is an absolute path.
     //  */
-    // public static function IsAbs( $Path )
+    // public static function IsAbs( $path )
     // {
-    //     if( is_string($Path) === FALSE )
-    //         throw new Exception("Path is not a string.");
+    //     if( is_string($path) === FALSE )
+    //         throw new Exception("path is not a string.");
 
-    //     return ((strpos($Path,'/')===0) || (strpos($Path,'\\')===0) || (strpos($Path,':')===1));
+    //     return ((strpos($path,'/')===0) || (strpos($path,'\\')===0) || (strpos($path,':')===1));
     // }
 
     // /**
@@ -984,8 +711,8 @@ class URL extends DAO
     //  *  - If $Child IsRoot is TRUE this returns FALSE.
     //  *  - If $Parent IsRoot is TRUE this returns TRUE.
     //  *
-    //  * @param Path $Child The child path.
-    //  * @param Path $Parent The parent path.
+    //  * @param path $Child The child path.
+    //  * @param path $Parent The parent path.
     //  * @retval boolean TRUE if $Child is a child of $Parent.
     //  */
     // public static function IsChild( $Child,$Parent )
@@ -1002,7 +729,7 @@ class URL extends DAO
     //  * Add a segment to the end of the path.
     //  *
     //  * @param string $Element The segment to append.
-    //  * @param Path $Subject The Path to append to.
+    //  * @param path $Subject The path to append to.
     //  * @retval int The position, counting from 0, at which the element was appended.
     //  */
     // public static function Append( $Element,&$Subject )
@@ -1026,7 +753,7 @@ class URL extends DAO
     //  * Add a segment to the beginning of the path.
     //  *
     //  * @param string $Element The segment to prepend.
-    //  * @param Path $Subject The Path to prepend to.
+    //  * @param path $Subject The path to prepend to.
     //  * @retval int 0
     //  */
     // public static function Prepend( $Element,&$Subject )
@@ -1052,7 +779,7 @@ class URL extends DAO
     //  *
     //  * @param string $Element The segment to insert.
     //  * @param int $RefPoint Reference point of insertion, starting from 0.
-    //  * @param Path &$Subject The Path to insert into.
+    //  * @param path &$Subject The path to insert into.
     //  */
     // public static function InsertAfter( $Element,$RefPoint,&$Subject )
     // {
@@ -1064,7 +791,7 @@ class URL extends DAO
     //  *
     //  * @param string $Element The segment to insert.
     //  * @param int $RefPoint Reference point of insertion, starting from 0.
-    //  * @param Path &$Subject The Path to insert into.
+    //  * @param path &$Subject The path to insert into.
     //  */
     // public static function InsertBefore( $Element,$RefPoint,&$Subject )
     // {
@@ -1072,7 +799,7 @@ class URL extends DAO
     // }
 
     // /**
-    //  * Get a segment from the Path.
+    //  * Get a segment from the path.
     //  *
     //  * See note for bottom - it may be appropriate to put ability to fetch
     //  * last, second-last, etc (perhaps modeled after substr().
@@ -1081,7 +808,7 @@ class URL extends DAO
     //  * No type of "length" is available (only one segment is returned).
     //  *
     //  * @param int $Needle Numeric index of segment, starting from 0.  A negative number will be counted from the end.
-    //  * @param Path $Haystack The Path to read the segment from.
+    //  * @param path $Haystack The path to read the segment from.
     //  * @param mixed $Check Optional value to check the segment against.
     //  */
     // public static function Get( $Needle,$Haystack,$Check = NULL )
@@ -1093,14 +820,14 @@ class URL extends DAO
     // }
 
     // /**
-    //  * Prepend or append a segment in a Path.
+    //  * Prepend or append a segment in a path.
     //  *
     //  * $Needle is a string defining the change to make:
     //  *  @li @c <segment: prepend the segment.
     //  *  @li @c >segment: append the segment.
     //  *
     //  * @param string $Needle Direction and segment to add.
-    //  * @param array $Haystack Path Struct.
+    //  * @param array $Haystack path Struct.
     //  * @retval int The position the segment was added.
     //  * @retval NULL Operation not recognized.
     //  *
@@ -1129,7 +856,7 @@ class URL extends DAO
     //  * Delete a segment by position.
     //  *
     //  * @param int $Needle The position of the segment, counting from 0.
-    //  * @param array $Haystack Path Struct.
+    //  * @param array $Haystack path Struct.
     //  */
     // public static function Del( $Needle,&$Haystack )
     // {
@@ -1141,10 +868,10 @@ class URL extends DAO
     //  *
     //  * In a path such as /one/two/three, "one" is the top most segment.
     //  *
-    //  * @param array $Haystack Path Struct.
+    //  * @param array $Haystack path Struct.
     //  * @param int $Limit Optional number of segments to read, starting from 1.
     //  * @retval string The single top-most path segment.
-    //  * @retval array The specified number of top-most path segments as a new Path Struct.
+    //  * @retval array The specified number of top-most path segments as a new path Struct.
     //  */
     // public static function Top( $Haystack,$Limit = 0 )
     // {
@@ -1163,10 +890,10 @@ class URL extends DAO
     //  *
     //  * In a path such as /one/two/three, "three" is the bottom most segment.
     //  *
-    //  * @param array $Haystack Path Struct.
+    //  * @param array $Haystack path Struct.
     //  * @param int $Limit Optional number of segments to read, starting from 1.
     //  * @retval string The single bottom-most path segment.
-    //  * @retval array The specified number of bottom-most path segments as a new Path Struct.
+    //  * @retval array The specified number of bottom-most path segments as a new path Struct.
     //  */
     // public static function Bottom( $Haystack,$Limit = 0 )
     // {
@@ -1184,7 +911,7 @@ class URL extends DAO
     // }
 
     // /**
-    //  * Iterate through a Path segment by segment, left to right or right to left.
+    //  * Iterate through a path segment by segment, left to right or right to left.
     //  *
     //  * This creates an array containing increasingly more or less specific versions of
     //  * the same path.
@@ -1192,24 +919,24 @@ class URL extends DAO
     //  * By default this returns an array in increasing path size, i.e. most general to
     //  * most specific.
     //  *
-    //  * @param array $Path The Path Struct.
+    //  * @param array $path The path Struct.
     //  * @param boolean $Inc FALSE to iterate in decreasing path size, i.e. most specific to most general.
     //  * @retval array Ordered path segments.
     //  *
-    //  * @note This doesn't honor IsDir or IsAbs of the Path struct - there will always be leading
+    //  * @note This doesn't honor IsDir or IsAbs of the path struct - there will always be leading
     //  *       and trailing separators on all segments.
     //  */
-    // public static function Order( $Path,$Inc = TRUE )
+    // public static function Order( $path,$Inc = TRUE )
     // {
-    //     if( Path::IsA($Path) === FALSE )
-    //         throw new Exception('Path is not a Path Struct');
+    //     if( path::IsA($path) === FALSE )
+    //         throw new Exception('path is not a path Struct');
 
-    //     if( $Path['IsRoot'] === TRUE )
-    //         return array($Path['Separator']);
+    //     if( $path['IsRoot'] === TRUE )
+    //         return array($path['Separator']);
 
     //     $P = array();
-    //     foreach( $Path['Segments'] as $K => $V )
-    //         $P[] = ($K>0?$P[$K-1]:(($Path['Separator']))).$V.$Path['Separator'];
+    //     foreach( $path['Segments'] as $K => $V )
+    //         $P[] = ($K>0?$P[$K-1]:(($path['Separator']))).$V.$path['Separator'];
 
     //     if( $Inc === TRUE )
     //         return $P;

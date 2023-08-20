@@ -145,9 +145,9 @@ abstract class AppT extends \asm\App implements Debuggable
             // if an exact match, no theming will happen and manifest pages are executed normally
             if( !empty($this->ExactMatch) )
             {
-                // // not active, 404 regardless of ordered match
-                // if( $this->ExactMatch['Status'] !== 'Active' )
-                //     throw new \asm\HTTP::404();
+                // not active, 404 regardless of ordered match
+                if( $this->ExactMatch['Status'] !== 'Active' )
+                    $this->NoPageHandler();
 
                 // execute an ordered match if exists
                 if( !empty($this->OrderedMatch) )
@@ -304,4 +304,18 @@ abstract class AppT extends \asm\App implements Debuggable
         $this->Theme = $T;
     }
 }
+
+
+
+abstract class Credentials
+{
+    public function __invoke( $Group )
+    {
+        if( isset($this->$Group) )
+            return $this->$Group;
+
+        llog("Unknown credentials '$Group'");
+    }
+}
+
 
