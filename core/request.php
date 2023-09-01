@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 /**
  * @file Request.php A HTTP or CLI request.
  * @author Stackware, LLC
@@ -8,9 +8,7 @@
  * @copyright See COPYRIGHT.txt and LICENSE.txt.
  */
 namespace asm;
-use asm\types\hostname,asm\types\encoded,asm\types\path;
-
-
+use asm\types\hostname,asm\types\encoded_str,asm\types\path,asm\types\url;
 
 
 /**
@@ -22,28 +20,49 @@ use asm\types\hostname,asm\types\encoded,asm\types\path;
  * It is used by asmd to calculate application URLs and determine whether the request
  * came from a web browser or from the command line, and is used throughout an app.
  *
- * Request data, like $_GET and $_POST, nor headers, are included.
+ * Request data, like $_GET and $_POST, and headers, are not included.
  *
  * This Struct is a "singleton" - once it's been initialized, it's values are persisted
  * in the $Request static variable (though it can be re-generated).
  */
-class Request
+class request
 {
-    public readonly \asm\URL $URL;
-
-//    'SiteURL'=>array(),'BaseURL'=>array(),'MatchPath'=>array(),
-//    'IsBaseScheme'=>FALSE,'IsBaseHostname'=>FALSE,'IsBasePort'=>FALSE,'IsBasePath'=>FALSE);
-
     public readonly bool $IsCLI;
-    public readonly string $PageName;
-    public readonly array $argv;
-    public readonly int $argc;
+
+    // the original request, untouched
+    public url $original_url;
+
+    // canonized URL according to base_url - used for redirect
+    public url $url;
+
+    // canonized root URL according to request, used for linking
+    public url $root_url;
+
+    // base URL template from config.
+    public string $base_url;
+
+    // path used for matching an endpoint
+    public path $route_path;
+
+
+    /**
+     * @todo PHP needs one-way readonly properties.
+     */
+    public readonly bool $IsBaseScheme;
+    public readonly bool $IsBaseHost;
+    public readonly bool $IsBasePath;
 
     public readonly bool $IsForwarded;
     public readonly bool $IsHTTPS;
-    public readonly string $RemoteIP;
+
+    public readonly string $remote_ip;
+
+    public readonly string $endpoint_name;
+    public readonly array $argv;
+    public readonly int $argc;
 
     const MIN_ARGC = 3;
+
 
     /**
      * Build up and normalize data about the current request.
@@ -54,24 +73,31 @@ class Request
      * of the app, for example hostname.com, and the second argument (argv[2]) must be
      * the page name.  Any additional arguments are passed to the page as a query string.
      * 
+     * @property $original_url The original request URL.
+     * @property $url The active request URL, canonicalized by $base_url; used to determine redirects.
+     * 
      * @todo consider SERVER_NAME/port/etc for GAE and similar environments (ports).
      * @todo Handle CLI arguments better, including supporting options like --something, which
      *       will be incorporated into the Config.
+     * 
      * @note HTTP auth isn't handled.
+     * @note The path is lowercased.
      */
-    public function __construct()
+    public function __construct( string $base_url = null )
     {
         if( !empty($_SERVER['argv']) )
         {
             if( $_SERVER['argc'] < self::MIN_ARGC )
-                throw new Exception("CLI execution requires at least two arguments: php DOC_ROOT/index.php {hostname} {pagename} args ...");
+                throw new E\Exception("CLI execution requires at least two arguments: php DOC_ROOT/index.php {hostname} {pagename} args ...");
 
             $this->IsCLI = true;
 
-            $this->URL = URL::str($_SERVER['argv'][1]);
-            $this->PageName = $_SERVER['argv'][2];
+            // @todo needs testing - also base_url usage?
+            $this->url = URL::str($_SERVER['argv'][1]);
+            $this->endpoint_name = $_SERVER['argv'][2];
 
-            // @todo need to handle argv better, or similar to a _GET
+            // @todo need to handle argv better, or similar to how a _GET is done
+            // @todo deal with POST?
             $this->argv = $_SERVER['argv'];
             $this->argc= $_SERVER['argc'];
         }
@@ -84,219 +110,119 @@ class Request
             if( $this->IsForwarded )
             {
                 [$this->IsHTTPS,$Scheme] = ($_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https' ? [true,'https'] : [false,'http']);
-                $this->RemoteIP = $_SERVER['HTTP_X_FORWARDED_FOR'];
+                $this->remote_ip = $_SERVER['HTTP_X_FORWARDED_FOR'];
 
-                $Host = $_SERVER['HTTP_X_FORWARDED_HOST'];
-                $Port = (int) $_SERVER['HTTP_X_FORWARDED_PORT'];
+                $Host = $_SERVER['HTTP_X_FORWARDED_HOST'] ?? $_SERVER['HTTP_HOST'];
+                $Port = $_SERVER['HTTP_X_FORWARDED_PORT'];
             }
             else
             {
                 [$this->IsHTTPS,$Scheme] = ($_SERVER['HTTPS'] ?? false === 'on' ? [true,'https'] : [false,'http']);
-                $this->RemoteIP = $_SERVER['REMOTE_ADDR'];
+                $this->remote_ip = $_SERVER['REMOTE_ADDR'];
 
                 $Host = $_SERVER['HTTP_HOST'];
-                $Port = (int) $_SERVER['SERVER_PORT'];
+                $Port = $_SERVER['SERVER_PORT'];
             }
 
             $Path = $_SERVER['DOCUMENT_URI'] ?? 'unknown';
 
             // @todo does anyone use username:password@ anymore?  :)
-            $this->URL = new URL($Scheme,'','',hostname::str($Host),$Port,path::url($Path),encoded::arr($_GET),'');
+
+            // maintained as the original request, not lower cased
+            $this->original_url = new url($Scheme,'','',hostname::str($Host),$Port,path::url($Path),encoded_str::arr($_GET),'');
+
+            // lowercased, canonized by base_url; active URL for processing the request
+            $this->url = clone $this->original_url;
+            $this->url->path->lower();
+
+            // merge in the baseurl if supplied - this will change $this->url
+            if( $base_url )
+                $this->use_base_url($base_url);
         }
     }
 
 
     /**
-     * Calculate application URLs, paths and indicators.
-     *
-     * The URLs are formed by merging data from a Request Struct with a base URL,
-     * typically from App::$BaseURL.  This is typically called from Request::__construct.
-     *
-     * URL parts specified by BaseURL will overwrite those of the request.
-     * BaseURL can include:
-     *  - A scheme, either http:// or https://.
+     * Canonicalize the request around a configured base URL, including setting flags and creating utility URLs.
+     * 
+     * This should always be called, even if base_url is wildcard/blank.
+     * 
+     * The base_url is a template URL that can specify:
+     *  - A scheme, either http:// or https://, or an asterisk to use the requested scheme.
      *  - A hostname, or an asterisk to use the requested hostname.
-     *  - A path, which is prepended to the path of the request.
+     *  - A path, which is prepended to the path of the request, or a root path.
+     * 
+     * The base_url is merged with the request's, to form the canonical request URL of the request:
+     *   - If the $base_url specifies one of the components above, and the request's
+     *     component doesn't match, the request's component is replaced by the $base_url component.
+     * 
+     * The following utility variables are involved:
+     *  - $base_url - configured template for the site's root URL
+     *  - $url = canonicalized request URL
+     *  - $root_url - canonicalized root URL of the site, always with a trailing '/', used for link creation, redirects
+     *  - $route_path - the canonicalized request path, with $base_url path removed and no trailing slash; used for routing the request
+     * 
+     * The following flags are also set, based on the request and base_url:
+     *  - $IsBaseScheme - TRUE if the specified scheme in the base URL matches the request scheme.
+     *  - $IsBaseHost - TRUE if the specified hostname in the base URL matches the request host.
+     *  - $IsBasePath - TRUE if the specified path in the base URL prefixes the request path.
      *
-     * The following URL/path variables are calculated:
-     *  - @c SiteURL: The base URL of the site, calculated by merging the scheme, hostname, port
-     *       and path of the current request and BaseURL.  It always contains a trailing
-     *       slash, is the root for all Page URLs, and used for LinkPage/Linkcnvyr URL creation.
-     *  - @c MatchPath: The Path used for matching Pages, calculated by masking the BaseURL's Path from
-     *       the current request.  It never has a trailing slash and is used by App::Execute to route
-     *       control to a Page via PageSet::Match.
-     *  - @c IsBaseScheme: TRUE if the BaseURL's scheme matches the requested scheme.
-     *  - @c IsBaseHostname: TRUE if the BaseURL's hostname matches the requested hostname.
-     *  - @c IsBasePort: TRUE if the BaseURL's port matches the requested port.
-     *  - @c IsBasePath: TRUE if the BaseURL's path matches the requested path.
+     * @param string $base_url Configured base URL.
      *
-     * All calculated values are stored directly in the Request array passed.
-     *
-     * @param array $Request A reference to a Request Struct, which is modified.
-     * @param string $BaseURL Base URL to calculate from.
-     *
-     * @note Paths are @e not lowercased.
+     * @property string $base_url The configured base URL template.
+     * @property \asm\types\url $root_url The site root, based on the $base_url and current request.
+     * @property \asm\types\url $url The request URL, canonicalized by $base_url.
+     * 
+     * @note Because there's no trailing slash on route_path, endpoints of /admin/ and /admin will both
+     *       match for both URLs.  It also means that /admin won't match for /admin/.
      * @note Username/password is not considered and not merged.
+     * 
+     * @todo test with a blank base_url vs all wildcards.  possibly have some options for dev mode
      */
-    public static function CalcURLs( &$Request,$BaseURL )
+    public function use_base_url( string $base_url ): void
     {
-        $MatchPath = array();
-        $IsBaseScheme = $IsBaseHostname = $IsBasePort = $IsBasePath = TRUE;
-
-        $SiteURL = $Request;
-
-        if( empty($BaseURL) )
+        $this->root_url = url::str(str_replace(['*:/','/*/'],
+                                               [$this->url->scheme.':/','/'.$this->url->hostname.($this->url->port?':'.$this->url->port:'').'/'],
+                                                $base_url));
+        $this->root_url->path->IsDir = true;
+                                                
+        if( $this->root_url->scheme !== $this->url->scheme )
         {
-            $MatchPath = $SiteURL['Path'];
-            $MatchPath['IsDir'] = FALSE;
-            $SiteURL['Path'] = Path::Init('/');
+            $this->url->scheme = $this->root_url->scheme;
+            $this->IsBaseScheme = false;
+        }
+        else
+            $this->IsBaseScheme = true;
+
+        if( ((string) $this->root_url->hostname) !== ((string) $this->url->hostname) )
+        {
+            $this->url->hostname = $this->root_url->hostname;
+            $this->IsBaseHost = false;
+        }
+        else
+            $this->IsBaseHost = true;
+
+        if( strpos((string) $this->url->path,(string) $this->root_url->path) === 0 )
+        {
+            $this->route_path = clone $this->url->path;
+            $this->route_path->IsDir = false;
+
+            if( count($this->root_url->path) )
+                $this->route_path->mask($this->root_url->path);
+         
+            $this->IsBasePath = true;
         }
         else
         {
-            /**
-             * @todo what's the * for?
-             */
-            $BaseURL = URL::Init(str_replace('*',Hostname::ToString($SiteURL['Hostname']),$BaseURL));
+            // @note The redirect/404/etc is left to the app.  Handle
+            // this by checking $IsBasePath.
+            $this->route_path = clone $this->url->path;
+            $this->route_path->IsDir = false;
 
-            if( !empty($BaseURL['Scheme']) )
-            {
-                $IsBaseScheme = ($BaseURL['Scheme'] === $SiteURL['Scheme']);
-                URL::SetScheme($BaseURL['Scheme'],$SiteURL);
-            }
-
-            if( !empty($BaseURL['Hostname']) )
-            {
-                $IsBaseHostname = ($BaseURL['Hostname'] === $SiteURL['Hostname']);
-                URL::SetHostname($BaseURL['Hostname'],$SiteURL);
-            }
-
-            if( !empty($BaseURL['Port']) )
-            {
-                $IsBasePort = ($BaseURL['Port'] === $SiteURL['Port']);
-                URL::SetPort($BaseURL['Port'],$SiteURL);
-            }
-
-            $MatchPath = $SiteURL['Path'];
-            $MatchPath['IsDir'] = FALSE;
-
-            if( $BaseURL['Path']['IsRoot'] === FALSE )
-            {
-                // @todo More efficient way of doing this...?
-                foreach( $BaseURL['Path']['Segments'] as $K => $V )
-                    $IsBasePath = isset($SiteURL['Path']['Segments'][$K]) && $SiteURL['Path']['Segments'][$K] === $V;
-
-                URL::SetPath($BaseURL['Path'],$SiteURL);
-                Path::Mask($SiteURL['Path'],$MatchPath);
-            }
-            else
-                $SiteURL['Path'] = Path::Init('/');
-        }
-
-        $Request['SiteURL'] = $SiteURL;
-        $Request['BaseURL'] = $BaseURL;
-        $Request['MatchPath'] = $MatchPath;
-        $Request['IsBaseScheme'] = $IsBaseScheme;
-        $Request['IsBaseHostname'] = $IsBaseHostname;
-        $Request['IsBasePort'] = $IsBasePort;
-        $Request['IsBasePath'] = $IsBasePath;
-    }
-
-
-    /**
-     * Read the request's full hostname, or sub-domains of it, as a string.
-     *
-     * A $Limit of 0 (default) returns the full hostname.  A negative
-     * value returns that many sub-domains from the bottom.  A positive
-     * values returns that many sub-domains from the top.
-     *
-     * Given @c www.asmblr.org, @c -1 returns @c www, @c 1 returns @c org,
-     * @c -2 returns @c www.asmblr, @c 2 returns @c asmblr.org and
-     * @c 0 (default) returns @c www.asmblr.org.
-     *
-     * @param int $Limit Optional number and direction of sub-domains to return.
-     * @retval string The hostname string.
-     *
-     * @see Hostname::Top()
-     * @see Hostname::Bottom()
-     */
-    public static function Hostname( $Limit = 0 )
-    {
-        if( $Limit === 0 )
-            return Hostname::ToString(static::Init()['Hostname']);
-        else if( $Limit < 0 )
-            return Hostname::ToString(Hostname::Bottom(static::Init()['Hostname'],abs($Limit)));
-        else if( $Limit > 0 )
-            return Hostname::ToString(Hostname::Top(static::Init()['Hostname'],$Limit));
-        else
-            return 'INVALID HOSTNAME LIMIT';
-    }
-
-    /**
-     * Read the request's full path or segments of it as a string.
-     *
-     * A $Limit of 0 (default) returns the full path.  A negative
-     * value returns that many path segments from the bottom.  A positive
-     * values returns that many path segments from the top.
-     *
-     * Given @c /first/second/third, @c -1 returns @c third, @c 1 returns @c first,
-     * @c -2 returns @c /second/third, @c 2 returns @c /first/second and
-     * @c 0 (default) returns @c /first/second/third.
-     *
-     * @param int $Limit Optional number and direction of path segments to return.
-     * @retval string The path string.
-     *
-     * @note Paths returned using a top or bottom limit will never have leading
-     *       or trailing separators (slashes).
-     *
-     * @see Path::Top()
-     * @see Path::Bottom()
-     */
-    public static function Path( $Limit = 0 )
-    {
-        $P = static::Init()['Path'];
-
-        if( $Limit === 0 )
-        {
-            return Path::ToURLString($P);
-        }
-        else if( $Limit < 0 )
-        {
-            $P['IsAbs'] = $P['IsDir'] = FALSE;
-            return Path::ToURLString(Path::Bottom($P,abs($Limit)));
-        }
-        else if( $Limit > 0 )
-        {
-            $P['IsAbs'] = $P['IsDir'] = FALSE;
-            return Path::ToURLString(Path::Top($P,$Limit));
-        }
-        else
-            return 'INVALID PATH LIMIT';
-    }
-
-
-    /**
-     * Read the request's full URL as a string.
-     *
-     * By default the URL returned will NOT include the query string.  Pass $_GET to have it included.
-     *
-     * @param array $Set A URL::Set() compatible change string/array.
-     * @retval string The URL string.
-     *
-     * @see URL::Set()
-     */
-    public static function URL( $Set = array() )
-    {
-        if( empty($Set) )
-        {
-            return \asm\URL::ToString(static::Init());
-        }
-        else
-        {
-            $U = static::Init();
-            \asm\URL::Set($Set,$U);
-            return \asm\URL::ToString($U);
+            $this->IsBasePath = false;
         }
     }
+
 
     /**
      * Determine whether the request appears to be from a mobile device.
@@ -306,12 +232,16 @@ class Request
      *
      * @todo Review and optimize (possibly getting rid of the regex).
      */
-    public static function IsMobile()
+    public static function IsMobile(): bool
     {
-        if( !empty($_SERVER['HTTP_USER_AGENT']) )
-            return (bool) preg_match('#\b(ip(hone|od)|android\b.+\bmobile|opera m(ob|in)i|windows (phone|ce)|blackberry|s(ymbian|eries60|amsung)|p(alm|rofile/midp|laystation portable)|nokia|fennec|htc[\-_]|up\.browser|[1-4][0-9]{2}x[1-4][0-9]{2})\b#i',$_SERVER['HTTP_USER_AGENT'] );
-        else
-            return NULL;
+        if( empty($_SERVER['HTTP_USER_AGENT']) )
+            return false;
+
+        foreach( ['iPhone','iPad','iPod','Android'] as $ua )
+            if( stripos($_SERVER['HTTP_USER_AGENT'],$ua) > 0 )
+                return true;
+
+        return false;
     }
 
     /**
@@ -334,6 +264,7 @@ class Request
      * Determine if the request is FirePHP aware.
      *
      * @retval bool TRUE if the request is FirePHP aware.
+     * @todo revise
      */
     public static function IsFirePHP()
     {
@@ -348,6 +279,8 @@ class Request
  *
  * The FileUpload Struct encapsulates information about one or
  * multiple file uploads as found in PHP's $_FILES superglobal.
+ * 
+ * @todo revise or delete.
  */
 abstract class FileUpload
 {
@@ -460,5 +393,4 @@ abstract class FileUpload
             return 'Unknown';
     }
 }
-
 
