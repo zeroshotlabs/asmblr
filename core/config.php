@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 /**
  * @file config.php CSV/Google Sheets based configuration.
  * @author Stackware, LLC
@@ -9,52 +9,47 @@
  */
 namespace asm;
 
+use Exception;
+use asm\types\dao;
+use asm\E\e500;
 
-/**
- * Singleton credential manager.
- * 
- * Assumes a global $Credentials object is defined.
- * 
- * @see \asm\AppT::creds()
- */
-function creds( $Group )
-{
-    static $Credentials = null;
-
-    if( empty($Credentials) )
-        $Credentials = new \Credentials;
-
-    return ((object) $Credentials($Group));
-}
+use function asm\sys\_stde;
 
 
 
 // All labels are lowercase.
 // it can't currently detect non-existant sheet tabs and the first is returned which causes a mess
 // sheets tabs must be specified by name
+// handles secrets too
 class config
 {
     use \asm\types\dynamic_kv;
 
-    protected array $asmd;
+    /**
+     * true only if Status is 'live'.  Used in $app
+     */
+    public readonly bool $IsProduction;
+
+    protected array $app;
     protected array $endpoints;
+    protected array $endpoints_url_map = [];
     protected array $templates;
     protected array $creds;
     protected array $meta;
 
-//    protected array $obj_cache = ['asmd'=>null,'pages'=>null,'templates'=>null,'creds'=>null,'meta'=>null];
+//    protected array $obj_cache = ['app'=>null,'pages'=>null,'templates'=>null,'creds'=>null,'meta'=>null];
 
 
     /**
      * Template URL for Google Sheets GVIZ API.  8/23
      */ 
-    protected $BaseURL = 'https://docs.google.com/spreadsheets/d/{sheetid}/gviz/tq?tqx=out:json&sheet={sheet}&headers=0';
+    protected $google_skel_url = 'https://docs.google.com/spreadsheets/d/{sheetid}/gviz/tq?tqx=out:json&sheet={sheet}&headers=0';
 
-    protected $_asmd_fields = ['status','sysop','baseurl','forcescheme','forcehost','forcepath'];
+    protected $_app_fields = ['status','sysop','base_url','force_scheme','force_host','force_path'];
 
     /**
      * reserved keys for config rows
-     *  - _asmd_fields
+     *  - _app_fields
      *  - directive
      *  - page
      *  - template
@@ -73,7 +68,7 @@ class config
 
         foreach( $SheetTabs as $ST )
         {
-            $URL = str_replace(['{sheetid}','{sheet}'],[$this->SheetID,$ST],$this->BaseURL);
+            $URL = str_replace(['{sheetid}','{sheet}'],[$this->SheetID,$ST],$this->google_skel_url);
 
             $j = file_get_contents($URL,false,$context);
 
@@ -101,15 +96,18 @@ class config
                     continue;
                 }
 
+                if( trim(implode('',$row)) === '' )
+                    continue;
+
                 $col0_label = strtolower($row[0]);
 
                 // use the first row to determine what type of sheet we have and send the rows
                 // to the handler and skip to the next tab
 
-                // this is the main config sheet asmd
-                if( $i === 0 && in_array($col0_label,$this->_asmd_fields) )
+                // this is the main config sheet of the app
+                if( $i === 0 && in_array($col0_label,$this->_app_fields) )
                 {
-                    $this->_handle_asmd($j['table']['rows']);
+                    $this->_handle_app($j['table']['rows']);
                     continue 2;
                 }
                 else if( $i === 0 && $col0_label === 'creds')
@@ -132,41 +130,63 @@ class config
 
             $this->SheetTabs[$ST] = $j;
         }
+
+        if( empty($this->endpoints_url_map['//']) )
+            throw new e500('No global route.');
     }
 
-    public function __get( string $name )
+    /**
+     * Read a config value by section:
+     *   app
+     *   endpoints
+     *   endpoints_url_map
+     *   templates
+     *   creds
+     *   meta
+     * 
+     * @todo returns array; could return an object
+     */
+    public function __get( string $name ): dao
     {
-
-
+        return new dao($this->{strtolower($name)} ?? []);
     }
 
-
-    protected function _handle_asmd( array $rows ): void
+    public function __isset( string $name ): bool
     {
-        $this->asmd = ['directives'=>[]];
+        return isset($this->{strtolower($name)});
+    }
+
+    protected function _handle_app( array $rows ): void
+    {
+        $this->app = ['directives'=>[]];
         $last_name = $last_type = '';
         foreach( $rows as $row )
         {
             $row = $this->_sweeten($row);
             if( empty($row) )
             {
-                _stde("Couldn't sweeten asmd row - bad structure: ".implode('|',$row));
+                _stde("Couldn't sweeten app row - bad structure: ".implode('|',$row));
                 continue;
             }
 
-            $col0_label = strtolower($row[0]);
+            $col0_label = strtolower($row[0]??'');
 
             // add known keys and custom keys prefixed with _
-            if( in_array($col0_label,$this->_asmd_fields) || ($col0_label[0] ?? '') === '_' )
+            if( in_array($col0_label,$this->_app_fields) || ($col0_label[0] ?? '') === '_' )
             {
-                $this->asmd[$col0_label] = $row[1];
+                if( $col0_label === 'base_url' && !empty($row[1]) && strpos($row[1],'://') === false )
+                    throw new Exception("Invalid base_url - must contain '://': {$row[1]}");
+
+                if( $col0_label === 'status' )
+                    $this->IsProduction = $row[1]==='live'?true:false;
+
+                $this->app[$col0_label] = $row[1];
             }
             else if( $col0_label === 'directive' )
             {
-                $this->asmd['directives'][] = $this->_process_directive($row);
+                $this->app['directives'][] = $this->_process_directive($row);
             }
-            // @note both treated the same for now
-            else if( $col0_label === 'page' || $col0_label === 'endpoint'  )
+            else if( $col0_label === 'endpoint'  )
             {
                 $last_name = $this->_process_endpoint($row);
                 $last_type = 'endpoints';
@@ -176,7 +196,7 @@ class config
                 $last_name = $this->_process_template($row);
                 $last_type = 'templates';
             }
-            else if( $col0_label === '' && strtolower($row[1]) === 'directive' )
+            else if( $col0_label === '' && strtolower($row[1]??'') === 'directive' )
             {
                 $d = $this->_process_directive($row,1);
 
@@ -192,7 +212,7 @@ class config
             }
             else
             {
-                _stde("Unexpected asmd config setting: $col0_label");
+                _stde("Unexpected app config setting: $col0_label");
             }
         }
     }
@@ -254,7 +274,7 @@ class config
      */
     private function _sweeten( array $row ): array
     {
-        return array_map(fn($v)=>!empty($v['v'])&&trim($v['v'])!=''?trim($v['v']):null,$row['c']);
+        return array_map(fn($v)=>!empty($v['v'])&&trim($v['v'])!=''?trim($v['v']):'',$row['c']);
     }
 
     private function _process_directive( array $row,int $offset = 0 ): array
@@ -262,6 +282,9 @@ class config
         return ['subject'=>$row[$offset+1],'key'=>$row[$offset+2],'value'=>$row[$offset+3]];
     }
 
+    /**
+     * @note lowercases the name and URL
+     */
     private function _process_endpoint( array $row ): string
     {
         if( empty($row[1]) )
@@ -274,7 +297,16 @@ class config
         if( !empty($this->endpoints[$lower_name]) )
             _stde("Duplicate endpoint name: {$lower_name} - overwriting!");
 
-        $this->endpoints[$lower_name] = ['name'=>$row[1],'url'=>$row[2],'status'=>$row[3],'function'=>$row[4],'directives'=>[]];
+        $lower_url = strtolower($row[2]);        
+        if( !empty($this->endpoints_url_map[$lower_url]) )
+            _stde("Duplicate endpoint URL: {$lower_url} - overwriting!");
+
+        $this->endpoints[$lower_name] = ['name'=>$row[1],'url'=>$row[2],'status'=>$row[3],'exec'=>$row[4],'directives'=>[]];
+
+        // @note CLI check; this means CLI endpoints aren't included in the map, but are in the endpoints array.
+        if( !empty($lower_url) )
+            $this->endpoints_url_map[$lower_url] = $this->endpoints[$lower_name];
+
         return $lower_name;
     }
     
@@ -289,9 +321,34 @@ class config
         if( !empty($this->templates[$lower_name]) )
             _stde("Duplicate template name: {$lower_name} - overwriting!");
 
-        $this->templates[$lower_name] = ['name'=>$row[1],'url'=>$row[2],'status'=>$row[3],'function'=>$row[4],'directives'=>[]];
+        $this->templates[$lower_name] = ['name'=>$row[1],'url'=>$row[2],'status'=>$row[3],'exec'=>$row[4],'directives'=>[]];
         return $lower_name;
     }
 }
 
+/**
+ * App secrets accessor.
+ * 
+ */
+function secrets( string $file = APP_ROOT.'/secrets.php' )
+{
+    return include($file);
+}
 
+// /**
+//  * App secrets container.
+//  * 
+//  * @note maybe better to use the config for this.
+//  */
+// abstract class _secrets
+// {
+//     private final function __construct(){}
+
+//     public static function __callStatic( string $name,array $args ): mixed
+//     {
+//         if( !empty($args[0]) )
+//             return static::$$name[$args[0]] ?? [];
+//         else
+//             return static::$$name ?? [];
+//     }
+// }
