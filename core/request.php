@@ -97,7 +97,6 @@ class request
             $this->endpoint_name = $_SERVER['argv'][2];
 
             // @todo need to handle argv better, or similar to how a _GET is done
-            // @todo deal with POST?
             $this->argv = $_SERVER['argv'];
             $this->argc= $_SERVER['argc'];
         }
@@ -129,6 +128,7 @@ class request
             // @todo does anyone use username:password@ anymore?  :)
 
             // maintained as the original request, not lower cased
+            // @note $_POST isn't included.
             $this->original_url = new url($Scheme,'','',hostname::str($Host),$Port,path::url($Path),encoded_str::arr($_GET),'');
 
             // lowercased, canonized by base_url; active URL for processing the request
