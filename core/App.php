@@ -22,17 +22,6 @@ namespace asm;
 
 abstract class App
 {
-    /**
-     * @var string $CacheDir
-     * Absolute path to the asmblr local cache.
-     *
-     * @note This must be set explicitly in the extending class.
-     *
-     * @todo For future GAE integration:
-     *      @c gs://asmblr-mc-tmp/
-     *      @c array('gs'=>array('Content-Type'=>'text/plain'))
-     */
-    public $CacheDir = '';
 
     /**
      * @var string $Hostname
@@ -53,21 +42,6 @@ abstract class App
      */
     public $AppRoot = '';
 
-    /**
-     * @var boolean $CacheManifest
-     * TRUE to cache the manifest to the local disk.
-     * 
-     * @note This is configured in the application array in @c index.php
-     */
-    public $CacheManifest = FALSE;
-
-    /**
-     * @var boolean $CacheApp
-     * TRUE to cache the app into a local app-file.
-     *
-     * @note This is configured in the application array in @c index.php
-     */
-    public $CacheApp = FALSE;
 
     /**
      * @var boolean $BuiltManifest
@@ -211,22 +185,6 @@ abstract class App
      */
     public function __construct( $App,$Request,$ConfigOverride = array() )
     {
-        // load config
-        // determine configured site URL (Base) and restrictions
-        // determine request (and requested URL)
-        // calculate delta betwen the two
-        //      -- different hostname/scheme/port
-        //      -- differences in path, including root and matching part
-        //      -- if any differences require a redirect, do so with adjustments
-        //          use HTTPExceptions/anon functions
-        //      -- start matching pages
-        //          start with most specific (bottom) match, followed by directory matches
-        //          given request of /admin/list
-        //              page URL = /admin/       matches request /admin/anything
-        //              page URL = /admin/list   matches only request /admin/list
-        //          Two pages will execute, in order unless the first page returns FALSE
-        
-
 
 
         $this->Hostname = $App['Hostname'];

@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 /**
  * @file AppT.php asmblr application controller with theming.
  * @author Stackware, LLC

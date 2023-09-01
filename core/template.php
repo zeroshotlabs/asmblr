@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 /**
  * @file Template.php Text templating and rendering.
  * @author Stackware, LLC
@@ -13,7 +13,7 @@ namespace asm;
 /**
  * A Template is a block of text that can be rendered.
  *
- * A Template contains a Name, an optional function, and a body.  The Name
+ * A Template contains a Name, an optional executeable, and a body.  The Name
  * must be unique within a TemplateSet.
  *
  * If a function is present, it is executed before rendering occurs.  If the

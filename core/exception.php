@@ -1,5 +1,5 @@
-<?php
-namespace asm;
+<?php declare(strict_types=1);
+namespace asm\E;
 
 
 /**
@@ -7,6 +7,28 @@ namespace asm;
  *
  * Thrown internally by asmblr.
  */
-class Exception extends \Exception
+class exception extends \Exception
 {
 }
+
+
+class eHTTP extends exception
+{
+    
+}
+// default if otherwise uncaught
+class e500 extends eHTTP
+{
+
+}
+
+class e404 extends eHTTP
+{
+
+}
+
+class e501 extends eHTTP
+{
+
+}
+
