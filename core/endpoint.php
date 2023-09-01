@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 /**
  * @file Endpoint.php Associates a URL or named request to an application logic block.
  * @author Stackware, LLC
@@ -9,14 +9,40 @@
  */
 namespace asm;
 
+use asm\types\endpointi as endpointi;
 
-class Endpoint
-// implements Endpointi
+/**
+ * 
+ * This base class implements default routing for asmblr using __invoke(), as described below.
+ * 
+ * Endpoints can serve two purposes:
+ *  - they can be used to route URLs to other endpoints, or execute logic for a
+ *    hierarchy of URLs
+ *      - the 'root' has URL '//' and performs the default routing for web requests.
+ *      - if the configured path contains a trailing slash, an endpoint object is 
+ *        instantiated and executed (__invoke()) 
+ *      - configured as:  endpoint_class
+ *      - if a routing endpoint returns false, no other endpoints are executed and the
+ *        response finishes.
+ * 
+ *  - they can be used to execute application logic blocks for specific URLs
+ *      - if the configured path doesn't contain a trailing slash, an endpoint obj 
+ *        is instantiated and the specified method is called. 
+ *      - configured as:  endpoint_class::url_method
+ * 
+ * As is general practice, non-routers should implement the constructor
+ * and a method specific to the request, which is defined in the config.  Routers invoke __invoke().
+ * 
+ * None of this applies to CLI requests as a single endpoint class is executed by name.
+ */
+class endpoint implements endpointi
 {
-    protected $_func = NULL;
+    protected $_exec = NULL;
 
-    private function __construct( $func )
-    { }
+    private function __construct( array $endpoint )
+    {
+        $this->_exec = $endpoint;
+    }
 
     public function __invoke( $request,$target )
     {
@@ -24,55 +50,8 @@ class Endpoint
     }
 }
 
+class root extends endpoint
+{
+//    public
 
-// $dd->login();
-// $dd->login();
-
-
-// /**
-//  * An Endpoint represents a unit of application logic for a Path or hierarchy of Paths, or by name.
-//  *
-//  * An Endpoint can be matched in one of the following ways:
-//  * 
-//  *  contains one trigger absolute Path, a Name, an optional function, and none, one or more
-//  * Directives.  The Path and Name must be unique within a PageSet.
-//  *
-//  * Pages are executed and managed by a PageSet, forming the "control layer".  PageSets and
-//  * Pages are managed through the config.
-//  */
-// abstract class Page extends DAO
-// {
-//     /**
-//      * @var array $Skel
-//      * The base structure of a Page.
-//      */
-//     protected static $Skel = array('Name'=>'','Path'=>'','Status'=>'','PathStruct'=>array(),'Function'=>array(),'Directives'=>array());
-
-
-//     /**
-//      * Create a new Page Struct.
-//      *
-//      * @param string $Name The name of the Page.
-//      * @param string $Path The trigger absolute path of the Page which is lowercased.
-//      * @param string $Status The page's status, generally @c Active.
-//      * @param string|array $Function A function callback.
-//      * @retval array The created Page Struct.
-//      *
-//      * @note The Path should not be encoded.
-//      */
-//     public function __construct( protected $Name,protected $Path, protected $Status,protected $Function = NULL )
-//     {
-//         $Page = static::$Skel;
-
-//         $Page['Name'] = $Name;
-
-//         $Page['Path'] = strtolower($Path);
-//         $Page['PathStruct'] = Path::str($Page['Path']);
-
-//         $Page['Status'] = $Status;
-
-//         $Page['Function'] = $Function;
-
-//         return $Page;
-//     }
-// }
+}
