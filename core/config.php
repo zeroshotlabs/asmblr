@@ -21,6 +21,7 @@ use function asm\sys\_stde;
 // it can't currently detect non-existant sheet tabs and the first is returned which causes a mess
 // sheets tabs must be specified by name
 // handles secrets too
+// @todo enable local config overrides
 class config
 {
     use \asm\types\dynamic_kv;
@@ -45,11 +46,11 @@ class config
      */ 
     protected $google_skel_url = 'https://docs.google.com/spreadsheets/d/{sheetid}/gviz/tq?tqx=out:json&sheet={sheet}&headers=0';
 
-    protected $_app_fields = ['status','sysop','base_url','force_scheme','force_host','force_path'];
+    protected $app_fields = ['status','sysop','base_url','force_scheme','force_host','force_path'];
 
     /**
      * reserved keys for config rows
-     *  - _app_fields
+     *  - app_fields
      *  - directive
      *  - page
      *  - template
@@ -105,7 +106,7 @@ class config
                 // to the handler and skip to the next tab
 
                 // this is the main config sheet of the app
-                if( $i === 0 && in_array($col0_label,$this->_app_fields) )
+                if( $i === 0 && in_array($col0_label,$this->app_fields) )
                 {
                     $this->_handle_app($j['table']['rows']);
                     continue 2;
@@ -137,14 +138,15 @@ class config
 
     /**
      * Read a config value by section:
-     *   app
-     *   endpoints
-     *   endpoints_url_map
-     *   templates
-     *   creds
-     *   meta
+     *   - app
+     *   - endpoints
+     *   - endpoints_url_map
+     *   - templates
+     *   - creds
+     *   - meta
      * 
-     * @todo returns array; could return an object
+     * @return dao object of configuration directives.
+     * @todo probably should cache objects.
      */
     public function __get( string $name ): dao
     {
@@ -172,7 +174,7 @@ class config
             $col0_label = strtolower($row[0]??'');
 
             // add known keys and custom keys prefixed with _
-            if( in_array($col0_label,$this->_app_fields) || ($col0_label[0] ?? '') === '_' )
+            if( in_array($col0_label,$this->app_fields) || ($col0_label[0] ?? '') === '_' )
             {
                 if( $col0_label === 'base_url' && !empty($row[1]) && strpos($row[1],'://') === false )
                     throw new Exception("Invalid base_url - must contain '://': {$row[1]}");
@@ -283,7 +285,8 @@ class config
     }
 
     /**
-     * @note lowercases the name and URL
+     * @note lowercases the name and URL; should use path class.
+     * @note this contains the definition of the endpoint array, which should be centralized.
      */
     private function _process_endpoint( array $row ): string
     {
@@ -297,15 +300,27 @@ class config
         if( !empty($this->endpoints[$lower_name]) )
             _stde("Duplicate endpoint name: {$lower_name} - overwriting!");
 
-        $lower_url = strtolower($row[2]);        
-        if( !empty($this->endpoints_url_map[$lower_url]) )
-            _stde("Duplicate endpoint URL: {$lower_url} - overwriting!");
+        $lower_url = strtolower($row[2]);
 
-        $this->endpoints[$lower_name] = ['name'=>$row[1],'url'=>$row[2],'status'=>$row[3],'exec'=>$row[4],'directives'=>[]];
+        // @note these are CLI endpoints.  They won't be in the URL map and they
+        // are never greedy (they are called by name).
+        if( empty($lower_url) )
+        {
+            $this->endpoints[$lower_name] = ['name'=>$row[1],'url'=>'','greedy'=>false,'status'=>$row[3],'exec'=>$row[4],'directives'=>[]];
+        }
+        else
+        {
+            // @note greedy endpoint; won't include the super-root.
+            if( strpos($lower_url,'//') > 0 )
+                $this->endpoints[$lower_name] = ['name'=>$row[1],'url'=>$lower_url,'greedy'=>true,'status'=>$row[3],'exec'=>$row[4],'directives'=>[]];  
+            else
+                $this->endpoints[$lower_name] = ['name'=>$row[1],'url'=>$lower_url,'greedy'=>false,'status'=>$row[3],'exec'=>$row[4],'directives'=>[]];  
 
-        // @note CLI check; this means CLI endpoints aren't included in the map, but are in the endpoints array.
-        if( !empty($lower_url) )
+            if( !empty($this->endpoints_url_map[$lower_url]) )
+                _stde("Duplicate endpoint URL: {$lower_url} - overwriting!");
+    
             $this->endpoints_url_map[$lower_url] = $this->endpoints[$lower_name];
+        }
 
         return $lower_name;
     }
