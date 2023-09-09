@@ -7,13 +7,14 @@
  * @copyright Licensed under the GNU General Public License
  * @copyright See COPYRIGHT.txt and LICENSE.txt.
  */
-namespace asm\promptd;
-
-use \asm\DAO as DAO;
-use \asm\Exception as Exception;
+namespace asm\extensions\promptd;
 
 
-class prompt extends DAO
+use \asm\types\dao as dao;
+use function \asm\sys\_stde as _stde;
+
+
+class prompt extends dao
 {
     // if we want to use chatgpt have to specify the model:  'model' => 'text-davinci-003',
     // functions not supported currently (asmblr template functions)
@@ -34,9 +35,9 @@ class prompt extends DAO
 }
 
 // currently supports only a single response
-class response extends DAO implements \Stringable
+class response extends dao implements \Stringable
 {
-    public $id,$type,$model,$response,$index,$logprobs,$finishReason,$result;
+    public $id,$type,$created,$model,$response,$index,$logprobs,$finish_reason,$result;
 
     // popular: |\.:/|
     protected $validation_token = NULL;
@@ -89,7 +90,7 @@ class response extends DAO implements \Stringable
                 return TRUE;
             else
             {
-                llog('NULL JSON result');
+                _stde('NULL JSON result');
                 return FALSE;
             }
         }
@@ -110,81 +111,3 @@ class response extends DAO implements \Stringable
             return FALSE;
     }
 }
-
-/** not really used buy might come in handy **/
-class fs_utils
-{
-    public $file;
-    public $files;
-
-    public function __construct()
-    {
-        $this->file = [];
-        $this->files = [];
-    }
-
-    // populates $this->file
-    function open_file( $path,$mask = '' )
-    {
-        if( !is_file($path) )
-            throw new Exception("File '$path' not valid.");
-
-        $path = realpath($path);
-
-        $mask_len = strlen($mask);
-        $url = substr($path,0,$mask_len);
-
-        $ct = \asm\HTTP::Filename2ContentType($path);
-
-        $this->file[$url] = ['content_type'=>$ct,
-                                      'url'=>$url,
-                                  'content'=>file_get_contents($path)];
-
-        $char_cnt = strlen($this->file[$url]['content']);
-
-        _stdo("\n{$char_cnt} - $path");
-    }
-
-    // populates $this->files
-    function open_dir( $path )
-    {
-        $this->files = [];
-
-        if( !is_dir($path) )
-            throw new Exception("Directory '$path' not valid.");
-
-        $path = realpath($path);
-
-        $path_len = strlen($path);
-
-
-        try {
-
-            // Get all HTML type files recursively from the provided directory
-            // quick change to add all files to a single string
-            $file_i = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($path,\FilesystemIterator::KEY_AS_PATHNAME & \FilesystemIterator::SKIP_DOTS & \RecursiveIteratorIterator::CATCH_GET_CHILD));
-            $file_cnt = $char_cnt = 0;
-
-            foreach( $file_i as $pathname => $file_j )
-            {
-                if( $file_j->isFile() && in_array(strtolower(pathinfo($file_j->getFilename(),PATHINFO_EXTENSION)),['html','txt','php','tpl','htm','css','js'] ) )
-                {
-                    $ct = \asm\HTTP::Filename2ContentType($pathname);
-                    $url = substr($pathname,0,$path_len);
-                    $this->files[$url] = ['content_type'=>$ct,
-                                    'url'=>$url,
-                                    'content'=>file_get_contents($file_j->getPathname())];
-                    $file_cnt++;
-                    $char_cnt += strlen($this->files[$url]['content']);
-                    _stdo("{$char_cnt} - $pathname - $url");
-                }
-            }
-        } catch( Exception $e ) {
-            _stdo("permission denied for $pathname");
-        }
-
-        return [$file_cnt,$char_cnt];
-    }
-}
-
-

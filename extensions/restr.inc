@@ -7,7 +7,7 @@
  * @copyright Licensed under the GNU General Public License
  * @copyright See COPYRIGHT.txt and LICENSE.txt.
  */
-namespace asm;
+namespace asm\extensions\restr;
 
 
 /**
