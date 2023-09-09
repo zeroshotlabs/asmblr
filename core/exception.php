@@ -9,8 +9,8 @@ use asm\types\url;
  * Namespace-local exception.
  *
  * Thrown internally by asmblr and can send HTTP headers and log
- * appropriately.  They can also redirect or indicate a 404 - even
- * on the CLI!
+ * appropriately.  They can also redirect or indicate a 404 -
+ * even on the CLI!
  * 
  * @see eHTTP
  */
