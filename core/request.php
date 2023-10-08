@@ -58,9 +58,9 @@ class request
     public readonly string $remote_ip;
 
     public readonly string $endpoint_name;
+
     public readonly array $argv;
     public readonly int $argc;
-
     const MIN_ARGC = 3;
 
 
@@ -254,8 +254,6 @@ class request
      */
     public static function IsChromePHP()
     {
-        return TRUE;
-
         if( !empty($_SERVER['HTTP_USER_AGENT']) )
             return (bool) preg_match('{\bChrome/\d+[\.\d+]*\b}',$_SERVER['HTTP_USER_AGENT']);
     }
@@ -272,125 +270,3 @@ class request
             return TRUE;
     }
 }
-
-
-/**
- * Normalize and manage file upload information.
- *
- * The FileUpload Struct encapsulates information about one or
- * multiple file uploads as found in PHP's $_FILES superglobal.
- * 
- * @todo revise or delete.
- */
-abstract class FileUpload
-{
-    protected static $Skel = array('Filename'=>'','ContentType'=>'','TmpPath'=>'',
-                                   'Error'=>0,'FileSize'=>0);
-
-    /**
-     * @var array $Err2Txt
-     * Error code constants to text mappings.
-     */
-    protected static $Err2Txt = array(UPLOAD_ERR_OK=>'Ok',UPLOAD_ERR_INI_SIZE=>'Upload too big (UPLOAD_ERR_INI_SIZE)',
-                                      UPLOAD_ERR_FORM_SIZE=>'Upload too big (UPLOAD_ERR_FORM_SIZE)',
-                                      UPLOAD_ERR_PARTIAL=>'Partial upload (UPLOAD_ERR_PARTIAL)',
-                                      UPLOAD_ERR_NO_FILE=>'No file upload (UPLOAD_ERR_NO_FILE)',
-                                      UPLOAD_ERR_NO_TMP_DIR=>'Missing temp. directory (UPLOAD_ERR_NO_TMP_DIR)',
-                                      UPLOAD_ERR_CANT_WRITE=>'Failed to write to disk (UPLOAD_ERR_CANT_WRITE)',
-                                      UPLOAD_ERR_EXTENSION=>'A PHP extension stopped the upload (UPLOAD_ERR_EXTENSION)');
-
-    /**
-     * Get data about the current request's uploaded files.
-     *
-     * The $_FILES superglobal is used automatically.  For multiple file
-     * uploads, the name of the form field is assumed to be of the
-     * FieldName[] naming convention.
-     *
-     * @param string $Name The name of the file upload form field or empty to take all of $_FILES.
-     * @retval array An array of one or more FileUpload Structs, or an empty array if no files have been uploaded.
-     */
-    public static function Init( $Name )
-    {
-        if( empty($_FILES) )
-            return array();
-
-        $Files = array();
-
-        // multiple files, each with a different name (none [] syntax)
-        if( empty($Name) )
-        {
-            foreach( $_FILES as $K => $V )
-            {
-                if( $V['error'] === UPLOAD_ERR_NO_FILE )
-                    continue;
-
-                $F = static::$Skel;
-                $F['Filename'] = $V['name'];
-                $F['ContentType'] = $V['type'];
-                $F['TmpPath'] = $V['tmp_name'];
-                $F['Error'] = $V['error'];
-                $F['FileSize'] = $V['size'];
-                $Files[$K] = $F;
-            }
-        }
-        // Multiple file uploads
-        else if( is_array($_FILES[$Name]['name']) )
-        {
-            foreach( $_FILES[$Name]['name'] as $K => $V )
-            {
-                if( $_FILES[$Name]['error'][$K] === UPLOAD_ERR_NO_FILE )
-                    continue;
-
-                $F = static::$Skel;
-                $F['Filename'] = $_FILES[$Name]['name'][$K];
-                $F['ContentType'] = $_FILES[$Name]['type'][$K];
-                $F['TmpPath'] = $_FILES[$Name]['tmp_name'][$K];
-                $F['Error'] = $_FILES[$Name]['error'][$K];
-                $F['FileSize'] = $_FILES[$Name]['size'][$K];
-                $Files[] = $F;
-            }
-        }
-        // Single file upload
-        else
-        {
-            if( $_FILES[$Name]['error'] === UPLOAD_ERR_NO_FILE )
-                return array();
-
-            $F = static::$Skel;
-            $F['Filename'] = $_FILES[$Name]['name'];
-            $F['ContentType'] = $_FILES[$Name]['type'];
-            $F['TmpPath'] = $_FILES[$Name]['tmp_name'];
-            $F['Error'] = $_FILES[$Name]['error'];
-            $F['FileSize'] = $_FILES[$Name]['size'];
-            $Files[] = $F;
-        }
-
-        return $Files;
-    }
-
-    /**
-     * Check if a particular FileUpload Struct is free from upload errors.
-     *
-     * @param array $File FileUpload Struct to check.
-     * @retval boolean TRUE if the file upload was successful.
-     */
-    public static function IsOK( $File )
-    {
-        return (isset($File['Error']) && $File['Error'] === UPLOAD_ERR_OK)?TRUE:FALSE;
-    }
-
-    /**
-     * Return an error message for one of PHP's file upload error constants.
-     *
-     * @param int $Err The PHP error constant.
-     * @retval string The error message or Unknown.
-     */
-    public static function Err2Txt( $Err )
-    {
-        if( isset(static::$Err2Txt[$Err]) )
-            return static::$Err2Txt[$Err];
-        else
-            return 'Unknown';
-    }
-}
-

@@ -30,7 +30,7 @@ use function \asm\sys\mime_by_name;
  */
 trait http_headers
 {
-    public function send_response_code( int $code ): bool
+    public function send_response_code( int $code ): int
     {
         return http_response_code($code);
     }
@@ -65,8 +65,8 @@ trait http_headers
     /**
      * Send conditional caching headers (LastModified).
      *
-     * @param string $datetime A strtotime() compatible string.
-     * @param int $datetime A Unix timestamp.
+     * @param string $datetime A strtotime() compatible string to indicate the Last Modified date.
+     * @param int $datetime A Unix timestamp to indicate the Last Modified date.
      * @param NULL $datetime Default of NULL for current date/time.
      * @return boolean True if a valid date was determined and the header sent,
      *                 false if a date couldn't be determined and no header was sent.
@@ -96,6 +96,14 @@ trait http_headers
             return false;
     }
 
+    /**
+     * Send a Retry-After header.
+     *
+     * @param int $secs The number of seconds to wait before retrying.
+     *
+     * @note This is used for rate limiting and commonly with 503, 429 or redirects.
+     * @see https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After
+     */
     public function retry_after( $secs = 30 )
     {
         header("Retry-After: $secs");
