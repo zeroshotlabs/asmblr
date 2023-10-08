@@ -1,5 +1,6 @@
 <?php declare(strict_types=1);
 namespace asm\_e;
+
 use function \asm\sys\_stde;
 use asm\http\http_headers;
 use asm\types\url;
@@ -20,7 +21,7 @@ class exception extends \Exception
 
     protected bool $IsCLI = false;
 
-    public function __construct( int $code = 0,string $message,\Throwable $previous = null )
+    public function __construct( string $message,int $code = 0,\Throwable $previous = null )
     {
         parent::__construct($message,$code,$previous);
 
@@ -28,7 +29,7 @@ class exception extends \Exception
             $this->IsCLI = true;
     }
 
-    public function __toString()
+    public function __toString(): string
     {
         if( $this->IsCLI )
         {
@@ -38,6 +39,8 @@ class exception extends \Exception
         {
             _stde("EXCEPTION: ({$this->code}) {$this->message}");
         }
+
+        return "EXCEPTION: ({$this->code}) {$this->message}";
     }
 }
 
@@ -70,20 +73,21 @@ class eHTTP extends exception
     protected int $http_code = 200;
 //    protected string $http_response_string = 'HTTP/1.1 200 OK';
 
-    /** set $code to -1 to indicate no HTTP code should be sent. */
     /**
      * Sets HTTP response code using http_response_code() with message
      * and custom handling.
      * 
      * @param string $message General purpose message, usually logged.
      * @param int $code System error code, which is generally an HTTP code.
-     *                  -1 will prevent sending a HTTP code.
+     *                  -1 will prevent sending an HTTP response header.
      * @param \Throwable $previous Previous exception.
      * 
      * @todo $previous isn't used currently.
      */
-    public function __construct( string $message,int $code = 0,\Throwable $previous = null )
+    public function __construct( string $message = null,int $code = 0,\Throwable $previous = null )
     {
+        parent::__construct($message,$code,$previous);
+
         if( $code > -1 )
             $this->send_response_code($code>0?$code:$this->http_code);
     }
@@ -127,18 +131,21 @@ class e302 extends eHTTP
  * 
  * @note Can be trown as an exception or instantiated and called as an object.
  */
-class go extends eHTTP
+class go2 extends eHTTP
 {
     protected string $dest_url = '';
     protected $IsPerm = true;
 
     /**
      * @todo add relative/absolute redirects, external, endpoint awareness, theme/asset awareness, etc.
+     * @todo option to hard exit?
      */
     public function __construct( string|url $url,int|bool $perm = true,\Throwable $previous = null )
     {
         $this->dest_url = (string) $url;
         $this->IsPerm = (bool) $perm;
+
+        parent::__construct($this->dest_url,-1,$previous);
 
         if($this->IsPerm )
             $this->send_response_code(301);
@@ -153,7 +160,7 @@ class go extends eHTTP
 /**
  * 400 Bad Request.
  * 
- * Useful on the CLI.
+ * Useful on the API and CLI.
  */
 class e400 extends eHTTP
 {
