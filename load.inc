@@ -18,37 +18,34 @@ define('ASM_EXT_ROOT',__DIR__.DIRECTORY_SEPARATOR.'extensions'.DIRECTORY_SEPARAT
 
 /**
  * Current working/execution root directory; not the APP_ROOT.
+ * 
+ * @note Generally important for CLI execution.
  */
 define('CWD_ROOT',getcwd().DIRECTORY_SEPARATOR);
-
-
 
 
 /**
  * Require the asmblr source code.
  */
+require(ASM_ROOT.'core/http.php');
 require(ASM_ROOT.'core/exception.php');
 require(ASM_ROOT.'core/types.php');
 require(ASM_ROOT.'core/sys.php');
 
-require(ASM_ROOT.'core/HTTP.php');
+require(ASM_ROOT.'core/endpoint.php');
+
 
 require(ASM_ROOT.'core/request.php');
 
 require(ASM_ROOT.'core/config.php');
 require(ASM_ROOT.'core/app.php');
 
-// require(ASM_ROOT.'App.php');
-// require(ASM_ROOT.'AppT.php');
-
-// require(ASM_ROOT.'Page.php');
-require(ASM_ROOT.'core/endpoint.php');
 require(ASM_ROOT.'core/template.php');
-require(ASM_ROOT.'core/Link.php');
+#require(ASM_ROOT.'core/Link.php');
 
-require(ASM_ROOT.'core/Misc.php');
+#require(ASM_ROOT.'core/Misc.php');
 
 // Load the default en-US locale
 // @todo update according to FAIQ - probably require promptd
-require(ASM_ROOT.'core/enUS.php');
+# require(ASM_ROOT.'core/enUS.php');
 
