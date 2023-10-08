@@ -9,19 +9,21 @@
  */
 namespace asm;
 
-use Exception;
 use asm\types\dao;
-use asm\E\e500;
+use asm\_e\e500;
 
 use function asm\sys\_stde;
 
 
+// @todo avoid having to map endpoints to files by using dir structure
+// by default
 
 // All labels are lowercase.
 // it can't currently detect non-existant sheet tabs and the first is returned which causes a mess
 // sheets tabs must be specified by name
 // handles secrets too
 // @todo enable local config overrides
+// @todo  caching?
 class config
 {
     use \asm\types\dynamic_kv;
@@ -177,7 +179,7 @@ class config
             if( in_array($col0_label,$this->app_fields) || ($col0_label[0] ?? '') === '_' )
             {
                 if( $col0_label === 'base_url' && !empty($row[1]) && strpos($row[1],'://') === false )
-                    throw new Exception("Invalid base_url - must contain '://': {$row[1]}");
+                    throw new e500("Invalid base_url - must contain '://': {$row[1]}");
 
                 if( $col0_label === 'status' )
                     $this->IsProduction = $row[1]==='live'?true:false;

@@ -1,6 +1,6 @@
 <?php declare(strict_types=1);
 /**
- * @file Skel.php Base traits, interfaces and abstract classes..
+ * @file types.php Base traits, interfaces and abstract classes.
  * @author Stackware, LLC
  * @version 5.0
  * @copyright Copyright (c) 2012-2023 Stackware, LLC. All Rights Reserved.
@@ -9,12 +9,7 @@
  */
 namespace asm\types;
 use function asm\sys\_stde;
-use asm\E\exception;
-
-interface endpointi
-{
-    
-}
+use asm\_e\e500;
 
 
 /**
@@ -25,14 +20,12 @@ interface endpointi
 enum encodings: int
 {
     /**
-     * Encoded as application/x-www-form-urlencoded.
-     * Spaces become +
+     * Encoded as application/x-www-form-urlencoded (spaces become +).
      */
     case PHP_QUERY_RFC1738 = \PHP_QUERY_RFC1738;
 
     /**
-     * URL encoded.
-     * Spaces become %20
+     * URL encoded (spaces become %20)
      */
     case PHP_QUERY_RFC3986 = \PHP_QUERY_RFC1738;
 }
@@ -44,7 +37,6 @@ enum encodings: int
  * @note This should not be used for multipart/form-data (form uploads)).
  * @note This uses http_build_query() with PHP_QUERY_RFC3986 by default.
  * 
- * @todo There's no way to change the encoding except to extend.
  * @todo https://www.php.net/manual/en/ref.url.php   ?
  * @todo should be cleaned up, more aligned with dao
  */
@@ -53,31 +45,25 @@ class encoded_str implements \stringable,\Countable
     use \asm\types\dynamic_kv;
     protected $encoding = encodings::PHP_QUERY_RFC3986->value;     // PHP_QUERY_RFC1738
 
-    public function __construct( public readonly array $pairs )
-    { }
 
-    public function __get( string $Label ): mixed
+    public function __construct( public readonly array $pairs,encodings $encoding = null )
     {
-        return isset($this->pairs[$Label])?$this->pairs[$Label]:null;
+        $this->encoding = $encoding->value ?? $this->encoding;
+    }
+
+    public function __get( string $label ): mixed
+    {
+        return isset($this->pairs[$label])?$this->pairs[$label]:null;
     }
 
     /**
      * @todo probably won't work because of readonly $pairs
      */
-    public function __set( string $Label,mixed $Value ): void
+    public function __set( string $label,mixed $value ): void
     {
-        $this->pairs[$Label] = $Value;
+        $this->pairs[$label] = $value;
     }
 
-    /**
-     * Counts the number of key/value pairs.
-     * 
-     * @return int The number of key/value pairs.
-     */
-    public function count(): int
-    {
-        return count($this->pairs);
-    }
 
     /**
      * Create a new encoded from a string.
@@ -94,6 +80,7 @@ class encoded_str implements \stringable,\Countable
         return new self($Q);
     }
 
+
     /**
      * Create a new encoded string from an array.
      * 
@@ -105,6 +92,18 @@ class encoded_str implements \stringable,\Countable
         return new self($arr);       
     }
 
+
+    /**
+     * Counts the number of key/value pairs.
+     * 
+     * @return int The number of key/value pairs.
+     */
+    public function count(): int
+    {
+        return count($this->pairs);
+    }
+
+
     /**
      * Create a string from the encoded.
      *
@@ -114,7 +113,7 @@ class encoded_str implements \stringable,\Countable
      * @note This uses arg_separator.output.
      * @note A '?' is automatically prefixed.
      */
-    public function __tostring(): string
+    public function __toString(): string
     {
         if( !empty($this->pairs) )
             return '?'.http_build_query($this->pairs,'',null,$this->encoding);
@@ -122,6 +121,7 @@ class encoded_str implements \stringable,\Countable
             return '';
     }
 }
+
 
 /**
  * Directives allow keys/values to be pushed from the config into an object.
@@ -822,7 +822,7 @@ class url implements \Stringable
         }
 
         if( ($T = @parse_url(trim($url_str))) === false )
-            throw new exception("Malformed URL '$url_str' (parse_url()).");
+            throw new e500("Malformed URL '$url_str' (parse_url()).");
 
         $scheme = strtolower($T['scheme'] ?? 'https');
         $hostname = hostname::str($T['host'] ?? '');
