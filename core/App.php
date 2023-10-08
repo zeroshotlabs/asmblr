@@ -533,17 +533,6 @@ abstract class App
 
 
     /**
-     * Determine whether we're executing in a Windows environment.
-     *
-     * @retval boolean TRUE if the application is executing in a Windows environment.
-     */
-    public static function IsWindows()
-    {
-        return isset($_SERVER['SystemRoot']);
-    }
-
-
-    /**
      * Build the application's manifest from a local CSV.
      *
      * @param string $ManifestURL The path of the .csv
