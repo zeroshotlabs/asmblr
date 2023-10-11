@@ -7,7 +7,7 @@
  * @copyright Licensed under the GNU General Public License
  * @copyright See COPYRIGHT.txt and LICENSE.txt.
  */
-namespace asm\endpoint;
+namespace asm;
 
 /**
  * This base class implements default routing for asmblr using __invoke(), as described below.
@@ -45,7 +45,7 @@ interface routing_endpoint { }
 interface leaf_endpoint extends routing_endpoint { }
  
  
-abstract class endpoint 
+abstract class endpoint
  // implements leaf_endpoint
 {
     protected $app;
@@ -91,6 +91,13 @@ class root extends endpoint
 
 class http extends root
 {
+
+}
+
+
+class cli extends root
+{
+//    public
 
 }
 

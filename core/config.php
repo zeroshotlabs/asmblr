@@ -9,9 +9,9 @@
  */
 namespace asm;
 
+use ArrayObject;
 use asm\types\dao;
 use asm\_e\e500;
-
 use function asm\sys\_stde;
 
 
@@ -23,13 +23,15 @@ use function asm\sys\_stde;
 // sheets tabs must be specified by name
 // handles secrets too
 // @todo enable local config overrides
-// @todo  caching?
-class config
+// @todo  caching?!?!?!?
+class config extends \asm\types\dao
 {
-    use \asm\types\dynamic_kv;
+    public static $instance = null;
+
+//    use \asm\types\dynamic_kv;
 
     /**
-     * true only if Status is 'live'.  Used in $app
+     * true only if Status is 'live' or via domain detection.  Used in $app
      */
     public readonly bool $IsProduction;
 
@@ -40,15 +42,31 @@ class config
     protected array $creds;
     protected array $meta;
 
-//    protected array $obj_cache = ['app'=>null,'pages'=>null,'templates'=>null,'creds'=>null,'meta'=>null];
-
-
     /**
      * Template URL for Google Sheets GVIZ API.  8/23
      */ 
     protected $google_skel_url = 'https://docs.google.com/spreadsheets/d/{sheetid}/gviz/tq?tqx=out:json&sheet={sheet}&headers=0';
 
     protected $app_fields = ['status','sysop','base_url','force_scheme','force_host','force_path'];
+
+
+    public static function init( string $sheet_id,array $sheet_tabs,string $cache = '' )
+    {
+        if( self::$instance )
+            return self::$instance;
+
+        if( is_file($cache) )
+        {
+            $c = file_get_contents($cache);
+            return unserialize($c);
+        }
+        else
+        {
+            self::$instance = new self($sheet_id,$sheet_tabs,$cache);
+            file_put_contents($cache,serialize(self::$instance));
+            return self::$instance;
+        }
+    }
 
     /**
      * reserved keys for config rows
@@ -58,7 +76,7 @@ class config
      *  - template
      *  - name - signals
      */
-    public function __construct( protected string $SheetID,protected array $SheetTabs )
+    private function __construct( protected string $SheetID,protected array $SheetTabs,string $cache = '' )
     {
         $opts = [
             "http" => [
@@ -128,7 +146,7 @@ class config
                     continue 2;
                 }
                 else
-                    _stde("Unexpected thing 1: '$i'.");
+                    _stde("Unexpected thing 1: '$i'");
             }
 
             $this->SheetTabs[$ST] = $j;
@@ -136,6 +154,11 @@ class config
 
         if( empty($this->endpoints_url_map['//']) )
             throw new e500('No global route.');
+
+        if( $cache )
+        {
+            file_put_contents($cache,serialize($this));
+        }
     }
 
     /**
@@ -150,14 +173,14 @@ class config
      * @return dao object of configuration directives.
      * @todo probably should cache objects.
      */
-    public function __get( string $name ): dao
+    public function __get( $key ): dao
     {
-        return new dao($this->{strtolower($name)} ?? []);
+        return new dao($this->{strtolower($key)} ?? []);
     }
 
-    public function __isset( string $name ): bool
+    public function __isset( $key ): bool
     {
-        return isset($this->{strtolower($name)});
+        return isset($this->{strtolower($key)});
     }
 
     protected function _handle_app( array $rows ): void
@@ -186,6 +209,7 @@ class config
 
                 $this->app[$col0_label] = $row[1];
             }
+            // @note might be done differently
             else if( $col0_label === 'directive' )
             {
                 $this->app['directives'][] = $this->_process_directive($row);
@@ -345,11 +369,27 @@ class config
 
 /**
  * App secrets accessor.
- * 
  */
-function secrets( string $file = APP_ROOT.'/secrets.php' )
+function secrets( string $file = APP_ROOT.'/secrets.ini' ): ArrayObject
 {
-    return include($file);
+    static $parsed = null;
+
+    if( !$parsed )
+    {
+        $parsed = parse_ini_file($file,true,\INI_SCANNER_TYPED);
+        if( $parsed )
+        {
+            $parsed = new \ArrayObject($parsed,\ArrayObject::ARRAY_AS_PROPS);
+            return $parsed;
+        }
+        else
+        {
+            _stde("secrets not found at $file");
+            return new \ArrayObject([]);
+        }
+    }
+    else
+        return $parsed;
 }
 
 // /**

@@ -13,6 +13,40 @@ use asm\_e\e500;
 
 
 /**
+ * General purpose data access objects.
+ * 
+ * Used internally to read config settings but generally useful.
+ * 
+ * @implements \ArrayAccess
+ * @implements \Countable
+ * @implements \Iterator
+ */
+class dao extends \ArrayObject
+{
+// implements \ArrayAccess,\Countable,\Iterator
+// {
+//     use dynamic_kv;
+//     use iterable_kv;
+//     use object_array;
+
+    /**
+     * Instantiates a dao wrapped around an array.
+     * 
+     * Doesn't reference the original array.
+     */
+    public function __construct( array $kv,$flags = \ArrayObject::ARRAY_AS_PROPS )
+    {
+        parent::__construct($kv,$flags);
+    }
+
+    public function __clone()
+    {
+        $this->exchangeArray($this->getArrayCopy());
+    }
+}
+
+
+/**
  * Define the encoding types available.
  * 
  * @see \asm\types\encoded_str
@@ -40,9 +74,10 @@ enum encodings: int
  * @todo https://www.php.net/manual/en/ref.url.php   ?
  * @todo should be cleaned up, more aligned with dao
  */
-class encoded_str implements \stringable,\Countable
+class encoded_str extends dao implements \Stringable
+// implements \stringable,\Countable
 {
-    use \asm\types\dynamic_kv;
+//    use \asm\types\dynamic_kv;
     protected $encoding = encodings::PHP_QUERY_RFC3986->value;     // PHP_QUERY_RFC1738
 
 
@@ -123,8 +158,21 @@ class encoded_str implements \stringable,\Countable
 }
 
 
+
+/**
+ * @todo not implemented
+ */
+interface extension
+{
+
+}
+
+
+
 /**
  * Directives allow keys/values to be pushed from the config into an object.
+ * 
+ * @todo Not implemented; maybe done differently now?
  */
 interface directable
 {
@@ -137,18 +185,10 @@ interface directable
     public function apply( $key,$value );
 }
 
-
-/**
- * @todo not implemented
- */
-interface extension
-{
-
-}
-
-
 /*
  * Implement directable interface.
+ * 
+ * @todo Not implemented; maybe done differently now?
  */
 trait directed
 {
@@ -176,157 +216,130 @@ trait directed
  *
  * @note there is no column or iterator support currently.
  * @note should do a array_column/array_is_list implementation
- */
-trait dynamic_kv
-{
-    protected $kv = [];
+//  */
+// trait dynamic_kv
+// {
+//     protected $kv = [];
 
-    /**
-     * Changes the internal element to use for keys/values.
-     * 
-     * By reference thus changes the original.
-     */
-    public function use_kv( string $name )
-    {
-        $this->kv = &$this->{$name};
-    }
-    public function __get( $key ): mixed
-    {
-        return isset($this->kv[$key])?$this->kv[$key]:NULL;
-    }
-    public function __set( $key,$value ): void
-    {
-        $this->kv[$key] = $value;
-    }
-    public function __isset( $key ): bool
-    {
-        return isset($this->kv[$key]);
-    }
-    public function __unset( $key ): void
-    {
-        $this->kv[$key] = NULL;
-        unset($this->kv[$key]);
-    }    
-}
+//     public function __clone()
+//     {
+//         $this->kv = $this->kv;
+//     }
 
-/**
- * Provides iteration over the key/value pairs, $kv.
- * 
- * @implements Iterator
- * @implements Countable
- */
-trait iterable_kv
-{
-    protected $kv = [];
-    protected $_len = 0;
-    protected $_posi = 0;
+//     /**
+//      * Changes the internal element to use for keys/values.
+//      * 
+//      * By reference thus changes the original.
+//      */
+//     public function use_kv( string $name )
+//     {
+//         $this->kv = &$this->{$name};
+//     }
+    
+//     public function __get( $key ): mixed
+//     {
+//         return isset($this->kv[$key])?$this->kv[$key]:NULL;
+//     }
+//     public function __set( $key,$value ): void
+//     {
+//         $this->kv[$key] = $value;
+//     }
+//     public function __isset( $key ): bool
+//     {
+//         return isset($this->kv[$key]);
+//     }
+//     public function __unset( $key ): void
+//     {
+//         $this->kv[$key] = NULL;
+//         unset($this->kv[$key]);
+//     }    
+// }
 
-    use dynamic_kv {
-        dynamic_kv::use_kv as use_kv;
-    }
+// /**
+//  * Provides iteration over the key/value pairs, $kv.
+//  * 
+//  * @implements Iterator
+//  * @implements Countable
+//  */
+// trait iterable_kv22
+// {
+//     protected $kv = [];
+//     protected $_len = 0;
+//     protected $_posi = 0;
 
-    public function count(): int
-    {
-        return count($this->kv);
-    }
+//     // use dynamic_kv {
+//     //     dynamic_kv::use_kv as use_kv;
+//     // }
 
-    /**
-     * Also initializes the length and position.
-     */
-    public function rewind(): void
-    {
-        $this->_len = count($this->kv);
-        $this->_posi = 0;
-        reset($this->kv);
-    }
+//     public function count(): int
+//     {
+//         return count($this->kv);
+//     }
 
-    public function current(): mixed
-    {
-        return $this->kv[key($this->kv)];
-    }
+//     /**
+//      * Also initializes the length and position.
+//      */
+//     public function rewind(): void
+//     {
+//         $this->_len = count($this->kv);
+//         $this->_posi = 0;
+//         reset($this->kv);
+//     }
 
-    public function key(): string|int
-    {
-        return key($this->kv);
-    }
+//     public function current(): mixed
+//     {
+//         return $this->kv[key($this->kv)];
+//     }
 
-    public function next(): void
-    {
-        ++$this->_posi;
-        next($this->kv);
-    }
+//     public function key(): string|int
+//     {
+//         return key($this->kv);
+//     }
 
-    public function valid(): bool
-    {
-        return ($this->_posi < $this->_len);
-    }
-}
+//     public function next(): void
+//     {
+//         ++$this->_posi;
+//         next($this->kv);
+//     }
 
-
-/**
- * Flexible data object designed for key/value pairs and array access.
- * 
- * @implements \ArrayAccess
- * 
- * @note Not really suitable for tabular data (no iteration) and count()
- * returns the number of properties.
- * 
- * @todo is this incompatible with dynamic_kv?
- */
-trait object_array
-{
-    public function offsetGet( $key ): mixed
-    {
-        return isset($this->$key)?$this->$key:NULL;
-    }
-    public function offsetSet( $key,$value ): void
-    {
-        $this->$key = $value;
-    }
-    // @note here __isset is used though above __get/__set isn't
-    public function offsetExists( $key ): bool
-    {
-        return $this->__isset($key);        
-    }
-    public function offsetUnset( $key ): void
-    {
-        unset($this->$key);
-    }
-}
+//     public function valid(): bool
+//     {
+//         return ($this->_posi < $this->_len);
+//     }
+// }
 
 
-/**
- * General purpose data access objects.
- * 
- * Used primarily to read config settings, but generally handy.
- * 
- * @implements \ArrayAccess
- * @implements \Countable
- * @implements \Iterator
- */
-class dao implements \ArrayAccess,\Countable,\Iterator
-{
-    use dynamic_kv;
-    use iterable_kv;
-    use object_array;
-
-    /**
-     * Instantiates a dao wrapped around an array.
-     * 
-     */
-    public function __construct( array $kv )
-    {
-        $this->kv = $kv;
-    }
-
-    /**
-     * The original array is passed by reference (in theory).
-     */
-    public static function use( array &$kv ): dao
-    {
-        return new self($kv);
-    }
-}
+// /**
+//  * Flexible data object designed for key/value pairs and array access.
+//  * 
+//  * @implements \ArrayAccess
+//  * 
+//  * @note Not really suitable for tabular data (no iteration) and count()
+//  * returns the number of properties.
+//  * 
+//  * @todo is this incompatible with dynamic_kv?
+//  * @todo what aboutvuse of ArrayObject?
+//  */
+// trait object_array22
+// {
+//     public function offsetGet( $key ): mixed
+//     {
+//         return isset($this->$key)?$this->$key:NULL;
+//     }
+//     public function offsetSet( $key,$value ): void
+//     {
+//         $this->$key = $value;
+//     }
+//     // @note here __isset is used though above __get/__set isn't
+//     public function offsetExists( $key ): bool
+//     {
+//         return $this->__isset($key);        
+//     }
+//     public function offsetUnset( $key ): void
+//     {
+//         unset($this->$key);
+//     }
+// }
 
 
 /**
@@ -345,11 +358,20 @@ class dao implements \ArrayAccess,\Countable,\Iterator
  * @todo could support setting specific segments using array notation (implement countable_array but needs to support $kv)
  * @todo no visibility pendantics; don't change things you don't know what they do
  */
-class path implements \stringable,\Iterator,\ArrayAccess,\Countable
+class path extends dao implements \Stringable
+//,\Iterator,\ArrayAccess,\Countable
 {
-    use object_array;
-    use iterable_kv;
+    // use object_array;
+    // use iterable_kv;
 
+//     public function __clone()
+//     {
+// //        debug_print_backtrace();
+
+//         $t = $this->kv;
+//         unset($this->kv);
+//         $this->kv = $t;
+//     }
     /**
      * Use path::path() or path::url() instead.
      */
@@ -385,7 +407,7 @@ class path implements \stringable,\Iterator,\ArrayAccess,\Countable
         public array $segments = []
     )
     {
-        $this->use_kv('segments');
+//        $this->use_kv('segments');
     }
 
     public function as_abs(): string
@@ -426,8 +448,9 @@ class path implements \stringable,\Iterator,\ArrayAccess,\Countable
      * @param bool $dedupe TRUE to remove duplicates.
      * 
      * @note If $dedupe is true, pay attention to the order of the segments.
+     * @todo mixed instead of path for $p
      */
-    public function append( path $p,$dedupe = false ): void
+    public function append( mixed $p,$dedupe = false ): void
     {
         $this->segments += $p->segments;
 
@@ -440,6 +463,7 @@ class path implements \stringable,\Iterator,\ArrayAccess,\Countable
      * 
      * @param path $p The path to use as the mask.
      * 
+     * @note Double array_reverse() is to serialize keys.
      */
     public function mask( path $mask ): void
     {
@@ -559,6 +583,7 @@ class path implements \stringable,\Iterator,\ArrayAccess,\Countable
         return new self($separator,$IsAbs,$IsDir,$IsRoot,$shell,$segments);
     }
 
+
     /**
      * Create a URL path from a string.
      * 
@@ -570,6 +595,7 @@ class path implements \stringable,\Iterator,\ArrayAccess,\Countable
         return static::path($str,'/',false);
     }
 
+    
     /**
      * Make all segments lowercase.
      * 
@@ -584,90 +610,6 @@ class path implements \stringable,\Iterator,\ArrayAccess,\Countable
         return $this;
     }
 }
-
-    // /** WAS PATH
-    //  * Merge $Src segments into $Dest segments.
-    //  *
-    //  * If $Src has the same segment at the same position as $Dest, it is
-    //  * skipped.  Otherwise, $Src segments are appended to $Dest.
-    //  *
-    //  * @param path $Src The path to merge in.
-    //  * @param path $Dest A reference to the base path to merge into.
-    //  *
-    //  * @note All comparisions are type strict (===).
-    //  * @note This is a no-op if $Src IsRoot is TRUE.
-    //  * @note $Dest will have same IsDir as $Src.
-    //  * @note $Dest will become IsRoot FALSE if the merge occurs.
-    //  */
-    // public static function Merge( $Src,&$Dest )
-    // {
-    //     if( $Src['IsRoot'] === TRUE )
-    //         return;
-
-    //     if( $Dest['IsRoot'] === TRUE )
-    //         $Dest['Segments'] = array();
-
-    //     $Dest['IsDir'] = $Src['IsDir'];
-    //     $Dest['IsRoot'] = FALSE;
-
-    //     foreach( $Src['Segments'] as $K => $V )
-    //     {
-    //         if( isset($Dest['Segments'][$K]) === TRUE && $Dest['Segments'][$K] === $V )
-    //             continue;
-    //         else
-    //             $Dest['Segments'][] = $V;
-    //     }
-    // }
-
-    // /**
-    //  * Remove matching segments that exist in $Mask from $Base.
-    //  *
-    //  * If $Mask contains the same segments in the same positions as $Base,
-    //  * remove those matching segments from $Base.
-    //  *
-    //  * @param path $Mask The path that masks segments.
-    //  * @param path $Base The path that will have segments removed.
-    //  * @retval void
-    //  *
-    //  * @note This is implemented using array_diff() and array_values().
-    //  * @note This is a no-op if either $Mask or $Base is IsRoot TRUE.
-    //  * @note This may cause $Base to become IsRoot and IsDir TRUE.
-    //  */
-    // public static function Mask( $Mask,&$Base )
-    // {
-    //     if( $Mask['IsRoot'] === TRUE || $Base['IsRoot'] === TRUE )
-    //         return;
-
-    //     $Base['Segments'] = array_values(array_diff_assoc($Base['Segments'],$Mask['Segments']));
-    //     if( empty($Base['Segments']) )
-    //     {
-    //         $Base['Segments'][0] = $Base['Separator'];
-    //         $Base['IsDir'] = $Base['IsRoot'] = TRUE;
-    //     }
-    // }
-
-
-    // /**
-    //  * Return TRUE if $Child is a child path of $Parent.
-    //  *
-    //  * The follow semantics also apply:
-    //  *  - If both $Child and $Parent IsRoot is TRUE, this returns FALSE.
-    //  *  - If $Child IsRoot is TRUE this returns FALSE.
-    //  *  - If $Parent IsRoot is TRUE this returns TRUE.
-    //  *
-    //  * @param path $Child The child path.
-    //  * @param path $Parent The parent path.
-    //  * @retval boolean TRUE if $Child is a child of $Parent.
-    //  */
-    // public static function IsChild( $Child,$Parent )
-    // {
-    //     if( ($Child['IsRoot'] === TRUE && $Parent['IsRoot'] === TRUE) || ($Child['IsRoot'] === TRUE) )
-    //         return FALSE;
-    //     else if( $Parent['IsRoot'] === TRUE )
-    //         return TRUE;
-
-    //     return (count(array_intersect_assoc($Child['Segments'],$Parent['Segments'])) === count($Parent['Segments']));
-    // }
 
 
 /**
@@ -685,7 +627,7 @@ class path implements \stringable,\Iterator,\ArrayAccess,\Countable
  * @note This does not support IDNA, nor checks for validity.
  * @note This does not include a port - @see URL.
  */
-class hostname implements \stringable
+class hostname extends dao implements \Stringable
 {
     /**
      * Use hostname::str() instead.
@@ -744,8 +686,6 @@ class url implements \Stringable
      */
     public bool $IsHTTPS;
 
-//    public readonly \asm\hostname $hostname;
-
     /**
      * Create a new URL object.
      * 
@@ -780,6 +720,12 @@ class url implements \Stringable
         $this->port = $port === '80' || $port === '443' ? '' : $port;
     }
 
+    public function __clone()
+    {
+        $this->hostname = clone $this->hostname;
+        $this->path = clone $this->path;
+        $this->encoded = clone $this->encoded;
+    }
 
     /**
      * Create a new URL from a string.

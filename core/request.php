@@ -8,8 +8,8 @@
  * @copyright See COPYRIGHT.txt and LICENSE.txt.
  */
 namespace asm;
-use asm\types\hostname,asm\types\encoded_str,asm\types\path,asm\types\url;
-
+use asm\_e\e400,asm\types\hostname,asm\types\encoded_str,asm\types\path,asm\types\url;
+use asm\http\http_headers;
 
 /**
  * Current request data.
@@ -27,6 +27,8 @@ use asm\types\hostname,asm\types\encoded_str,asm\types\path,asm\types\url;
  */
 class request
 {
+    use http_headers;
+
     public readonly bool $IsCLI;
 
     // the original request, untouched
@@ -88,7 +90,7 @@ class request
         if( !empty($_SERVER['argv']) )
         {
             if( $_SERVER['argc'] < self::MIN_ARGC )
-                throw new E\Exception("CLI execution requires at least two arguments: php DOC_ROOT/index.php {hostname} {pagename} args ...");
+                throw new e400("CLI execution requires at least two arguments: php DOC_ROOT/index.php {hostname} {pagename} args ...");
 
             $this->IsCLI = true;
 
@@ -127,11 +129,10 @@ class request
 
             // @todo does anyone use username:password@ anymore?  :)
 
-            // maintained as the original request, not lower cased
+            // maintained as the original request, not lower cased; keep cased for frontstack requests
             // @note $_POST isn't included.
             $this->original_url = new url($Scheme,'','',hostname::str($Host),$Port,path::url($Path),encoded_str::arr($_GET),'');
-
-            // lowercased, canonized by base_url; active URL for processing the request
+            // lowercased, canonized by base_url; active URL for processing the request;            
             $this->url = clone $this->original_url;
             $this->url->path->lower();
 
@@ -160,7 +161,7 @@ class request
      *  - $base_url - configured template for the site's root URL
      *  - $url = canonicalized request URL
      *  - $root_url - canonicalized root URL of the site, always with a trailing '/', used for link creation, redirects
-     *  - $route_path - the canonicalized request path, with $base_url path removed and no trailing slash; used for routing the request
+     *  - $route_path - the canonicalized request path, with $base_url path removed and no trailing slash, lowercased; used for routing the request
      * 
      * The following flags are also set, based on the request and base_url:
      *  - $IsBaseScheme - TRUE if the specified scheme in the base URL matches the request scheme.

@@ -104,7 +104,7 @@ trait http_headers
      * @note This is used for rate limiting and commonly with 503, 429 or redirects.
      * @see https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After
      */
-    public function retry_after( $secs = 30 )
+    public function retry_after( $secs = 30 ): void
     {
         header("Retry-After: $secs");
     }
@@ -116,17 +116,22 @@ trait http_headers
      * @param string $Charset Specify the charset attribute.
      *
      * @note Some content-types can be referenced by multiple names, like a common
-     *       name and file extension.  If a type isn't recognized, application/octet-stream is sent.
+     *       name and file extension.  If a type isn't recognized, the original value is returned.
      * @note $Charset is passed untouched.
      *
      * @todo We should have methods for content-disposition (attachment, download, etc).
      *
-     * @see $Types property for available names.
+     * @see mime_by_name() for a list of mime types.
      */
-    public function content_type( string $type,$charset = '' )
+    public function content_type( string $type,$charset = '' ): void
     {
         if( !empty($type) )
-            header('Content-Type: '.mime_by_name($type).(empty($charset)?'':"; charset={$charset}"));
+            header("Content-Type: $type".(empty($charset)?'':"; charset={$charset}"));
+    }
+
+    public function content_length( int $length ): void
+    {
+        header("Content-Length: $length");
     }
 
     /**
