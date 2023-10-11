@@ -25,25 +25,25 @@ define('CWD_ROOT',getcwd().DIRECTORY_SEPARATOR);
 
 
 /**
- * Require the asmblr source code.
+ * Require the asmblr source code - ordered.
  */
-require(ASM_ROOT.'core/http.php');
-require(ASM_ROOT.'core/exception.php');
 require(ASM_ROOT.'core/types.php');
 require(ASM_ROOT.'core/sys.php');
+require(ASM_ROOT.'core/provider.php');
 
 require(ASM_ROOT.'core/endpoint.php');
-
-
-require(ASM_ROOT.'core/request.php');
+require(ASM_ROOT.'core/http.php');
+require(ASM_ROOT.'core/cli.php');
 
 require(ASM_ROOT.'core/config.php');
 require(ASM_ROOT.'core/app.php');
+require(ASM_ROOT.'core/request.php');
+
+
+require(ASM_ROOT.'core/exception.php');
 
 require(ASM_ROOT.'core/template.php');
-#require(ASM_ROOT.'core/Link.php');
 
-#require(ASM_ROOT.'core/Misc.php');
 
 // Load the default en-US locale
 // @todo update according to FAIQ - probably require promptd

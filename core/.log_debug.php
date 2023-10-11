@@ -442,3 +442,39 @@ abstract class Debug
     }
 }
 
+
+
+
+    // /** WAS PATH
+    //  * Merge $Src segments into $Dest segments.
+    //  *
+    //  * If $Src has the same segment at the same position as $Dest, it is
+    //  * skipped.  Otherwise, $Src segments are appended to $Dest.
+    //  *
+    //  * @param path $Src The path to merge in.
+    //  * @param path $Dest A reference to the base path to merge into.
+    //  *
+    //  * @note All comparisions are type strict (===).
+    //  * @note This is a no-op if $Src IsRoot is TRUE.
+    //  * @note $Dest will have same IsDir as $Src.
+    //  * @note $Dest will become IsRoot FALSE if the merge occurs.
+    //  */
+    // public static function Merge( $Src,&$Dest )
+    // {
+    //     if( $Src['IsRoot'] === TRUE )
+    //         return;
+
+    //     if( $Dest['IsRoot'] === TRUE )
+    //         $Dest['Segments'] = array();
+
+    //     $Dest['IsDir'] = $Src['IsDir'];
+    //     $Dest['IsRoot'] = FALSE;
+
+    //     foreach( $Src['Segments'] as $K => $V )
+    //     {
+    //         if( isset($Dest['Segments'][$K]) === TRUE && $Dest['Segments'][$K] === $V )
+    //             continue;
+    //         else
+    //             $Dest['Segments'][] = $V;
+    //     }
+    // }

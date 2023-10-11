@@ -97,243 +97,153 @@ function _stde( $msg,$pre_lines = 1,$post_lines = 2 )
 /**
  * Determine the apparent MIME type of a filename using the file extension!
  * 
+ * If it's not recognized, the original input is returned.
+ * 
  * @note Use finfo() etc for real content evaluation.
  */
-function mime_by_name( $name ): string|null
+function mime_by_name( $name ): string
 {
     /**
      * Known content types by extension or common name, like "powerpoint".
      */
     static $types = [
+        'aac'=>'audio/aac',
+        'abw'=>'application/x-abiword',
+        'arc'=>'application/x-freearc',
+        'avif'=>'image/avif',
+        'avi'=>'video/x-msvideo',
+        'azw'=>'application/vnd.amazon.ebook',
+        'bin'=>'application/octet-stream','binary'=>'application/octet-stream',
+        'bmp'=>'image/bmp',
+        'bz'=>'application/x-bzip',
+        'bz2'=>'application/x-bzip2',
+        'cda'=>'application/x-cdf',
+        'csh'=>'application/x-csh',
+        'css'=>'text/css',
+        'csv'=>'text/csv',
+        'doc'=>'application/msword',
+        'docx'=>'application/vnd.openxmlformats-officedocument.wordprocessingml.document','word'=>'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'eot'=>'application/vnd.ms-fontobject',
+        'epub'=>'application/epub+zip',
+        'gz'=>'application/gzip','gzip'=>'application/gzip',
+        'gif'=>'image/gif',
+        'htm'=>'text/html','html'=>'text/html',
+        'ico'=>'image/vnd.microsoft.icon','favicon'=>'image/x-icon',
+        'ics'=>'text/calendar',
+        'jar'=>'application/java-archive',
+        'jpeg'=>'image/jpeg','jpg'=>'image/jpeg',
+        'js'=>'text/javascript','javascript'=>'text/javascript',
+        'json'=>'application/json',
+        'jsonld'=>'application/ld+json',
+        'mid'=>'audio/midi','midi'=>'audio/midi',
+        'mjs'=>'text/javascript',
+        'mp3'=>'audio/mpeg',
+        'mp4'=>'video/mp4',
+        'mpeg'=>'video/mpeg','mpg'=>'video/mpeg',
+        'mpkg'=>'application/vnd.apple.installer+xml',
+        'odp'=>'application/vnd.oasis.opendocument.presentation',
+        'ods'=>'application/vnd.oasis.opendocument.spreadsheet',
+        'odt'=>'application/vnd.oasis.opendocument.text',
+        'oga'=>'audio/ogg',
+        'ogv'=>'video/ogg',
+        'ogx'=>'application/ogg',
+        'opus'=>'audio/opus',
+        'otf'=>'font/otf',
+        'png'=>'image/png',
+        'pdf'=>'application/pdf',
+        'php'=>'application/x-httpd-php',
+        'ppt'=>'application/vnd.ms-powerpoint',
+        'pptx'=>'application/vnd.openxmlformats-officedocument.presentationml.presentation','powerpoint'=>'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        'rar'=>'application/vnd.rar',
+        'rtf'=>'application/rtf',
+        'sh'=>'application/x-sh',
+        'svg'=>'image/svg+xml',
+        'tar'=>'application/x-tar',
+        'tif'=>'image/tiff','tiff'=>'image/tiff',
+        'ts'=>'video/mp2t',
+        'ttf'=>'font/ttf',
+        'txt'=>'text/plain',
+        'vsd'=>'application/vnd.visio',
+        'wav'=>'audio/wav',
+        'weba'=>'audio/webm',
+        'webm'=>'video/webm',
+        'webp'=>'image/webp',
+        'woff'=>'font/woff',
+        'woff2'=>'font/woff2',
+        'xhtml'=>'application/xhtml+xml',
+        'xls'=>'application/vnd.ms-excel',
+        'xlsx'=>'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','excel'=>'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'xml'=>'application/xml',
+        'xul'=>'application/vnd.mozilla.xul+xml',
+        'zip'=>'application/zip',
+        '3gp'=>'video/3gpp',
+        '3g2'=>'video/3gpp2',
+        '7z'=>'application/x-7z-compressed',
+
+        'ai'=>'application/illustrator',
+        'eps'=>'application/postscript',
+        'psd'=>'image/photoshop',
+        'wma'=>'audio/x-ms-wma',
+        'wmv'=>'video/x-ms-wmv',
+        'xaml'=>'application/xaml+xml',
+        'xap'=>'application/x-silverlight-app',
+        'xps'=>'application/vnd.ms-xpsdocument',
+        
         'atom'=>'application/atom+xml',
         'rss'=>'application/rss+xml',
 
-        'css'=>'text/css',
-        'html'=>'text/html',
-        'php'=>'text/x-php',
-        'phtml'=>'application/x-httpd-php',
-
-        'js'=>'text/javascript','javascript'=>'text/javascript','json'=>'application/json',
-        'js4329'=>'application/javascript','javascript4329'=>'application/javascript',
-
-        'xml'=>'text/xml',
-        'app_xml'=>'application/xml',
-
-        'text'=>'text/plain',
-        'txt'=>'text/plain',
         'vcard'=>'text/vcard',
-        'csv'=>'text/csv',
-
-        'eot'=>'application/vnd.ms-fontobject','svg'=>'image/svg+xml','otf'=>'application/x-font-opentype',
-        'ttf'=>'application/x-font-ttf','woff'=>'application/font-woff','woff2'=>'font/woff2',
-
-        'gif'=>'image/gif','jpeg'=>'image/jpeg','jpg'=>'image/jpeg','png'=>'image/png',
-        'ico'=>'image/x-icon','favicon'=>'image/x-icon',
-
-        'zip'=>'application/zip','gzip'=>'application/x-gzip','gz'=>'application/x-gzip',
-
-        'mp4'=>'video/mp4','webm'=>'video/webm',
-
-        'pdf'=>'application/pdf',
-
-        'excel'=>'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'xlsx'=>'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'xls'=>'application/vnd.ms-excel',
-
-        'word'=>'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'docx'=>'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'doc'=>'application/msword',
-
-        'powerpoint'=>'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-        'pptx'=>'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-        'ppt'=>'application/vnd.ms-powerpoint',
-
-        'binary'=>'application/octet-stream',
-
         'form'=>'application/x-www-form-urlencoded'];
 
-        return $types[strtolower(pathinfo('blah.'.$name,PATHINFO_EXTENSION))]??null;
+        return $types[strtolower(pathinfo('blahbuffer.'.$name,PATHINFO_EXTENSION))]??'';
 }
 
 /**
- * Recursively loads files of single files or recursively of directories 
- * into an URL keyed array.
+ * Recursively includes files of certain extensions into the PHP runtime.
  * 
- * Files and directories read from desk relative to self::$fs_root, which
- * defaults to APP_ROOT.
+ * They are included into the clean global scope.
  * 
- * While this loads directories & files recursively, it flattens the structure
- * out to a string keyed associative array of files where each key is the "URL";
- * that is, the path of the file rooted to the loaded or $reroot'd path.
+ * @param string $path The directory to include files from - WHICH COULD BE /etc !!
  * 
- * For example, a directory of files named such as "foo/bar/baz.txt" will be
- * loaded as an associative array with a keys such as "foobar/baz.txt".
- * 
- * Rerooting load_file() will make the file available at a different URL,
- * overriding any any existing endpoint with the same URL.
- * 
- * Rerooting with load_dir() allows for alteration of the file's accessed-by
- * an alternate base URL.
- * 
- * No encoding or other modification is made to the path and file names.
- * Paths aren't checked, validated or realpath()'d.
- * @note This isn't a security mechanism.
- * 
- * @note Pay attention to trailing slashes when renaming/rerooting.
- * 
- * @todo need also for including PHP code/etc; need to figure fit with opcache
+ * @note Generally used when caching/production.
+ * @important This is not a security mechanism; pay attention.
+ * @todo need to figure fit with opcache
  */
-class fs_load
+function include_dir( string $path,string $path_prefix = '',array $include_exts = [] ): void
 {
-    public $fs_root = APP_ROOT;
-    public $include_exts = ['html','txt','php','tpl','htm','css','js'];
+    if( empty($include_exts) )
+        $include_exts = ['html','php','inc','tpl','htm','css','js'];
 
-    public $files = [];
-    public $dirs = [];
+    if( !empty($path_prefix) )
+        $abs_path = $path_prefix.DIRECTORY_SEPARATOR.$path;
+    else
+        $abs_path = APP_ROOT.DIRECTORY_SEPARATOR.$path;
 
+    if( ($abs_path = realpath($abs_path)) === FALSE )
+        throw new e500("Directory '$abs_path' ($path) ($path_prefix) not valid.");
 
-    /**
-     * Convenience method to access the loaded files' contents.
-     * 
-     * The $url is first tried as a single file, then as part of a loaded directory.
-     * 
-     * @todo caching/reading from disk.
-     */
-    public function __get( string $url ): string|null
+    try
     {
-        return $this->files[$url]['content']??$this->dirs[$url]['content']??null;
-    }
+        $file_i = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($abs_path,\FilesystemIterator::KEY_AS_PATHNAME & \FilesystemIterator::SKIP_DOTS & \RecursiveIteratorIterator::CATCH_GET_CHILD));
 
-    /**
-     * Loads a file, keyed by it's URL, overwriting any conflicting entry in self::$files.
-     * 
-     * @param string $path The file path to load which will become the 'URL'.
-     * @param string $rename The prefix of the path to remove, and optionally replace, relocating the root.
-     * @param bool $load_content True to load full file content.
-     * @throws e500 If the file isn't readable.
-     * 
-     * @note The URL is formed as the path and file name rooted at the specified directory.
-     */
-    function load_file( $path,string|array $reroot = [],$load_content = true )
-    {
-        $full_path = $this->fs_root.$path;
-
-        if( is_string($reroot) )
-            $reroot = [$reroot,];
-
-        if( !is_file($full_path) )
-            throw new e500("File '$full_path' not readable.");
-
-        $url = substr($full_path,strpos($full_path,$path));
-
-        if( !empty($reroot[0]) && !empty($reroot[1]) )
-            $url = str_replace($reroot[0],$reroot[1],$path);
-        else if( !empty($reroot[0]) )
-            $url = substr($path,strlen($reroot[0]));
-        else
-            $url = $path;
-
-        $this->files[$url] = ['content_type'=>mime_by_name($path),
-                                      'path'=>$full_path,
-                                   'content'=>$load_content?file_get_contents($full_path):''];
-
-        // @todo add debugging
-        // _stde("\n{$char_cnt} - $path");
-        // $char_cnt = strlen($this->file[$url]['content']);
-    }
-
-    function include_dir( string $path ): void
-    {
-        $full_path = $this->fs_root.$path;        
-
-        if( !is_dir($full_path) )
-            throw new e500("Directory '$full_path' not valid.");
-
-        try
+        foreach( $file_i as $pathname => $file_j )
         {
-            $file_i = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($full_path,\FilesystemIterator::KEY_AS_PATHNAME & \FilesystemIterator::SKIP_DOTS & \RecursiveIteratorIterator::CATCH_GET_CHILD));
-
-            foreach( $file_i as $pathname => $file_j )
+            if( $file_j->isFile() )
             {
-                if( $file_j->isFile() )
-                {
-                    $ext = strtolower(pathinfo($pathname,PATHINFO_EXTENSION));
-                    if( !empty($this->include_exts) && !in_array($ext,$this->include_exts) )
-                        continue;
+                $ext = strtolower(pathinfo($pathname,PATHINFO_EXTENSION));
+                if( !in_array($ext,$include_exts) )
+                    continue;
 
-                    include $pathname;
-                }
+                include($pathname);
+
+                // @todo add debugging
+                //_stdo("{$char_cnt}include $pathname;
             }
         }
-        catch( \Exception $e )
-        {
-            throw new e500($e->getMessage(). "(permission denied/not found for $pathname)");
-        }
-
     }
-
-    /**
-     * Recursively loads files of certain extensions into an URL keyed array,
-     * overwriting any conflicting entry in self::$dirs.
-     * 
-     * If $load_content is false, only the array structure is created, otherwise
-     * contents of each file is also loaded.
-     * 
-     * @param string $path The file path to load which will become the 'URL'.
-     * @param string $reroot The prefix of the path to remove, and optionally replace, relocating the root.
-     * @param bool $load_content True to load full file content.
-     * 
-     * @note The URL is formed as the path and file name rooted at the specified directory.
-     * @note $path isn't checked, validated or realpath()'d and it's just a string replace.
-     * @important This is not a security mechanism.
-     */
-    function load_dir( string $path,string|array $reroot = [],bool $load_content = false ): void
+    catch( \Exception $e )
     {
-        $full_path = $this->fs_root.$path;
-
-        if( !is_dir($full_path) )
-            throw new e500("Directory '$full_path' not valid.");
-
-        if( is_string($reroot) )
-            $reroot = [$reroot,];
-
-        try
-        {
-            $file_i = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($full_path,\FilesystemIterator::KEY_AS_PATHNAME & \FilesystemIterator::SKIP_DOTS & \RecursiveIteratorIterator::CATCH_GET_CHILD));
-            $file_cnt = $char_cnt = 0;
-
-            foreach( $file_i as $pathname => $file_j )
-            {
-                if( $file_j->isFile() )
-                {
-                    $ext = strtolower(pathinfo($pathname,PATHINFO_EXTENSION));
-                    if( !empty($this->include_exts) && !in_array($ext,$this->include_exts) )
-                        continue;
-
-                    $url = substr($pathname,strpos($full_path,$path));
-                    
-                    if( !empty($reroot[0]) && !empty($reroot[1]) )
-                        $url = str_replace($reroot[0],$reroot[1],$url);
-                    else if( !empty($reroot[0]) )
-                        $url = substr($url,strpos($url,$reroot[0])+strlen($reroot[0]));
-
-                    $this->dirs[$url] = ['content_type'=>mime_by_name($ext),
-                                          'path'=>$pathname,
-                                          'content'=>$load_content?file_get_contents($pathname):''];
-                    $file_cnt++;
-                    $char_cnt += strlen($this->dirs[$url]['content']);
-                    // @todo add debugging
-                    //_stdo("{$char_cnt} - $pathname - $url");
-                }
-            }
-        }
-        catch( \Exception $e )
-        {
-            throw new e500($e->getMessage(). "(permission denied/not found for $pathname)");
-        }
-
-        // @todo add debugging
-        // return [$file_cnt,$char_cnt];
+        throw new e500($e->getMessage(). "(permission denied/not found for $pathname)");
     }
 }
 

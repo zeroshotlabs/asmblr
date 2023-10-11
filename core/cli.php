@@ -7,10 +7,11 @@
  * @copyright Licensed under the GNU General Public License
  * @copyright See COPYRIGHT.txt and LICENSE.txt.
  */
-namespace asm\endpoint;
+namespace asm\cli;
+use asm\cli as cli_local;
 
 
-class cli extends endpoint
+class cli extends cli_local
 {
     
 }

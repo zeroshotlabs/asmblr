@@ -23,14 +23,20 @@ use asm\_e\e500;
  * 
  * This also holds configuration parameters, and provides access to the request,
  * and is the default context for endpoint execution.
+ * 
+ * @todo add linker for endpoints
  */ 
 abstract class app
 {
+//    use linker;
+
     public readonly bool $IsProduction;
     public readonly bool $IsCLI;
 
-    protected $exec_q = [];
-    protected $exec_endpoint;
+
+    protected $HasSuperRoot = TRUE;
+
+    protected $route_table = [];
 
 
     /**
@@ -43,7 +49,7 @@ abstract class app
     }
 
     /**
-     * Builds the exec_q (execution queue) using explicit matching:
+     * Builds the route_table (execution queue) using explicit matching:
      *  - loop over the requested URL path, from root down
      *  - each increasing URL is matched as a directory with trailing slash (IsDir = true)
      *  - finally a leaf (IsDir = false) is matched
@@ -66,28 +72,28 @@ abstract class app
      * 
      * These are coined "greedy" roots.
      * 
-     * @return array &$exec_q Reference to the endpoints execution queue, in order.
+     * @return array &$route_table Reference to the endpoints execution queue, in order.
      * @todo Abstract this out as it's own closure/class for custom routers.
-     * @note This is for web requests.
-     * @note Be minful when using greedy roots on higher-up endpoints.
+     * @note This is for ALL web requests - including the FrontStack.
+     * @note Be minful when using greedy roots on high endpoints.
      */
     public function &route(): array
     {
-        $this->exec_q = [];
-        $this->exec_q[] = $this->config->endpoints_url_map['//'];
+        $this->route_table = [];
+        $this->route_table[] = $this->config->endpoints_url_map['//'];
 
         foreach( $this->request->route_path->ordered() as $path )
         {
             if( isset($this->config->endpoints_url_map[$path.'//']) )
-                $this->exec_q[] = $this->config->endpoints_url_map[$path.'//'];
+                $this->route_table[] = $this->config->endpoints_url_map[$path.'//'];
 
             if( isset($this->config->endpoints_url_map[$path])  )
-                $this->exec_q[] = $this->config->endpoints_url_map[$path];
+                $this->route_table[] = $this->config->endpoints_url_map[$path];
             else if( isset($this->config->endpoints_url_map[$path.'/']) )
-                $this->exec_q[] = $this->config->endpoints_url_map[$path.'/'];
+                $this->route_table[] = $this->config->endpoints_url_map[$path.'/'];
         }
 
-        return $this->exec_q;
+        return $this->route_table;
     }
 
 
@@ -96,13 +102,12 @@ abstract class app
      * 
      * This is used to execute a single endpoint.  If there is a period in the 'exec'
      * element, it's split.
-     *  = if there are two elements, the first is taken as the class to instantiate (__construct() is thus called)
+     *  - if there are two elements, the first is taken as the class to instantiate (__construct() is thus called)
      *    and the second as the method to call. 
-     * 
      *  - if there is only a single element, it is taken as the class to instantiate (__construct() is called)
      *    and execute (__invoke() is called).
      * 
-     * @note app classes are assumed in the root namespace (see $e below).
+     * @note app classes are assumed in the global namespace of the app (see $e below).
      */
     public function exec_endpoint( array|string $endpoint ): mixed
     {
@@ -117,27 +122,31 @@ abstract class app
         $exec = explode('.',$endpoint['exec']??'');
 
         // @note Execute a routing or CLI endpoint which is instantiated and __invoked()'d.
-        //       The executing object persists in $this->exec_q[$exec[0]]['obj'] and will be
+        //       The executing object persists in $this->route_table[$exec[0]]['obj'] and will be
         //       reused if nessecary.
         // @todo check namespaces.  this doesn't actually care about interface implementation.
         if( count($exec) == 1 )
         {
-            if( !isset($this->exec_q[$exec[0]]['obj']) )
+            if( !isset($this->route_table[$exec[0]]['obj']) )
             {
                 $e = "\\$exec[0]";                
-                $exec_obj = $this->exec_q[$exec[0]]['obj'] = new $e($this);
+                $exec_obj = $this->route_table[$exec[0]]['obj'] = new $e($this);
             }
+            else
+                $exec_obj = $this->route_table[$exec[0]]['obj'];
 
             return $exec_obj($this->request,$endpoint);
         }
         // @note Execute a leaf endpoint.
         else if( count($exec) == 2 )
         {
-            if( !isset($this->exec_q[$exec[0]]['obj']) )
+            if( !isset($this->route_table[$exec[0]]['obj']) )
             {
                 $e = "\\$exec[0]";
-                $exec_obj = $this->exec_q[$exec[0]]['obj'] = new $e($this);
+                $exec_obj = $this->route_table[$exec[0]]['obj'] = new $e($this);
             }
+            else
+                $exec_obj = $this->route_table[$exec[0]]['obj'];
 
             return $exec_obj->{$exec[1]}($this->request,$endpoint);
         }
@@ -145,6 +154,8 @@ abstract class app
             throw new e500("Malformed endpoint exec '{$endpoint['exec']}");
     }
 }
+
+
 
 
 // @todo app/config /etc  caching
@@ -395,65 +406,3 @@ abstract class app
 
 
 
-
-
-
-// // will 404 if the file isn't found
-//     public function TryTheme( $MatchPathStr )
-//     {
-//         $ContentType = HTTP::Filename2ContentType($MatchPathStr);
-
-//         // we don't know what it is
-//         if( $ContentType === 'application/octet-stream' )
-//             HTTP::_400();
-
-//         $FSPath = $this->Theme['DOC_ROOT'].$MatchPathStr;
-
-//         if( $this->IsDebug() )
-//             llog("Theme FS Path: $FSPath\nMatch Path: $MatchPathStr\nContent Type: $ContentType");
-
-//         // if we don't find the file then it's a 404
-//         if( !is_file($FSPath) )
-//         {
-//             $this->NoPageHandler();
-//         }
-//         // we found it so passthru and no rendering will happen
-//         // @todo implement nginx passthru xcnvyr style
-//         else
-//         {
-//             HTTP::ContentType($ContentType);
-//             readfile($FSPath);
-//         }
-//     }
-
-//     /**
-//      * Set the active theme.
-//      *
-//      * Only one theme can be active at a time, though they can be changed on the fly.
-//      *
-//      * @param string $Name Case-sensitive theme (directory) name.
-//      * @param NULL $Name Deactivate the theme system.
-//      * @param string $Index Optional case-sensitive theme index file for root requests.
-//      * @throws Exception Requested theme doesn't exist.
-//      *
-//      * @note The theme index file doesn't actually need to exist but should always be set.
-//      *
-//      * @todo Root is hardwired approot/themes/
-//      * @todo Perhaps remove check of doc root since this could be used on strange filesystems.
-//      */
-//     public function SetTheme( $Name,$Index )
-//     {
-//         if( empty($Name) )
-//         {
-//             $this->Theme = array();
-//             return;
-//         }
-
-//         $Root = $this->Manifest['AppRoot'].'themes/';
-//         $T = array('Root'=>$Root,'DOC_ROOT'=>$Root.trim($Name).'/','Name'=>trim($Name),'Index'=>trim($Index));
-
-//         if( !is_dir($T['DOC_ROOT']) )
-//             throw new Exception("Requested theme '{$T['Name']}' doesn't exist.");
-
-//         $this->Theme = $T;
-//     }
