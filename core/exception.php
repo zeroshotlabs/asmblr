@@ -86,7 +86,7 @@ class eHTTP extends exception
      */
     public function __construct( string $message = null,int $code = 0,\Throwable $previous = null )
     {
-        parent::__construct($message,$code,$previous);
+        parent::__construct((string)$message,$this->http_code,$previous);
 
         if( $code > -1 )
             $this->send_response_code($code>0?$code:$this->http_code);
