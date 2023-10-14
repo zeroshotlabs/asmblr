@@ -110,11 +110,11 @@ class request
 
             if( $this->IsForwarded )
             {
-                [$this->IsHTTPS,$Scheme] = ($_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https' ? [true,'https'] : [false,'http']);
+                [$this->IsHTTPS,$Scheme] = ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '' === 'https' ? [true,'https'] : [false,'http']);
                 $this->remote_ip = $_SERVER['HTTP_X_FORWARDED_FOR'];
 
                 $Host = $_SERVER['HTTP_X_FORWARDED_HOST'] ?? $_SERVER['HTTP_HOST'];
-                $Port = $_SERVER['HTTP_X_FORWARDED_PORT'];
+                $Port = $_SERVER['HTTP_X_FORWARDED_PORT'] ?? $_SERVER['SERVER_PORT'];
             }
             else
             {
