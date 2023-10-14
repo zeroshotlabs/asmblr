@@ -717,7 +717,7 @@ class url implements \Stringable
     )
     {
         $this->IsHTTPS = ($scheme === 'https');
-        $this->port = $port === '80' || $port === '443' ? '' : $port;
+        $this->port = ($port === '80' || $port === '443' ? '' : $port);
     }
 
     public function __clone()
@@ -798,7 +798,7 @@ class url implements \Stringable
         $host = (string) $this->hostname;
         if( !empty($host) )
         {
-            if( $this->port && $this->port != '80' && $this->port != '443' )
+            if( $this->port && ($this->port != '80' && $this->port != '443') )
                 $host .= ":{$this->port}";
 
             $auth = '';
