@@ -215,12 +215,12 @@ function include_dir( string $path,string $path_prefix = '',array $include_exts 
         $include_exts = ['html','php','inc','tpl','htm','css','js'];
 
     if( !empty($path_prefix) )
-        $abs_path = $path_prefix.DIRECTORY_SEPARATOR.$path;
+        $path2 = $path_prefix.DIRECTORY_SEPARATOR.$path;
     else
-        $abs_path = APP_ROOT.DIRECTORY_SEPARATOR.$path;
+        $path2 = APP_ROOT.DIRECTORY_SEPARATOR.$path;
 
-    if( ($abs_path = realpath($abs_path)) === FALSE )
-        throw new e500("Directory '$abs_path' ($path) ($path_prefix) not valid.");
+    if( ($abs_path = realpath($path2)) === FALSE )
+        throw new e500("Directory '$path2' ($path) ($path_prefix) not valid for include_dir().");
 
     try
     {
