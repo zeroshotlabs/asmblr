@@ -44,6 +44,8 @@ interface provider { }
  * Paths aren't checked, validated or realpath()'d.
  * 
  * @note This isn't a security mechanism - it's dangerous!
+ * @note Double slashes will read anything from the drive's root!
+ * 
  * @note This is basically for Unix, though easy changes for Windows.
  * 
  * @note Pay attention to trailing slashes when renaming/rerooting.
@@ -126,6 +128,8 @@ class filesystem implements provider
      */    
     public function __get( string $url ): array|null
     {
+        throw new e500("Is this used?  $url");
+        
         // "editor.js/node_modules/es-to-primitive/test/es6.js
         if( strpos($url,'/../') !== FALSE )
             throw new e404("Suspicious path: $url");

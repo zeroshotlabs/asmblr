@@ -119,9 +119,14 @@ trait http_headers
      *       name and file extension.  If a type isn't recognized, the original value is returned.
      * @note $Charset is passed untouched.
      *
+     * Sends a Content-Type header. 
+     * 
+     * This expects a valid content type value.  Use mime_by_name to get a valid type for
+     * common extensions and application names.
+     * 
      * @todo We should have methods for content-disposition (attachment, download, etc).
      *
-     * @see mime_by_name() for a list of mime types.
+     * @see mime_by_name() to get a valid MIME type for an extension.
      */
     public function content_type( string $type,$charset = '' ): void
     {
