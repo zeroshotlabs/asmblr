@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 /**
  * @file Template.php Text templating and rendering.
  * @author Stackware, LLC
@@ -13,7 +13,7 @@ namespace asm;
 /**
  * A Template is a block of text that can be rendered.
  *
- * A Template contains a Name, an optional function, and a body.  The Name
+ * A Template contains a Name, an optional executeable, and a body.  The Name
  * must be unique within a TemplateSet.
  *
  * If a function is present, it is executed before rendering occurs.  If the
@@ -26,6 +26,9 @@ namespace asm;
  *
  * Templates are rendered and managed by a TemplateSet, together forming the "view layer".
  */
+
+ return;
+ 
 abstract class Template extends Struct
 {
     /**
@@ -109,7 +112,7 @@ class TemplateSet implements Debuggable,Directable
      * @var array $Templates
      * Array of Template Structs that this TemplateSet manages.
      *
-     * @note Unless App::$CacheApp is TRUE, these won't contain a body (it's pulled from the filesystem upon render).
+     * @note When App::$CacheApp is FALSE, these won't contain a body (it's pulled from the filesystem upon render).
      */
     protected $Templates = [];
 
@@ -130,8 +133,9 @@ class TemplateSet implements Debuggable,Directable
     protected $Stacks = [];
 
     /**
-     * @var \asm\KeyValueSet $page
-     * Shared K/V store - do not overuse vs Connect().
+     * @var \asm\DAO $page
+     * Shared K/V store - don't let it get messy!
+     * @todo one of the last uses of KeyValueSet - moving to eliminate
      */
     public $page;
 
@@ -147,8 +151,9 @@ class TemplateSet implements Debuggable,Directable
         $this->App = $App;
 
         // page is always created - removed from Appt
-        $this->page = new \asm\KeyValueSet;
-        // @todo should review/change re other notes
+        $this->page = new \asm\DAO;
+
+        // @todo should review/change re other notes - shouldn't the templates be here?
         $this->Templates = $App->Templates;
 
     }

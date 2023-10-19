@@ -1,13 +1,12 @@
 <?php
 /**
- * @file corsp.inc CORS transparent proxy.
+ * @file corsp.inc CORS drop-in transparent proxy.
  * @author Stackware, LLC
  * @version 5.0
  * @copyright Copyright (c) 2012-2023 Stackware, LLC. All Rights Reserved.
  * @copyright Licensed under the GNU General Public License
  * @copyright See COPYRIGHT.txt and LICENSE.txt.
  */
-namespace asm;
 
 
 /**
@@ -19,7 +18,6 @@ namespace asm;
  *  - CORSP_DestURL config variable must be set in the manifest's config, which can be overridden.
  *  - a page - commonly corsp - mapped to this function with a path such as /ajx/ as shown below.
  *    The path must be only a single segment.
- *  - exclude page from session and zlib compression in sitewide.php
  *
  * This function should be defined in the manifest as a Page's function, such as:
  *  @code

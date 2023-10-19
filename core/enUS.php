@@ -9,6 +9,37 @@
  */
 namespace asm;
 
+return;
+
+//     /**
+//      * Convert a string, or recursively convert an array, to UTF-8.
+//      *
+//      * @param array,string $A A reference to the array to convert.
+//      *                        A reference to the string to convert.
+//      *
+//      * @todo Full testing when fed strangely encoded strings.
+//      * @note Changes original value.
+//      */
+//     public static function ToUTF8( &$A ): void
+//     {
+//         if( is_array($A) === TRUE )
+//         {
+//             foreach( $A as &$V )
+//             {
+//                 // Avoid encoding already encoded UTF-8 - TRUE is required to make a strict test.
+//                 if( is_string($V) === TRUE && mb_detect_encoding($V,'UTF-8, ISO-8859-1',TRUE) !== 'UTF-8')
+//                     $V = mb_convert_encoding($V,'UTF-8');
+//                 else if( is_array($V) === TRUE )
+//                     static::ToUTF8($V);
+//             }
+//         }
+//         else if( is_string($A) === TRUE )
+//         {
+//             if( mb_detect_encoding($A,'UTF-8, ISO-8859-1',TRUE) !== 'UTF-8')
+//                 $A = mb_convert_encoding($A,'UTF-8');
+//         }
+//     }
+// }
 
 /**
  * Tools for working with US English text, delimited strings (tags), and forms.

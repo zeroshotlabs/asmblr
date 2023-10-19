@@ -365,7 +365,7 @@ class MySQLSet extends TemplateSet
     public function __construct( \asm\MySQL $MySQL,$Path = '' )
     {
         if( !empty($Path) )
-            $this->LoadFile($Path,$GLOBALS['asmapp']);
+            $this->LoadFile($Path,$GLOBALS['asmdpp']);
 
         $this->DB = $MySQL;
         $this->Connect(array('DB'=>$this->DB));
