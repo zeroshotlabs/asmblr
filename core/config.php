@@ -63,7 +63,9 @@ class config extends \asm\types\dao
         else
         {
             self::$instance = new self($sheet_id,$sheet_tabs,$cache);
-            file_put_contents($cache,serialize(self::$instance));
+
+            if( !empty($cache) )
+                file_put_contents($cache,serialize(self::$instance));
             return self::$instance;
         }
     }
@@ -391,21 +393,3 @@ function secrets( string $file = APP_ROOT.'/secrets.ini' ): ArrayObject
     else
         return $parsed;
 }
-
-// /**
-//  * App secrets container.
-//  * 
-//  * @note maybe better to use the config for this.
-//  */
-// abstract class _secrets
-// {
-//     private final function __construct(){}
-
-//     public static function __callStatic( string $name,array $args ): mixed
-//     {
-//         if( !empty($args[0]) )
-//             return static::$$name[$args[0]] ?? [];
-//         else
-//             return static::$$name ?? [];
-//     }
-// }
