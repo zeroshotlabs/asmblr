@@ -1,9 +1,9 @@
 <?php declare(strict_types=1);
 /**
- * @file Request.php A HTTP or CLI request.
- * @author Stackware, LLC
+ * @file request.php A HTTP or CLI request.
+ * @author @zaunere Zero Shot Labs
  * @version 5.0
- * @copyright Copyright (c) 2012-2023 Stackware, LLC. All Rights Reserved.
+ * @copyright Copyright (c) 2023 Zero Shot Laboratories, Inc. All Rights Reserved.
  * @copyright Licensed under the GNU General Public License
  * @copyright See COPYRIGHT.txt and LICENSE.txt.
  */
@@ -11,19 +11,17 @@ namespace asm;
 use asm\_e\e400,asm\types\hostname,asm\types\encoded_str,asm\types\path,asm\types\url;
 use asm\http\http_headers;
 
+
 /**
  * Current request data.
  *
- * The Request DAO encapsulates and normalizes the raw request data for both HTTP
+ * The request class encapsulates and normalizes the raw request data for both HTTP
  * and CLI requests.
  *
- * It is used by asmd to calculate application URLs and determine whether the request
+ * It is used by app to calculate application URLs and determine whether the request
  * came from a web browser or from the command line, and is used throughout an app.
  *
- * Request data, like $_GET and $_POST, and headers, are not included.
- *
- * This Struct is a "singleton" - once it's been initialized, it's values are persisted
- * in the $Request static variable (though it can be re-generated).
+ * Request data, like  $_POST and headers, are not included.
  */
 class request
 {
@@ -63,7 +61,7 @@ class request
 
     public readonly array $argv;
     public readonly int $argc;
-    const MIN_ARGC = 3;
+    const MIN_ARGC = 2;
 
 
     /**
@@ -83,14 +81,14 @@ class request
      *       will be incorporated into the Config.
      * 
      * @note HTTP auth isn't handled.
-     * @note The path is lowercased.
+     * @note The request/route path is lowercased and possibly modified by base_url.
      */
-    public function __construct( string $base_url = null )
+    public function __construct( string $base_url = '' )
     {
         if( !empty($_SERVER['argv']) )
         {
             if( $_SERVER['argc'] < self::MIN_ARGC )
-                throw new e400("CLI execution requires at least two arguments: php DOC_ROOT/index.php {hostname} {pagename} args ...");
+                throw new e400("CLI execution requires at least one argument: php doc_root/index.php {pagename} args ...");
 
             $this->IsCLI = true;
 
@@ -110,35 +108,35 @@ class request
 
             if( $this->IsForwarded )
             {
-                [$this->IsHTTPS,$Scheme] = ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '' === 'https' ? [true,'https'] : [false,'http']);
+                [$this->IsHTTPS,$scheme] = ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '' === 'https' ? [true,'https'] : [false,'http']);
                 $this->remote_ip = $_SERVER['HTTP_X_FORWARDED_FOR'];
 
-                $Host = $_SERVER['HTTP_X_FORWARDED_HOST'] ?? $_SERVER['HTTP_HOST'];
-                $Port = $_SERVER['HTTP_X_FORWARDED_PORT'] ?? $_SERVER['SERVER_PORT'];
+                $host = $_SERVER['HTTP_X_FORWARDED_HOST'] ?? $_SERVER['HTTP_HOST'];
+                $port = $_SERVER['HTTP_X_FORWARDED_PORT'] ?? $_SERVER['SERVER_PORT'];
             }
             else
             {
-                [$this->IsHTTPS,$Scheme] = ($_SERVER['HTTPS'] ?? false === 'on' ? [true,'https'] : [false,'http']);
+                [$this->IsHTTPS,$scheme] = ($_SERVER['HTTPS'] ?? false === 'on' ? [true,'https'] : [false,'http']);
                 $this->remote_ip = $_SERVER['REMOTE_ADDR'];
 
-                $Host = $_SERVER['HTTP_HOST'];
-                $Port = $_SERVER['SERVER_PORT'];
+                $host = $_SERVER['HTTP_HOST'];
+                $port = $_SERVER['SERVER_PORT'];
             }
 
-            $Path = $_SERVER['DOCUMENT_URI'] ?? 'unknown';
+            $path = $_SERVER['DOCUMENT_URI'] ?? '/?-?';
 
             // @todo does anyone use username:password@ anymore?  :)
 
-            // maintained as the original request, not lower cased; keep cased for frontstack requests
+            // maintained as the original request, not altered; keep cased for FES requests
             // @note $_POST isn't included.
-            $this->original_url = new url($Scheme,'','',hostname::str($Host),$Port,path::url($Path),encoded_str::arr($_GET),'');
-            // lowercased, canonized by base_url; active URL for processing the request;            
+            $this->original_url = new url($scheme,'','',hostname::str($host),$port,path::url($path),encoded_str::arr($_GET),'');
+
+            // active URL used for routing - lowercased, canonized by base_url;
             $this->url = clone $this->original_url;
             $this->url->path->lower();
 
-            // merge in the baseurl if supplied - this will change $this->url
-            if( $base_url )
-                $this->use_base_url($base_url);
+            // merge in the baseurl potentially changing $this->url
+            $this->use_base_url($base_url);
         }
     }
 
@@ -239,7 +237,7 @@ class request
             return false;
 
         foreach( ['iPhone','iPad','iPod','Android'] as $ua )
-            if( stripos($_SERVER['HTTP_USER_AGENT'],$ua) > 0 )
+            if( stripos($_SERVER['HTTP_USER_AGENT'],$ua) !== false )
                 return true;
 
         return false;

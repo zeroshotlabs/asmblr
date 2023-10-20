@@ -1,9 +1,9 @@
 <?php declare(strict_types=1);
 /**
  * @file config.php CSV/Google Sheets based configuration.
- * @author Stackware, LLC
+ * @author @zaunere Zero Shot Labs
  * @version 5.0
- * @copyright Copyright (c) 2012-2023 Stackware, LLC. All Rights Reserved.
+ * @copyright Copyright (c) 2023 Zero Shot Laboratories, Inc. All Rights Reserved.
  * @copyright Licensed under the GNU General Public License
  * @copyright See COPYRIGHT.txt and LICENSE.txt.
  */
@@ -28,37 +28,50 @@ class config extends \asm\types\dao
 {
     public static $instance = null;
 
-//    use \asm\types\dynamic_kv;
-
     /**
      * true only if Status is 'live' or via domain detection.  Used in $app
      */
-    public readonly bool $IsProduction;
+    public bool $IsProduction;
 
-    protected array $app;
-    protected array $endpoints;
-    protected array $endpoints_url_map = [];
-    protected array $templates;
-    protected array $creds;
-    protected array $meta;
+    /**
+     * 
+     */
+    public array $app;
+    public array $endpoints;
+    public array $endpoints_url_map = [];
+    public string $endpoints_url_blob = '';
+    public array $templates;
+    public array $creds;
+    public array $meta;
 
     /**
      * Template URL for Google Sheets GVIZ API.  8/23
      */ 
-    protected $google_skel_url = 'https://docs.google.com/spreadsheets/d/{sheetid}/gviz/tq?tqx=out:json&sheet={sheet}&headers=0';
+    public $google_skel_url = 'https://docs.google.com/spreadsheets/d/{sheetid}/gviz/tq?tqx=out:json&sheet={sheet}&headers=0';
 
-    protected $app_fields = ['status','sysop','base_url','force_scheme','force_host','force_path'];
+    public $app_fields = ['status','sysop'];
 
 
-    public static function init( string $sheet_id,array $sheet_tabs,string $cache = '' )
+    /**
+     * Singleton initializer, using a Google Sheet as the backend.
+     * 
+     * The cache here is serialization of the object to disk.  While fast, future extensions may provide in-memory
+     * caching without serialization.
+     * 
+     * @param string $sheet_id Google Sheet's document ID from URL such as "... speadsheets/d/<sheet_id>/edit ..."
+     * @param array $sheet_tabs The names of sheet tabs to use; defaults to app.
+     *                          Other tabs will be processed as generic key/value pairs.
+     * @param string $cache Absolute to path to cache the configuration.  Must be writeable by php-fpm (ie. check /tmp OS config).
+     * @note Across this class use of creds is deprecated in favor of secrets.ini - perhaps other things, too.
+     */
+    public static function init( string $sheet_id,array $sheet_tabs = ['app'],string $cache = '' )
     {
         if( self::$instance )
             return self::$instance;
 
         if( is_file($cache) )
         {
-            $c = file_get_contents($cache);
-            return unserialize($c);
+            return unserialize(file_get_contents($cache));
         }
         else
         {
@@ -66,19 +79,25 @@ class config extends \asm\types\dao
 
             if( !empty($cache) )
                 file_put_contents($cache,serialize(self::$instance));
+
             return self::$instance;
         }
     }
 
+
     /**
-     * reserved keys for config rows
+     * Instantiate an object.
+     * 
+     * This is a singleton.
+     * 
+     * Reserved keys for config rows - checked on the first or second column.
      *  - app_fields
      *  - directive
      *  - page
      *  - template
-     *  - name - signals
+     *  - name - signals (TODO)
      */
-    private function __construct( protected string $SheetID,protected array $SheetTabs,string $cache = '' )
+    public function __construct( public string $sheet_id,public array $sheet_tabs,string $cache = '' )
     {
         $opts = [
             "http" => [
@@ -89,9 +108,9 @@ class config extends \asm\types\dao
         
         $context = stream_context_create($opts);
 
-        foreach( $SheetTabs as $ST )
+        foreach( $this->sheet_tabs as $tab )
         {
-            $URL = str_replace(['{sheetid}','{sheet}'],[$this->SheetID,$ST],$this->google_skel_url);
+            $URL = str_replace(['{sheetid}','{sheet}'],[$this->sheet_id,$tab],$this->google_skel_url);
 
             $j = file_get_contents($URL,false,$context);
 
@@ -100,7 +119,7 @@ class config extends \asm\types\dao
 
             if( empty($j['table']['rows']) )
             {
-                _stde("Empty config tab sheet '$ST' - no 'rows' - skipping");
+                _stde("Empty config tab sheet '$tab' - no 'rows' - skipping");
                 continue;
             }
 
@@ -133,6 +152,7 @@ class config extends \asm\types\dao
                     $this->_handle_app($j['table']['rows']);
                     continue 2;
                 }
+                // @note deprecated in favor of secrets.ini
                 else if( $i === 0 && $col0_label === 'creds')
                 {
                     $t = $this->_handle_kv_sheet($j['table']['rows'],'creds');
@@ -151,12 +171,13 @@ class config extends \asm\types\dao
                     _stde("Unexpected thing 1: '$i'");
             }
 
-            $this->SheetTabs[$ST] = $j;
+            $this->sheet_tabs[$tab] = $j;
         }
 
-        if( empty($this->endpoints_url_map['//']) )
-            throw new e500('No global route.');
+        // fast URL lookup string; line numbers correspond directly to $this->endpoints index.
+        $this->endpoints_url_blob = implode(PHP_EOL,array_keys($this->endpoints_url_map));
 
+        // @todo future memory persistance
         if( $cache )
         {
             file_put_contents($cache,serialize($this));
@@ -164,7 +185,7 @@ class config extends \asm\types\dao
     }
 
     /**
-     * Read a config value by section:
+     * Read a config value by populated section:
      *   - app
      *   - endpoints
      *   - endpoints_url_map
@@ -172,7 +193,7 @@ class config extends \asm\types\dao
      *   - creds
      *   - meta
      * 
-     * @return dao object of configuration directives.
+     * @return dao object of configuration directives, keyed on directive name.
      * @todo probably should cache objects.
      */
     public function __get( $key ): dao
@@ -185,7 +206,7 @@ class config extends \asm\types\dao
         return isset($this->{strtolower($key)});
     }
 
-    protected function _handle_app( array $rows ): void
+    public function _handle_app( array $rows ): void
     {
         $this->app = ['directives'=>[]];
         $last_name = $last_type = '';
@@ -257,7 +278,7 @@ class config extends \asm\types\dao
      * 
      * @return array A tuple of Name and the key/value pairs
      */
-    protected function _handle_kv_sheet( array $rows,$name_label = 'name' ): array
+    public function _handle_kv_sheet( array $rows,$name_label = 'name' ): array
     {
         $KVs = [];
 
@@ -302,12 +323,12 @@ class config extends \asm\types\dao
      * @param array Numeric row array from Google sheets' ['c'] format (2023-08).
      * @param array Empty array if any empty row (nothing but null or empty strings)
      */
-    private function _sweeten( array $row ): array
+    public function _sweeten( array $row ): array
     {
         return array_map(fn($v)=>!empty($v['v'])&&trim($v['v'])!=''?trim($v['v']):'',$row['c']);
     }
 
-    private function _process_directive( array $row,int $offset = 0 ): array
+    public function _process_directive( array $row,int $offset = 0 ): array
     {
         return ['subject'=>$row[$offset+1],'key'=>$row[$offset+2],'value'=>$row[$offset+3]];
     }
@@ -315,6 +336,10 @@ class config extends \asm\types\dao
     /**
      * @note lowercases the name and URL; should use path class.
      * @note this contains the definition of the endpoint array, which should be centralized.
+     * 
+     * @note An endpoint is an array like:
+     *    ['name'=>$row[1],'url'=>'','greedy'=>(bool)),'status'=>'',
+     *     'exec'=>'something::somewhere'','directives'=>[]]
      */
     private function _process_endpoint( array $row ): string
     {
@@ -353,6 +378,9 @@ class config extends \asm\types\dao
         return $lower_name;
     }
     
+    /**
+     * @todo review.
+     */
     private function _process_template( array $row ): string
     {
         if( empty($row[1]) )
@@ -369,8 +397,11 @@ class config extends \asm\types\dao
     }
 }
 
+
 /**
  * App secrets accessor.
+ * 
+ * @note This can be used as config to an extent.
  */
 function secrets( string $file = APP_ROOT.'/secrets.ini' ): ArrayObject
 {
