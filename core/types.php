@@ -235,24 +235,24 @@ class path extends dao implements \Stringable
         public string $separator = '/',
 
         /**
-         * TRUE if the path has a leading separator.
+         * true if the path has a leading separator.
          */
-        public bool $IsABS,
+        public bool $is_abs,
 
         /**
-         * TRUE if the path has a trailing separator.
+         * true if the path has a trailing separator.
          */
-        public bool $IsDir,
+        public bool $is_dir,
 
         /**
-         * TRUE if the path is only the separator (IsDir and IsAbs will also be TRUE).
+         * true if the path is only the separator (is_dir and IsAbs will also be true).
          */
-        public bool $IsRoot,
+        public bool $is_root,
 
         /**
-         * TRUE if the path is a shell path, otherwise it's escaped as a URL path.
+         * true if the path is a shell path, otherwise it's escaped as a URL path.
          */
-        public bool $IsShell,
+        public bool $is_shell,
 
         /**
          * Numeric array of the pieces between the separators.
@@ -263,24 +263,24 @@ class path extends dao implements \Stringable
 
     public function as_abs(): string
     {
-        return $this->the_real_tostring(NULL,NULL,TRUE);
+        return $this->the_real_tostring(NULL,NULL,true);
     }
 
     public function as_dir(): string
     {
-        return $this->the_real_tostring(NULL,TRUE,NULL);
+        return $this->the_real_tostring(NULL,true,NULL);
     }
 
     public function as_abs_dir(): string
     {
-        return $this->the_real_tostring(NULL,TRUE,TRUE);
+        return $this->the_real_tostring(NULL,true,true);
     }
 
     /**
      * Prepend segments of another path.
      * 
      * @param path $p The path to prepend.
-     * @param bool $dedupe TRUE to remove duplicates.
+     * @param bool $dedupe true to remove duplicates.
      * 
      * @note If $dedupe is true, pay attention to the order of the segments.
      */
@@ -296,7 +296,7 @@ class path extends dao implements \Stringable
      * Append segments of another path.
      * 
      * @param path $p The path to append.
-     * @param bool $dedupe TRUE to remove duplicates.
+     * @param bool $dedupe true to remove duplicates.
      * 
      * @note If $dedupe is true, pay attention to the order of the segments.
      * @todo mixed instead of path for $p
@@ -329,18 +329,18 @@ class path extends dao implements \Stringable
      * @return array Ordered path segments.
      *
      * @note All paths are absolute. A trailing '/' will be included, based
-     * on IsDir.
+     * on is_dir.
      */
     public function ordered( $inc = true ): array
     {
-        if( $this->IsRoot )
+        if( $this->is_root )
             return [$this->separator];
 
         $p = [];
         foreach( $this->segments as $k => $v )
             $p[] = ($k>0?$p[$k-1]:(($this->separator))).$v.$this->separator;            
 
-        if( !$this->IsDir )
+        if( !$this->is_dir )
             $p[count($p)-1] = rtrim(end($p),$this->separator);
 
         if( $inc )
@@ -354,7 +354,7 @@ class path extends dao implements \Stringable
      * Overload to return the path as a string.
      * 
      * This will properly prefix/suffix and encode the path string,
-     * according to IsShell, IsABS and IsDIR.
+     * according to is_shell, is_abs and is_dir.
      * 
      * @todo PHP feature request: using python's slicing, printf formatting, etc?  Allow params?
      * @see the_real_tostring() for actual string creation and overrides.
@@ -364,17 +364,17 @@ class path extends dao implements \Stringable
         return $this->the_real_tostring();
     }
 
-    protected function the_real_tostring( bool $IsShell = NULL,bool $IsDir = NULL,bool $IsABS = NULL ): string
+    protected function the_real_tostring( bool $is_shell = NULL,bool $is_dir = NULL,bool $is_abs = NULL ): string
     {
-        if( $this->IsRoot === true )
+        if( $this->is_root === true )
         {
             return $this->separator;
         }
         else
         {
-            $shell = $IsShell===NULL?$this->IsShell:$IsShell;
-            $abs = $IsABS===NULL?$this->IsABS:$IsABS;
-            $dir = $IsDir===NULL?$this->IsDir:$IsDir;
+            $shell = $is_shell===NULL?$this->is_shell:$is_shell;
+            $abs = $is_abs===NULL?$this->is_abs:$is_abs;
+            $dir = $is_dir===NULL?$this->is_dir:$is_dir;
 
             if( $shell === false )
                 $Segs = implode($this->separator,array_map('rawurldecode',$this->segments));
@@ -394,7 +394,7 @@ class path extends dao implements \Stringable
      *
      * @param string $str The path string to parse, an empty string, or NULL.
      * @param string $separator Specify a single character as a separator to use.
-     * @param bool $shell TRUE if the path is a shell path, otherwise it'll be escaped as a URL path.
+     * @param bool $shell true if the path is a shell path, otherwise it'll be escaped as a URL path.
      * @return \asm\types\path A path.
      *
      * @note An empty or NULL $str, or one that is only multiple separators,
@@ -418,20 +418,20 @@ class path extends dao implements \Stringable
         if( empty($str) || $str === $separator )
         {
             $segments[0] = $separator;
-            $IsAbs = $IsDir = $IsRoot = true;
+            $IsAbs = $is_dir = $is_root = true;
         }
         else
         {
-            $IsRoot = false;
+            $is_root = false;
             $IsAbs = $str[0]===$separator?true:false;
-            $IsDir = substr($str,-1,1)===$separator?true:false;
+            $is_dir = substr($str,-1,1)===$separator?true:false;
             // $segments = preg_split("(\\{$separator}+)",$str,-1,PREG_SPLIT_NO_EMPTY);
             // the fastest way according to chatgpt - after some guidance
             // the double reverse is to reindex (not from chatgpt :)
             $segments = array_reverse(array_reverse(array_filter(explode($separator,$str))));
         }
 
-        return new self($separator,$IsAbs,$IsDir,$IsRoot,$shell,$segments);
+        return new self($separator,$IsAbs,$is_dir,$is_root,$shell,$segments);
     }
 
 
@@ -517,7 +517,7 @@ class hostname extends dao implements \Stringable
  *
  * The components of a URL are:
  *
- *  @li @c IsHTTPS: @c TRUE if the scheme is https.
+ *  @li @c IsHTTPS: @c true if the scheme is https.
  *  @li @c scheme: Typically @c http or @c https.
  *  @li @c username
  *  @li @c password
@@ -533,7 +533,7 @@ class hostname extends dao implements \Stringable
 class url implements \Stringable
 {
     /**
-     * TRUE if the scheme is https.
+     * true if the scheme is https.
      */
     public bool $IsHTTPS;
 
