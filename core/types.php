@@ -4,8 +4,8 @@
  * @author @zaunere Zero Shot Labs
  * @version 5.0
  * @copyright Copyright (c) 2023 Zero Shot Laboratories, Inc. All Rights Reserved.
- * @copyright Licensed under the GNU General Public License
- * @copyright See COPYRIGHT.txt and LICENSE.txt.
+ * @copyright Licensed under the GNU General Public License v3.0 or later.
+ * @copyright See COPYRIGHT.txt.
  */
 namespace asm\types;
 use function asm\sys\_stde;

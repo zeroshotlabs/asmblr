@@ -1,5 +1,5 @@
 
-All asmblr code is Copyright 2010 - 2023 by Stackware, LLC. (http://stackware.com)
+All asmblr code is Copyright 2023 Zero Shot Laboratories, Inc. (https://zsl.ai)
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -16,4 +16,4 @@ GNU General Public License.
 
 The asmblr project is hosted at https://asmblr.ai
 
-asmblr is a trademark of Stackware, LLC.
+asmblr is a trademark of Zero Shot Laboratories, Inc.

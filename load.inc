@@ -4,22 +4,21 @@
  * @author @zaunere Zero Shot Labs
  * @version 5.0
  * @copyright Copyright (c) 2023 Zero Shot Laboratories, Inc. All Rights Reserved.
- * @copyright Licensed under the GNU General Public License
- * @copyright See COPYRIGHT.txt and LICENSE.txt.
+ * @copyright Licensed under the GNU General Public License v3.0 or later.
+ * @copyright See COPYRIGHT.txt.
  */
 
 
 /**
- * asmblr root and extension directories.
+ * asmblr root.
  */
 define('ASM_ROOT',__DIR__.DIRECTORY_SEPARATOR);
-define('ASM_EXT_ROOT',__DIR__.DIRECTORY_SEPARATOR.'extensions'.DIRECTORY_SEPARATOR);
 
 
 /**
  * Current working/execution root directory; not the APP_ROOT.
  * 
- * @note Generally important for CLI execution.
+ * @note Important for CLI execution.
  */
 define('CWD_ROOT',getcwd().DIRECTORY_SEPARATOR);
 

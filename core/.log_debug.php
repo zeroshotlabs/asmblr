@@ -444,6 +444,115 @@ abstract class Debug
 
 
 
+    // if( $appt->IsDebug() )
+    //     llog($E->getTraceAsString());
+
+    // if( !$appt->IsCLI() )
+    //     \asm\HTTP::_500();
+            // // activate asmblr's stock error handler - method can be customized in extending class
+            // set_error_handler(array($this,'ErrorHandler'));
+    // /**
+    //  * Default user error handler.
+    //  *
+    //  * Handle an application or PHP error.  This method is set using
+    //  * set_error_handler() in App::__construct().
+    //  *
+    //  * @param int $errno The message severity as a PHP constant.
+    //  * @param string $errstr The error message.
+    //  * @param string $errfile The filename from which the message came.
+    //  * @param int $errline The line number of the file.
+    //  * @param array $errcontext Local scope where the error occurred.
+    //  * @retval boolean FALSE if the error should be ignored, TRUE if not.
+    //  *
+    //  * @note errcontext can be huge.
+    //  */
+    // public function ErrorHandler( $errno,$errstr,$errfile,$errline,$errcontext = NULL )
+    // {
+    //     // error surpressed with @
+    //     if( error_reporting() === 0 )
+    //         return FALSE;
+
+    //     if( in_array($errno,array(E_WARNING,E_USER_WARNING)) )
+    //         $errno = 'WARN';
+    //     else if( in_array($errno,array(E_NOTICE,E_USER_NOTICE)) )
+    //         $errno = 'INFO';
+    //     else
+    //         $errno = 'ERROR';
+
+    //     $BT = array_merge(array("[{$errfile}:{$errline}]"),Debug::Backtrace());
+
+    //     Log::Log($errstr,$errno,$BT,$errcontext);
+
+    //     return TRUE;
+    // }
+
+// @todo app/config /etc  caching
+    // /**
+    //  * @var string $CacheDir
+    //  * Absolute path to the asmblr local cache.
+    //  *
+    //  * @note This must be set explicitly in the extending class.
+    //  *
+    //  * @todo For future GAE integration:
+    //  *      @c gs://asmblr-mc-tmp/
+    //  *      @c array('gs'=>array('Content-Type'=>'text/plain'))
+    //  */
+    // public $CacheDir = '';
+    // /**
+    //  * @var boolean $CacheManifest
+    //  * TRUE to cache the manifest to the local disk.
+    //  * 
+    //  * @note This is configured in the application array in @c index.php
+    //  */
+    // public $CacheManifest = FALSE;
+
+    // /**
+    //  * @var boolean $CacheApp
+    //  * TRUE to cache the app into a local app-file.
+    //  *
+    //  * @note This is configured in the application array in @c index.php
+    //  */
+    // public $CacheApp = FALSE;
+
+
+        /**
+     * Default user error handler.
+     *
+     * Handle an application or PHP error.  This method is set using
+     * set_error_handler() in App::__construct().
+     *
+     * @param int $errno The message severity as a PHP constant.
+     * @param string $errstr The error message.
+     * @param string $errfile The filename from which the message came.
+     * @param int $errline The line number of the file.
+     * @param array $errcontext Local scope where the error occurred.
+     * @retval boolean FALSE if the error should be ignored, TRUE if not.
+     *
+     * @note errcontext can be huge.
+     */
+    // public function ErrorHandler( $errno,$errstr,$errfile,$errline,$errcontext = NULL )
+    // {
+    //     // error surpressed with @
+    //     if( error_reporting() === 0 )
+    //         return FALSE;
+
+    //     if( in_array($errno,array(E_WARNING,E_USER_WARNING)) )
+    //         $errno = 'WARN';
+    //     else if( in_array($errno,array(E_NOTICE,E_USER_NOTICE)) )
+    //         $errno = 'INFO';
+    //     else
+    //         $errno = 'ERROR';
+
+    //     $BT = array_merge(array("[{$errfile}:{$errline}]"),Debug::Backtrace());
+
+    //     Log::Log($errstr,$errno,$BT,$errcontext);
+
+    //     return TRUE;
+    // }
+
+
+
+
 
     // /** WAS PATH
     //  * Merge $Src segments into $Dest segments.

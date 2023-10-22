@@ -1,17 +1,18 @@
 <?php declare(strict_types=1);
 /**
  * @file Template.php Text templating and rendering.
- * @author Stackware, LLC
+ * @author @zaunere Zero Shot Labs
  * @version 5.0
- * @copyright Copyright (c) 2012-2023 Stackware, LLC. All Rights Reserved.
- * @copyright Licensed under the GNU General Public License
- * @copyright See COPYRIGHT.txt and LICENSE.txt.
+ * @copyright Copyright (c) 2023 Zero Shot Laboratories, Inc. All Rights Reserved.
+ * @copyright Licensed under the GNU General Public License v3.0 or later.
+ * @copyright See COPYRIGHT.txt.
  */
 namespace asm;
 
 
 /**
- * A Template is a block of text that can be rendered.
+ * A Template is a block of text that can be rendered in some way, for instance
+ * by PHP and then some other mechanism.
  *
  * A Template contains a Name, an optional executeable, and a body.  The Name
  * must be unique within a TemplateSet.

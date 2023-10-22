@@ -4,8 +4,8 @@
  * @author @zaunere Zero Shot Labs
  * @version 5.0
  * @copyright Copyright (c) 2023 Zero Shot Laboratories, Inc. All Rights Reserved.
- * @copyright Licensed under the GNU General Public License
- * @copyright See COPYRIGHT.txt and LICENSE.txt.
+ * @copyright Licensed under the GNU General Public License v3.0 or later.
+ * @copyright See COPYRIGHT.txt.
  */
 namespace asm\sys;
 use asm\_e\e500;
@@ -37,8 +37,8 @@ function IsWindows()
  */
 function load_ext( $ext )
 {
-    if( is_file(ASM_EXT_ROOT.$ext.DIRECTORY_SEPARATOR."load.inc") )
-        require(ASM_EXT_ROOT.$ext.DIRECTORY_SEPARATOR."load.inc");
+    if( is_file(ASM_ROOT.$ext.DIRECTORY_SEPARATOR."load.inc") )
+        require(ASM_ROOT.$ext.DIRECTORY_SEPARATOR."load.inc");
     else
         throw new e500("Extension '$ext' not found.");
 }
