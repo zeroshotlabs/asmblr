@@ -34,22 +34,22 @@ abstract class app
     /**
      * True if the app is configured 'live' or otherwise determined as such.
      */
-    public bool $IsProduction;
+    public bool $is_production;
 
     /**
      * Automatically true if the request is from the command line.
      */
-    public bool $IsCLI;
+    public bool $is_cli;
 
     /**
      * True if the current request is a root request (not super root).
      */
-    public bool $IsRoot;
+    public bool $is_root;
 
     /**
      * True if the current request is a FES request.
      */
-    public bool $IsFES;
+    public bool $is_fes;
 
     /**
      * The super root endpoint or null.
@@ -74,14 +74,16 @@ abstract class app
      */
     public function __construct( public \asm\config $config,public \asm\request $request )
     {
-        $this->IsProduction = $this->config->IsProduction;
-        $this->IsCLI = $this->request->IsCLI;
+        $this->is_production = $this->config->is_production;
+        $this->is_cli = $this->request->is_cli;
 
         $this->super_root = $this->config->endpoints_url_map['//'] ?? NULL;
     }
 
 
     /**
+     * Determine what to execute.
+     * 
      * Builds the route_table (execution queue) using explicit matching:
      *  - loop over the requested URL path, from root down
      *  - each increasing URL is matched as a directory with trailing slash (IsDir = true)
@@ -103,12 +105,12 @@ abstract class app
      *  - request: /admin/anything or /admin or /admin/
      *    matches: /admin// will match all
      * 
-     * These are coined "greedy" roots.
+     * These are coined "greedy" roots/routes.
      * 
      * @return array &$route_table Reference to the endpoints execution queue, in order.
-     * @todo Abstract this out as it's own closure/class for custom routers.
+     * @todo Abstract this out as it's own closure/class for custom routers; for now extend the class.
      * @note This is for ALL web requests and will determine if it's a FES request.
-     * @note Be minful when using greedy roots on high endpoints.
+     * @note Be minful when using greedy roots on top-level endpoints, including FES requests.
      * @note This should be called once.
      */
     public function &route(): array
@@ -135,9 +137,9 @@ abstract class app
      * @param string $Name The name of the endpoint to execute which
      *               shouldn't have a configured URL.
      */
-    public function exec_cli( string $name ):mixed
+    public function exec_cli( string $name ): mixed
     {
-        !$this->IsCLI
+        !$this->is_cli
             ?? _stde("Warning: '$name' exec_cli requested but not running on CLI.");
 
         $endpoint = $this->config->endpoints[$name]
@@ -146,12 +148,34 @@ abstract class app
         !empty($endpoint['url'])
             ?? _stde("Warning: '$name' exec_cli requested endpoint has URL '{$endpoint['url']}'");
 
-        return $this->exec_endpoint($endpoint);
+        return $this->_exec_endpoint($endpoint);
     }
 
 
     /**
-     * Execute a single endpoint.
+     * Execute a web endpoint by name.
+     * 
+     * This only warns if a incorrectly mixed web/CLI call is made.
+     * 
+     * @param string $name The name of the endpoint to execute, that has a URL.
+     */
+    public function exec_web( string $name ): mixed
+    {
+        $endpoint = $this->config->endpoints[$name]
+            ?? throw new e500("Web endpoint '$name' not found.");
+
+        $this->is_cli
+            ?? _stde("Warning: '$name' exec_web requested but not running on the web.");
+
+        empty($endpoint['url'])
+            ?? _stde("Warning: '$name' exec_web requested endpoint has no URL");
+
+        return $this->_exec_endpoint($endpoint);
+    }
+
+
+    /**
+     * Execute a single endpoint by name or definition array.
      * 
      * This is used to execute a single endpoint.  If there is a period in the 'exec'
      * element, it's split.
@@ -164,7 +188,7 @@ abstract class app
      * 
      * @note app classes are assumed in the global namespace of the app (see $e below).
      */
-    public function exec_endpoint( array|string $endpoint ): mixed
+    public function _exec_endpoint( array|string $endpoint ): mixed
     {
         if( is_string($endpoint) )
         {
