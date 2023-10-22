@@ -2,7 +2,7 @@
     "name": "zeroshotlabs/asmblr",
     "description": "Lightweight utility-driven PHP framework with serverless, FPM and CLI runtimes.",
     "type": "project",
-    "license": "GPL v3",
+    "license": "GPL-3.0-or-later",
     "authors": [
         {
             "name": "zaunere",
