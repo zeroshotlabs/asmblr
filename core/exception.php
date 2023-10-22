@@ -1,4 +1,12 @@
 <?php declare(strict_types=1);
+/**
+ * @file exception.php HTTP code based exceptions, including redirects.
+ * @author @zaunere Zero Shot Labs
+ * @version 5.0
+ * @copyright Copyright (c) 2023 Zero Shot Laboratories, Inc. All Rights Reserved.
+ * @copyright Licensed under the GNU General Public License
+ * @copyright See COPYRIGHT.txt and LICENSE.txt.
+ */
 namespace asm\_e;
 
 use function \asm\sys\_stde;
@@ -11,7 +19,7 @@ use asm\types\url;
  *
  * Thrown internally by asmblr and can send HTTP headers and log
  * appropriately.  They can also redirect or indicate a 404 -
- * even on the CLI!
+ * even on the CLI, in which case only the code/message is output.
  * 
  * @see eHTTP
  */
@@ -19,19 +27,20 @@ class exception extends \Exception
 {
     use http_headers;
 
-    protected bool $IsCLI = false;
+    protected bool $is_cli = false;
+
 
     public function __construct( string $message,int $code = 0,\Throwable $previous = null )
     {
         parent::__construct($message,$code,$previous);
 
         if( !empty($_SERVER['argv']) )
-            $this->IsCLI = true;
+            $this->is_cli = true;
     }
 
     public function __toString(): string
     {
-        if( $this->IsCLI )
+        if( $this->is_cli )
         {
             _stde("EXCEPTION: ({$this->code}) {$this->message}");
         }
@@ -70,25 +79,29 @@ class eHTTP extends exception
 {
     use http_headers;
 
-    protected int $http_code = 200;
-//    protected string $http_response_string = 'HTTP/1.1 200 OK';
+    protected int $http_code;
+
 
     /**
      * Sets HTTP response code using http_response_code() with message
      * and custom handling.
      * 
+     * For CLI apps, this will output to _stde() and no headers will be sent.
+     * 
      * @param string $message General purpose message, usually logged.
-     * @param int $code System error code, which is generally an HTTP code.
-     *                  -1 will prevent sending an HTTP response header.
+     * @param int $code Non-zero system error code that's automatically set to
+     *                  an HTTP code by default.
      * @param \Throwable $previous Previous exception.
      * 
      * @todo $previous isn't used currently.
      */
     public function __construct( string $message = null,int $code = 0,\Throwable $previous = null )
     {
-        parent::__construct((string)$message,$this->http_code,$previous);
+        parent::__construct((string)$message,($code>0?$code:$this->http_code),$previous);
 
-        if( $code > -1 )
+        if( !$this->is_cli )
+//            _stde("EXCEPTION ($this->code): $this->message");
+//        else
             $this->send_response_code($code>0?$code:$this->http_code);
     }
 }
@@ -134,26 +147,26 @@ class e302 extends eHTTP
 class go2 extends eHTTP
 {
     protected string $dest_url = '';
-    protected $IsPerm = true;
+    protected $is_perm = true;
 
     /**
      * @todo add relative/absolute redirects, external, endpoint awareness, theme/asset awareness, etc.
      * @todo option to hard exit?
      */
-    public function __construct( string|url $url,int|bool $perm = true,\Throwable $previous = null )
+    public function __construct( string|url $url,int|bool $perm = true,$exitdone = true,\Throwable $previous = null )
     {
         $this->dest_url = (string) $url;
-        $this->IsPerm = (bool) $perm;
+        $this->is_perm = (bool) $perm;
 
         parent::__construct($this->dest_url,-1,$previous);
 
-        if($this->IsPerm )
+        if( $this->is_perm )
             $this->send_response_code(301);
 
         header("Location: {$this->dest_url}");
 
-        // if( $Exit === TRUE )
-        //     exit;
+        if( $exitdone )
+            exit(0);
     }
 }
 

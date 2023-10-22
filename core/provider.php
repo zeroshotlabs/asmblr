@@ -1,9 +1,9 @@
 <?php declare(strict_types=1);
 /**
  * @file provider.php Conherent interface for accessing external data, currently from the filesystem.
- * @author Stackware, LLC
+ * @author @zaunere Zero Shot Labs
  * @version 5.0
- * @copyright Copyright (c) 2012-2023 Stackware, LLC. All Rights Reserved.
+ * @copyright Copyright (c) 2023 Zero Shot Laboratories, Inc. All Rights Reserved.
  * @copyright Licensed under the GNU General Public License
  * @copyright See COPYRIGHT.txt and LICENSE.txt.
  */
@@ -128,9 +128,6 @@ class filesystem implements provider
      */    
     public function __get( string $url ): array|null
     {
-        throw new e500("Is this used?  $url");
-        
-        // "editor.js/node_modules/es-to-primitive/test/es6.js
         if( strpos($url,'/../') !== FALSE )
             throw new e404("Suspicious path: $url");
 

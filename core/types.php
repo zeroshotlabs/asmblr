@@ -1,9 +1,9 @@
 <?php declare(strict_types=1);
 /**
  * @file types.php Base traits, interfaces and abstract classes.
- * @author Stackware, LLC
+ * @author @zaunere Zero Shot Labs
  * @version 5.0
- * @copyright Copyright (c) 2012-2023 Stackware, LLC. All Rights Reserved.
+ * @copyright Copyright (c) 2023 Zero Shot Laboratories, Inc. All Rights Reserved.
  * @copyright Licensed under the GNU General Public License
  * @copyright See COPYRIGHT.txt and LICENSE.txt.
  */
@@ -17,22 +17,16 @@ use asm\_e\e500;
  * 
  * Used internally to read config settings but generally useful.
  * 
- * @implements \ArrayAccess
- * @implements \Countable
- * @implements \Iterator
+ * @implements \ArrayAccess allows access syntax such as [] and $dataset['key'].
+ * @implements \Countable which indicates the number of key/value pairs.
+ * @implements \Iterator @todo
  */
 class dao extends \ArrayObject
 {
-// implements \ArrayAccess,\Countable,\Iterator
-// {
-//     use dynamic_kv;
-//     use iterable_kv;
-//     use object_array;
-
     /**
      * Instantiates a dao wrapped around an array.
      * 
-     * Doesn't reference the original array.
+     * @note Doesn't reference the original array.
      */
     public function __construct( array $kv,$flags = \ArrayObject::ARRAY_AS_PROPS )
     {
@@ -61,29 +55,30 @@ enum encodings: int
     /**
      * URL encoded (spaces become %20)
      */
-    case PHP_QUERY_RFC3986 = \PHP_QUERY_RFC1738;
+    case PHP_QUERY_RFC3986 = \PHP_QUERY_RFC3986;
 }
 
 
 /**
- * Tools for manipulating RFC 1738/3986 query strings, such as for GET and some POST data.
+ * Tools for manipulating RFC 1738/3986 query strings, such as for GET and most POST data.
+ * 
+ * By default the encoding is RFC 3986 (URLs) but can be changed upon instantiation.
  *
  * @note This should not be used for multipart/form-data (form uploads)).
  * @note This uses http_build_query() with PHP_QUERY_RFC3986 by default.
  * 
  * @todo https://www.php.net/manual/en/ref.url.php   ?
- * @todo should be cleaned up, more aligned with dao
+ * @todo should be cleaned up, more aligned with dao; implement countable
  */
 class encoded_str extends dao implements \Stringable
-// implements \stringable,\Countable
 {
-//    use \asm\types\dynamic_kv;
-    protected $encoding = encodings::PHP_QUERY_RFC3986->value;     // PHP_QUERY_RFC1738
+    protected $encoding = encodings::PHP_QUERY_RFC3986;     // PHP_QUERY_RFC1738 is the other option
 
 
     public function __construct( public readonly array $pairs,encodings $encoding = null )
     {
-        $this->encoding = $encoding->value ?? $this->encoding;
+        parent::__construct($pairs);
+        $this->encoding = $encoding->value ?? $this->encoding->value;
     }
 
     public function __get( string $label ): mixed
@@ -91,9 +86,6 @@ class encoded_str extends dao implements \Stringable
         return isset($this->pairs[$label])?$this->pairs[$label]:null;
     }
 
-    /**
-     * @todo probably won't work because of readonly $pairs
-     */
     public function __set( string $label,mixed $value ): void
     {
         $this->pairs[$label] = $value;
@@ -211,138 +203,6 @@ trait directed
 
 
 /**
- * Implement dynamic properties for key/value storage within a container.
- * Key/values are stored in the kv property, not actually as dynamic properties.
- *
- * @note there is no column or iterator support currently.
- * @note should do a array_column/array_is_list implementation
-//  */
-// trait dynamic_kv
-// {
-//     protected $kv = [];
-
-//     public function __clone()
-//     {
-//         $this->kv = $this->kv;
-//     }
-
-//     /**
-//      * Changes the internal element to use for keys/values.
-//      * 
-//      * By reference thus changes the original.
-//      */
-//     public function use_kv( string $name )
-//     {
-//         $this->kv = &$this->{$name};
-//     }
-    
-//     public function __get( $key ): mixed
-//     {
-//         return isset($this->kv[$key])?$this->kv[$key]:NULL;
-//     }
-//     public function __set( $key,$value ): void
-//     {
-//         $this->kv[$key] = $value;
-//     }
-//     public function __isset( $key ): bool
-//     {
-//         return isset($this->kv[$key]);
-//     }
-//     public function __unset( $key ): void
-//     {
-//         $this->kv[$key] = NULL;
-//         unset($this->kv[$key]);
-//     }    
-// }
-
-// /**
-//  * Provides iteration over the key/value pairs, $kv.
-//  * 
-//  * @implements Iterator
-//  * @implements Countable
-//  */
-// trait iterable_kv22
-// {
-//     protected $kv = [];
-//     protected $_len = 0;
-//     protected $_posi = 0;
-
-//     // use dynamic_kv {
-//     //     dynamic_kv::use_kv as use_kv;
-//     // }
-
-//     public function count(): int
-//     {
-//         return count($this->kv);
-//     }
-
-//     /**
-//      * Also initializes the length and position.
-//      */
-//     public function rewind(): void
-//     {
-//         $this->_len = count($this->kv);
-//         $this->_posi = 0;
-//         reset($this->kv);
-//     }
-
-//     public function current(): mixed
-//     {
-//         return $this->kv[key($this->kv)];
-//     }
-
-//     public function key(): string|int
-//     {
-//         return key($this->kv);
-//     }
-
-//     public function next(): void
-//     {
-//         ++$this->_posi;
-//         next($this->kv);
-//     }
-
-//     public function valid(): bool
-//     {
-//         return ($this->_posi < $this->_len);
-//     }
-// }
-
-
-// /**
-//  * Flexible data object designed for key/value pairs and array access.
-//  * 
-//  * @implements \ArrayAccess
-//  * 
-//  * @note Not really suitable for tabular data (no iteration) and count()
-//  * returns the number of properties.
-//  * 
-//  * @todo is this incompatible with dynamic_kv?
-//  * @todo what aboutvuse of ArrayObject?
-//  */
-// trait object_array22
-// {
-//     public function offsetGet( $key ): mixed
-//     {
-//         return isset($this->$key)?$this->$key:NULL;
-//     }
-//     public function offsetSet( $key,$value ): void
-//     {
-//         $this->$key = $value;
-//     }
-//     // @note here __isset is used though above __get/__set isn't
-//     public function offsetExists( $key ): bool
-//     {
-//         return $this->__isset($key);        
-//     }
-//     public function offsetUnset( $key ): void
-//     {
-//         unset($this->$key);
-//     }
-// }
-
-
-/**
  * Tools for working with a UNIX or URL path.
  *
  * By default, a path uses the forward slash @c / as a separator.  While the
@@ -359,19 +219,7 @@ trait directed
  * @todo no visibility pendantics; don't change things you don't know what they do
  */
 class path extends dao implements \Stringable
-//,\Iterator,\ArrayAccess,\Countable
 {
-    // use object_array;
-    // use iterable_kv;
-
-//     public function __clone()
-//     {
-// //        debug_print_backtrace();
-
-//         $t = $this->kv;
-//         unset($this->kv);
-//         $this->kv = $t;
-//     }
     /**
      * Use path::path() or path::url() instead.
      */
@@ -382,24 +230,24 @@ class path extends dao implements \Stringable
         public string $separator = '/',
 
         /**
-         * TRUE if the path has a leading separator.
+         * true if the path has a leading separator.
          */
-        public bool $IsABS,
+        public bool $is_abs,
 
         /**
-         * TRUE if the path has a trailing separator.
+         * true if the path has a trailing separator.
          */
-        public bool $IsDir,
+        public bool $is_dir,
 
         /**
-         * TRUE if the path is only the separator (IsDir and IsAbs will also be TRUE).
+         * true if the path is only the separator (is_dir and IsAbs will also be true).
          */
-        public bool $IsRoot,
+        public bool $is_root,
 
         /**
-         * TRUE if the path is a shell path, otherwise it's escaped as a URL path.
+         * true if the path is a shell path, otherwise it's escaped as a URL path.
          */
-        public bool $IsShell,
+        public bool $is_shell,
 
         /**
          * Numeric array of the pieces between the separators.
@@ -407,29 +255,90 @@ class path extends dao implements \Stringable
         public array $segments = []
     )
     {
-//        $this->use_kv('segments');
+        parent::__construct($this->segments);
     }
+
+    /**
+     * Create a filesystem path from a string.
+     *
+     * A backslash separator is automatically detected if there is one, otherwise a forward
+     * slash is the default.
+     *
+     * @param string $str The path string to parse, an empty string, or NULL.
+     * @param string $separator Specify a single character as a separator to use.
+     * @param bool $shell true if the path is a shell path, otherwise it'll be escaped as a URL path.
+     * @return \asm\types\path A path.
+     *
+     * @note An empty or NULL $str, or one that is only multiple separators,
+     * 		 will be considered a root path.
+     * @note This doesn't pass through query string.
+     */
+    public static function path( string $str,string $separator = NULL,bool $shell = true ): path
+    {
+        $segments = [];
+        $str = trim($str);
+
+        if( empty($separator) )
+        {
+            if( strpos($str,'\\') !== false )
+                $separator = '\\';
+            else
+                $separator = '/';
+        }
+
+        // a root path
+        if( empty($str) || $str === $separator )
+        {
+            $segments[0] = $separator;
+            $IsAbs = $is_dir = $is_root = true;
+        }
+        else
+        {
+            $is_root = false;
+            $IsAbs = $str[0]===$separator?true:false;
+            $is_dir = substr($str,-1,1)===$separator?true:false;
+            // $segments = preg_split("(\\{$separator}+)",$str,-1,PREG_SPLIT_NO_EMPTY);
+            // the fastest way according to chatgpt - after some guidance
+            // the double reverse is to reindex (not from chatgpt :)
+            $segments = array_reverse(array_reverse(array_filter(explode($separator,$str))));
+        }
+
+        return new self($separator,$IsAbs,$is_dir,$is_root,$shell,$segments);
+    }
+
+
+    /**
+     * Create a URL path from a string.
+     * 
+     * @param string $str The path string to parse, an empty string, or NULL.
+     * @see \asm\types\path::path()
+     */     
+    public static function url( $str ): path
+    {
+        return static::path($str,'/',false);
+    }
+
 
     public function as_abs(): string
     {
-        return $this->the_real_tostring(NULL,NULL,TRUE);
+        return $this->the_real_tostring(NULL,NULL,true);
     }
 
     public function as_dir(): string
     {
-        return $this->the_real_tostring(NULL,TRUE,NULL);
+        return $this->the_real_tostring(NULL,true,NULL);
     }
 
     public function as_abs_dir(): string
     {
-        return $this->the_real_tostring(NULL,TRUE,TRUE);
+        return $this->the_real_tostring(NULL,true,true);
     }
 
     /**
      * Prepend segments of another path.
      * 
      * @param path $p The path to prepend.
-     * @param bool $dedupe TRUE to remove duplicates.
+     * @param bool $dedupe true to remove duplicates.
      * 
      * @note If $dedupe is true, pay attention to the order of the segments.
      */
@@ -445,7 +354,7 @@ class path extends dao implements \Stringable
      * Append segments of another path.
      * 
      * @param path $p The path to append.
-     * @param bool $dedupe TRUE to remove duplicates.
+     * @param bool $dedupe true to remove duplicates.
      * 
      * @note If $dedupe is true, pay attention to the order of the segments.
      * @todo mixed instead of path for $p
@@ -478,18 +387,18 @@ class path extends dao implements \Stringable
      * @return array Ordered path segments.
      *
      * @note All paths are absolute. A trailing '/' will be included, based
-     * on IsDir.
+     * on is_dir.
      */
     public function ordered( $inc = true ): array
     {
-        if( $this->IsRoot )
+        if( $this->is_root )
             return [$this->separator];
 
         $p = [];
         foreach( $this->segments as $k => $v )
             $p[] = ($k>0?$p[$k-1]:(($this->separator))).$v.$this->separator;            
 
-        if( !$this->IsDir )
+        if( !$this->is_dir )
             $p[count($p)-1] = rtrim(end($p),$this->separator);
 
         if( $inc )
@@ -503,7 +412,7 @@ class path extends dao implements \Stringable
      * Overload to return the path as a string.
      * 
      * This will properly prefix/suffix and encode the path string,
-     * according to IsShell, IsABS and IsDIR.
+     * according to is_shell, is_abs and is_dir.
      * 
      * @todo PHP feature request: using python's slicing, printf formatting, etc?  Allow params?
      * @see the_real_tostring() for actual string creation and overrides.
@@ -513,17 +422,17 @@ class path extends dao implements \Stringable
         return $this->the_real_tostring();
     }
 
-    protected function the_real_tostring( bool $IsShell = NULL,bool $IsDir = NULL,bool $IsABS = NULL ): string
+    protected function the_real_tostring( bool $is_shell = NULL,bool $is_dir = NULL,bool $is_abs = NULL ): string
     {
-        if( $this->IsRoot === true )
+        if( $this->is_root === true )
         {
             return $this->separator;
         }
         else
         {
-            $shell = $IsShell===NULL?$this->IsShell:$IsShell;
-            $abs = $IsABS===NULL?$this->IsABS:$IsABS;
-            $dir = $IsDir===NULL?$this->IsDir:$IsDir;
+            $shell = $is_shell===NULL?$this->is_shell:$is_shell;
+            $abs = $is_abs===NULL?$this->is_abs:$is_abs;
+            $dir = $is_dir===NULL?$this->is_dir:$is_dir;
 
             if( $shell === false )
                 $Segs = implode($this->separator,array_map('rawurldecode',$this->segments));
@@ -532,67 +441,6 @@ class path extends dao implements \Stringable
 
             return ($abs?$this->separator:'').$Segs.($dir?$this->separator:'');
         }
-    }
-    
-
-    /**
-     * Create a filesystem path from a string.
-     *
-     * A backslash separator is automatically detected if there is one, otherwise a forward
-     * slash is the default.
-     *
-     * @param string $str The path string to parse, an empty string, or NULL.
-     * @param string $separator Specify a single character as a separator to use.
-     * @param bool $shell TRUE if the path is a shell path, otherwise it'll be escaped as a URL path.
-     * @return \asm\types\path A path.
-     *
-     * @note An empty or NULL $str, or one that is only multiple separators,
-     * 		 will be considered a root path.
-     * @note This doesn't pass through query string.
-     */
-    public static function path( string $str,string $separator = NULL,bool $shell = true ): path
-    {
-        $segments = [];
-        $str = trim($str);
-
-        if( empty($separator) )
-        {
-            if( strpos($str,'\\') !== false )
-                $separator = '\\';
-            else
-                $separator = '/';
-        }
-
-        // a root path
-        if( empty($str) || $str === $separator )
-        {
-            $segments[0] = $separator;
-            $IsAbs = $IsDir = $IsRoot = true;
-        }
-        else
-        {
-            $IsRoot = false;
-            $IsAbs = $str[0]===$separator?true:false;
-            $IsDir = substr($str,-1,1)===$separator?true:false;
-            // $segments = preg_split("(\\{$separator}+)",$str,-1,PREG_SPLIT_NO_EMPTY);
-            // the fastest way according to chatgpt - after some guidance
-            // the double reverse is to reindex (not from chatgpt :)
-            $segments = array_reverse(array_reverse(array_filter(explode($separator,$str))));
-        }
-
-        return new self($separator,$IsAbs,$IsDir,$IsRoot,$shell,$segments);
-    }
-
-
-    /**
-     * Create a URL path from a string.
-     * 
-     * @param string $str The path string to parse, an empty string, or NULL.
-     * @see \asm\types\path::path()
-     */     
-    public static function url( $str ): path
-    {
-        return static::path($str,'/',false);
     }
 
     
@@ -666,7 +514,7 @@ class hostname extends dao implements \Stringable
  *
  * The components of a URL are:
  *
- *  @li @c IsHTTPS: @c TRUE if the scheme is https.
+ *  @li @c IsHTTPS: @c true if the scheme is https.
  *  @li @c scheme: Typically @c http or @c https.
  *  @li @c username
  *  @li @c password
@@ -682,7 +530,7 @@ class hostname extends dao implements \Stringable
 class url implements \Stringable
 {
     /**
-     * TRUE if the scheme is https.
+     * true if the scheme is https.
      */
     public bool $IsHTTPS;
 
@@ -744,7 +592,7 @@ class url implements \Stringable
     {
         if( !is_string($url_str) || empty($url_str = trim($url_str)) )
         {
-            _stde("URL::str() - url_str is not a string (".gettype($url_str).")");
+            _stde("URL::str() - url_str is not a string or empty (".gettype($url_str).")");
             return null;
         }
 
