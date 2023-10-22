@@ -68,12 +68,10 @@ enum encodings: int
  * @note This uses http_build_query() with PHP_QUERY_RFC3986 by default.
  * 
  * @todo https://www.php.net/manual/en/ref.url.php   ?
- * @todo should be cleaned up, more aligned with dao
+ * @todo should be cleaned up, more aligned with dao; implement countable
  */
 class encoded_str extends dao implements \Stringable
-// implements \stringable,\Countable
 {
-//    use \asm\types\dynamic_kv;
     protected $encoding = encodings::PHP_QUERY_RFC3986;     // PHP_QUERY_RFC1738 is the other option
 
 
@@ -88,9 +86,6 @@ class encoded_str extends dao implements \Stringable
         return isset($this->pairs[$label])?$this->pairs[$label]:null;
     }
 
-    /**
-     * @todo probably won't work because of readonly $pairs
-     */
     public function __set( string $label,mixed $value ): void
     {
         $this->pairs[$label] = $value;
@@ -259,7 +254,70 @@ class path extends dao implements \Stringable
          */
         public array $segments = []
     )
-    { }
+    {
+        parent::__construct($this->segments);
+    }
+
+    /**
+     * Create a filesystem path from a string.
+     *
+     * A backslash separator is automatically detected if there is one, otherwise a forward
+     * slash is the default.
+     *
+     * @param string $str The path string to parse, an empty string, or NULL.
+     * @param string $separator Specify a single character as a separator to use.
+     * @param bool $shell true if the path is a shell path, otherwise it'll be escaped as a URL path.
+     * @return \asm\types\path A path.
+     *
+     * @note An empty or NULL $str, or one that is only multiple separators,
+     * 		 will be considered a root path.
+     * @note This doesn't pass through query string.
+     */
+    public static function path( string $str,string $separator = NULL,bool $shell = true ): path
+    {
+        $segments = [];
+        $str = trim($str);
+
+        if( empty($separator) )
+        {
+            if( strpos($str,'\\') !== false )
+                $separator = '\\';
+            else
+                $separator = '/';
+        }
+
+        // a root path
+        if( empty($str) || $str === $separator )
+        {
+            $segments[0] = $separator;
+            $IsAbs = $is_dir = $is_root = true;
+        }
+        else
+        {
+            $is_root = false;
+            $IsAbs = $str[0]===$separator?true:false;
+            $is_dir = substr($str,-1,1)===$separator?true:false;
+            // $segments = preg_split("(\\{$separator}+)",$str,-1,PREG_SPLIT_NO_EMPTY);
+            // the fastest way according to chatgpt - after some guidance
+            // the double reverse is to reindex (not from chatgpt :)
+            $segments = array_reverse(array_reverse(array_filter(explode($separator,$str))));
+        }
+
+        return new self($separator,$IsAbs,$is_dir,$is_root,$shell,$segments);
+    }
+
+
+    /**
+     * Create a URL path from a string.
+     * 
+     * @param string $str The path string to parse, an empty string, or NULL.
+     * @see \asm\types\path::path()
+     */     
+    public static function url( $str ): path
+    {
+        return static::path($str,'/',false);
+    }
+
 
     public function as_abs(): string
     {
@@ -383,67 +441,6 @@ class path extends dao implements \Stringable
 
             return ($abs?$this->separator:'').$Segs.($dir?$this->separator:'');
         }
-    }
-    
-
-    /**
-     * Create a filesystem path from a string.
-     *
-     * A backslash separator is automatically detected if there is one, otherwise a forward
-     * slash is the default.
-     *
-     * @param string $str The path string to parse, an empty string, or NULL.
-     * @param string $separator Specify a single character as a separator to use.
-     * @param bool $shell true if the path is a shell path, otherwise it'll be escaped as a URL path.
-     * @return \asm\types\path A path.
-     *
-     * @note An empty or NULL $str, or one that is only multiple separators,
-     * 		 will be considered a root path.
-     * @note This doesn't pass through query string.
-     */
-    public static function path( string $str,string $separator = NULL,bool $shell = true ): path
-    {
-        $segments = [];
-        $str = trim($str);
-
-        if( empty($separator) )
-        {
-            if( strpos($str,'\\') !== false )
-                $separator = '\\';
-            else
-                $separator = '/';
-        }
-
-        // a root path
-        if( empty($str) || $str === $separator )
-        {
-            $segments[0] = $separator;
-            $IsAbs = $is_dir = $is_root = true;
-        }
-        else
-        {
-            $is_root = false;
-            $IsAbs = $str[0]===$separator?true:false;
-            $is_dir = substr($str,-1,1)===$separator?true:false;
-            // $segments = preg_split("(\\{$separator}+)",$str,-1,PREG_SPLIT_NO_EMPTY);
-            // the fastest way according to chatgpt - after some guidance
-            // the double reverse is to reindex (not from chatgpt :)
-            $segments = array_reverse(array_reverse(array_filter(explode($separator,$str))));
-        }
-
-        return new self($separator,$IsAbs,$is_dir,$is_root,$shell,$segments);
-    }
-
-
-    /**
-     * Create a URL path from a string.
-     * 
-     * @param string $str The path string to parse, an empty string, or NULL.
-     * @see \asm\types\path::path()
-     */     
-    public static function url( $str ): path
-    {
-        return static::path($str,'/',false);
     }
 
     
@@ -595,7 +592,7 @@ class url implements \Stringable
     {
         if( !is_string($url_str) || empty($url_str = trim($url_str)) )
         {
-            _stde("URL::str() - url_str is not a string (".gettype($url_str).")");
+            _stde("URL::str() - url_str is not a string or empty (".gettype($url_str).")");
             return null;
         }
 

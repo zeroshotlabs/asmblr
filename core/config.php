@@ -31,7 +31,7 @@ class config extends \asm\types\dao
     /**
      * true only if Status is 'live' or via domain detection.  Used in $app
      */
-    public bool $IsProduction;
+    public bool $is_production;
 
     /**
      * 
@@ -228,7 +228,7 @@ class config extends \asm\types\dao
                     throw new e500("Invalid base_url - must contain '://': {$row[1]}");
 
                 if( $col0_label === 'status' )
-                    $this->IsProduction = $row[1]==='live'?true:false;
+                    $this->is_production = $row[1]==='live'?true:false;
 
                 $this->app[$col0_label] = $row[1];
             }

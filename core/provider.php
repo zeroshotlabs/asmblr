@@ -128,9 +128,6 @@ class filesystem implements provider
      */    
     public function __get( string $url ): array|null
     {
-        throw new e500("Is this used?  $url");
-        
-        // "editor.js/node_modules/es-to-primitive/test/es6.js
         if( strpos($url,'/../') !== FALSE )
             throw new e404("Suspicious path: $url");
 

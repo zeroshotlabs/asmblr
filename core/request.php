@@ -10,7 +10,7 @@
 namespace asm;
 use asm\_e\e400,asm\types\hostname,asm\types\encoded_str,asm\types\path,asm\types\url;
 use asm\http\http_headers;
-
+use asm\config;
 
 /**
  * Current request data.
@@ -27,7 +27,7 @@ class request
 {
     use http_headers;
 
-    public readonly bool $IsCLI;
+    public bool $is_cli;
 
     // the original request, untouched
     public url $original_url;
@@ -44,23 +44,29 @@ class request
     // path used for matching an endpoint
     public path $route_path;
 
+    // true if the request's scheme matches base_url
+    public bool $is_base_scheme;
 
-    /**
-     * @todo PHP needs one-way readonly properties.
-     */
-    public readonly bool $IsBaseScheme;
-    public readonly bool $IsBaseHost;
-    public readonly bool $IsBasePath;
+    // true if the request's host matches base_url
+    public bool $is_base_host;
 
-    public readonly bool $IsForwarded;
-    public readonly bool $IsHTTPS;
+    // true if the request's base path matches base_url
+    public bool $is_base_path;
 
-    public readonly string $remote_ip;
+    // true if the request was forwarded by a proxy
+    public bool $is_forwarded;
 
-    public readonly string $endpoint_name;
+    // true if the end user request was over HTTPS
+    public bool $is_https;
 
-    public readonly array $argv;
-    public readonly int $argc;
+    // the end user's IP
+    public string $remote_ip;
+
+    // the name of the CLI endpoint to execute
+    public string $endpoint_name;
+
+    public array $argv;
+    public int $argc;
     const MIN_ARGC = 2;
 
 
@@ -76,39 +82,37 @@ class request
      * @property $original_url The original request URL.
      * @property $url The active request URL, canonicalized by $base_url; used to determine redirects.
      * 
-     * @todo consider SERVER_NAME/port/etc for GAE and similar environments (ports).
-     * @todo Handle CLI arguments better, including supporting options like --something, which
-     *       will be incorporated into the Config.
-     * 
      * @note HTTP auth isn't handled.
-     * @note The request/route path is lowercased and possibly modified by base_url.
+     * @note The request/route path is lowercased and potentially modified by base_url.
+     * @todo consider SERVER_NAME/port/etc for GAE and similar environments (ports).
      */
     public function __construct( string $base_url = '' )
     {
-        if( !empty($_SERVER['argv']) )
+        if( self::is_cli() )
         {
             if( $_SERVER['argc'] < self::MIN_ARGC )
-                throw new e400("CLI execution requires at least one argument: php doc_root/index.php {pagename} args ...");
+                throw new e400("asmblr requires at least one argument:\n   php {$_SERVER['argv'][0]} {endpoint} args ...");
 
-            $this->IsCLI = true;
-
-            // @todo needs testing - also base_url usage?
-            $this->url = URL::str($_SERVER['argv'][1]);
-            $this->endpoint_name = $_SERVER['argv'][2];
+            $this->is_cli = true;
+            $this->endpoint_name = $_SERVER['argv'][1];
 
             // @todo need to handle argv better, or similar to how a _GET is done
             $this->argv = $_SERVER['argv'];
             $this->argc= $_SERVER['argc'];
+
+            // build out empty/generic placeholders
+            $this->url = $this->original_url = url::str('cli://localhost');
+            $this->use_base_url('localhost');
         }
         else
         {
-            $this->IsCLI = false;
+            $this->is_cli = false;
 
-            $this->IsForwarded = !empty($_SERVER['HTTP_X_FORWARDED_FOR']);
+            $this->is_forwarded = !empty($_SERVER['HTTP_X_FORWARDED_FOR']);
 
-            if( $this->IsForwarded )
+            if( $this->is_forwarded )
             {
-                [$this->IsHTTPS,$scheme] = ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '' === 'https' ? [true,'https'] : [false,'http']);
+                [$this->is_https,$scheme] = ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '' === 'https' ? [true,'https'] : [false,'http']);
                 $this->remote_ip = $_SERVER['HTTP_X_FORWARDED_FOR'];
 
                 $host = $_SERVER['HTTP_X_FORWARDED_HOST'] ?? $_SERVER['HTTP_HOST'];
@@ -116,7 +120,7 @@ class request
             }
             else
             {
-                [$this->IsHTTPS,$scheme] = ($_SERVER['HTTPS'] ?? false === 'on' ? [true,'https'] : [false,'http']);
+                [$this->is_https,$scheme] = ($_SERVER['HTTPS'] ?? false === 'on' ? [true,'https'] : [false,'http']);
                 $this->remote_ip = $_SERVER['REMOTE_ADDR'];
 
                 $host = $_SERVER['HTTP_HOST'];
@@ -125,10 +129,10 @@ class request
 
             $path = $_SERVER['DOCUMENT_URI'] ?? '/?-?';
 
-            // @todo does anyone use username:password@ anymore?  :)
+            // @todo does anyone use username:password@ anymore?  one day it can be added around here somewhere
 
-            // maintained as the original request, not altered; keep cased for FES requests
-            // @note $_POST isn't included.
+            // maintained as the original request, not altered; keep case for FES requests
+            // @note $_POST and other methods arent touched, left to the app
             $this->original_url = new url($scheme,'','',hostname::str($host),$port,path::url($path),encoded_str::arr($_GET),'');
 
             // active URL used for routing - lowercased, canonized by base_url;
@@ -162,9 +166,9 @@ class request
      *  - $route_path - the canonicalized request path, with $base_url path removed and no trailing slash, lowercased; used for routing the request
      * 
      * The following flags are also set, based on the request and base_url:
-     *  - $IsBaseScheme - TRUE if the specified scheme in the base URL matches the request scheme.
-     *  - $IsBaseHost - TRUE if the specified hostname in the base URL matches the request host.
-     *  - $IsBasePath - TRUE if the specified path in the base URL prefixes the request path.
+     *  - $is_base_scheme - TRUE if the specified scheme in the base URL matches the request scheme.
+     *  - $is_base_host - TRUE if the specified hostname in the base URL matches the request host.
+     *  - $is_base_path - TRUE if the specified path in the base URL prefixes the request path.
      *
      * @param string $base_url Configured base URL.
      *
@@ -183,43 +187,80 @@ class request
         $this->root_url = url::str(str_replace(['*:/','/*/'],
                                                [$this->url->scheme.':/','/'.$this->url->hostname.($this->url->port?':'.$this->url->port:'').'/'],
                                                 $base_url));
-        $this->root_url->path->IsDir = true;
+        $this->root_url->path->is_dir = true;
                                                 
         if( $this->root_url->scheme !== $this->url->scheme )
         {
             $this->url->scheme = $this->root_url->scheme;
-            $this->IsBaseScheme = false;
+            $this->is_base_scheme = false;
         }
         else
-            $this->IsBaseScheme = true;
+            $this->is_base_scheme = true;
 
         if( ((string) $this->root_url->hostname) !== ((string) $this->url->hostname) )
         {
             $this->url->hostname = $this->root_url->hostname;
-            $this->IsBaseHost = false;
+            $this->is_base_host = false;
         }
         else
-            $this->IsBaseHost = true;
+            $this->is_base_host = true;
 
         if( strpos((string) $this->url->path,(string) $this->root_url->path) === 0 )
         {
             $this->route_path = clone $this->url->path;
-            $this->route_path->IsDir = false;
+            $this->route_path->is_dir = false;
 
             if( count($this->root_url->path) )
                 $this->route_path->mask($this->root_url->path);
          
-            $this->IsBasePath = true;
+            $this->is_base_path = true;
         }
         else
         {
             // @note The redirect/404/etc is left to the app.  Handle
-            // this by checking $IsBasePath.
+            // this by checking $is_base_path.
             $this->route_path = clone $this->url->path;
-            $this->route_path->IsDir = false;
+            $this->route_path->is_dir = false;
 
-            $this->IsBasePath = false;
+            $this->is_base_path = false;
         }
+    }
+
+
+    /**
+     * Determine if a request appears to be for a FES resource.  This is case sensitive.
+     * 
+     * This will return true if the first request path's segment ISN'T found as an endpoint URL.
+     * 
+     * Front End Stack (FES) resources are directly output without being PHP processed.
+     * 
+     * Path rewriting can be performed to determine the resource to return, however be mindful
+     * of configured endpoints to avoid collisions.  See \asm\filesystem and reroot.
+     * 
+     * A root request returns false.
+     * 
+     * @param config $config The config object.
+     * @param request $request The request object.
+     * @return bool false if the request's first segment was found in the endpoint <map name="
+     * @return int The line number the match was found.  This corresponds to the endpoint's index in $endpoint_map.
+     * 
+     * @todo Make the length to compare variable (3 segments, etc).
+     * @todo Optimize routing because this is executed first.
+     * @note This isn't bulletproof especially with large number of resources/endpoints.
+     * @note Advanced processing - such as running resources through PHP - can be performed
+     *       using a combination of routing endpoints and this.
+     */
+    public static function is_fes( config $config,request $request ): int|bool
+    {
+        if( $request->is_cli || (($first_segment = $request->url->path[0]) === '/') )
+            return false;
+
+        $p1 = strpos($config->endpoints_url_blob,PHP_EOL.'/'.$first_segment);
+
+        if( $p1 === false )
+            return false;
+        else 
+            return substr_count($config->endpoints_url_blob,PHP_EOL,0,$p1+1);
     }
 
 
@@ -231,7 +272,7 @@ class request
      *
      * @todo Review and optimize (possibly getting rid of the regex).
      */
-    public static function IsMobile(): bool
+    public static function is_mobile(): bool
     {
         if( empty($_SERVER['HTTP_USER_AGENT']) )
             return false;
@@ -244,6 +285,14 @@ class request
     }
 
     /**
+     * Determine if the request is from the commabnd line.
+     */
+    public static function is_cli()
+    {
+        return !empty($_SERVER['argv']);
+    }
+
+    /**
      * Determine if the request is ChromePHP (chromelogger.com) aware.
      *
      * @note ChromePHP doesn't currently announce itself so this has little use and isn't supported anymore.
@@ -251,7 +300,7 @@ class request
      * @note Manually toggle LogPublic config variable to TRUE/FALSE until they fix this.
      * @todo Revise.
      */
-    public static function IsChromePHP()
+    public static function is_chromephp()
     {
         if( !empty($_SERVER['HTTP_USER_AGENT']) )
             return (bool) preg_match('{\bChrome/\d+[\.\d+]*\b}',$_SERVER['HTTP_USER_AGENT']);
@@ -263,7 +312,7 @@ class request
      * @retval bool TRUE if the request is FirePHP aware.
      * @todo revise
      */
-    public static function IsFirePHP()
+    public static function is_firephp()
     {
         if( isset($_SERVER['HTTP_X_FIREPHP_VERSION']) || (!empty($_SERVER['HTTP_USER_AGENT']) && strpos($_SERVER['HTTP_USER_AGENT'],'FirePHP') !== FALSE) )
             return TRUE;
