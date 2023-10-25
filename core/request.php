@@ -245,10 +245,11 @@ class request
      * @return int The line number the match was found.  This corresponds to the endpoint's index in $endpoint_map.
      * 
      * @todo Make the length to compare variable (3 segments, etc).
-     * @todo Optimize routing because this is executed first.
+     * @todo As it is, an endpoint with a matching first segment will match recursively.
+     * @todo Optimize routing because this is executed first, which could eliminate a lot of potential endpoints (right?)
      * @note This isn't bulletproof especially with large number of resources/endpoints.
      * @note Advanced processing - such as running resources through PHP - can be performed
-     *       using a combination of routing endpoints and this.
+     *       using a combination of routing endpoints and this (see sloppyjoe)
      */
     public static function is_fes( config $config,request $request ): int|bool
     {
@@ -258,19 +259,14 @@ class request
         $p1 = strpos($config->endpoints_url_blob,PHP_EOL.'/'.$first_segment);
 
         if( $p1 === false )
-            return false;
-        else 
+            return true;
+        else
             return substr_count($config->endpoints_url_blob,PHP_EOL,0,$p1+1);
     }
 
 
     /**
      * Determine whether the request appears to be from a mobile device.
-     *
-     * @retval boolean TRUE if the request appears to be from a mobile device.
-     * @retval NULL HTTP_USER_AGENT wasn't set in $_SERVER.
-     *
-     * @todo Review and optimize (possibly getting rid of the regex).
      */
     public static function is_mobile(): bool
     {
@@ -287,7 +283,7 @@ class request
     /**
      * Determine if the request is from the commabnd line.
      */
-    public static function is_cli()
+    public static function is_cli(): bool
     {
         return !empty($_SERVER['argv']);
     }
