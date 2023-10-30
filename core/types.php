@@ -1,6 +1,6 @@
 <?php declare(strict_types=1);
 /**
- * @file types.php Base traits, interfaces and abstract classes.
+ * @file types.php Base types, interfaces and classes.
  * @author @zaunere Zero Shot Labs
  * @version 5.0
  * @copyright Copyright (c) 2023 Zero Shot Laboratories, Inc. All Rights Reserved.
@@ -13,49 +13,74 @@ use asm\_e\e500;
 
 
 /**
+ * @todo not implemented
+ */
+interface extension
+{
+
+}
+
+
+/**
  * General purpose data access objects.
- * 
- * Used internally to read config settings but generally useful.
  * 
  * @implements \ArrayAccess allows access syntax such as [] and $dataset['key'].
  * @implements \Countable which indicates the number of key/value pairs.
- * @implements \Iterator @todo
+ * @implements \Iterator @todo  (daotab/daocol)
  */
 class dao extends \ArrayObject
 {
+    public int $flags = \ArrayObject::ARRAY_AS_PROPS;
+
     /**
      * Instantiates a dao wrapped around an array.
      * 
      * @note Doesn't reference the original array.
      */
-    public function __construct( array $kv,$flags = \ArrayObject::ARRAY_AS_PROPS )
+    public function __construct( $kv )
     {
-        parent::__construct($kv,$flags);
+        parent::__construct($kv,$this->flags);
     }
 
     public function __clone()
     {
         $this->exchangeArray($this->getArrayCopy());
     }
+
+    // public function __isset( $key ): bool
+    // {
+    //     return isset($this->$key);
+    // }
+
+    // public function __get( string $key ): mixed
+    // {
+    //     return isset($this->$key)?$this->$key:null;
+    // }
+
+    // public function __set( string $key,mixed $value ): void
+    // {
+    //     $this->$key = $value;
+    // }
+
 }
 
 
 /**
- * Define the encoding types available.
+ * Define the encoding types available for query strings.
  * 
  * @see \asm\types\encoded_str
  */
-enum encodings: int
+enum str_encodings: int
 {
     /**
      * Encoded as application/x-www-form-urlencoded (spaces become +).
      */
-    case PHP_QUERY_RFC1738 = \PHP_QUERY_RFC1738;
+    case FORM = \PHP_QUERY_RFC1738;
 
     /**
      * URL encoded (spaces become %20)
      */
-    case PHP_QUERY_RFC3986 = \PHP_QUERY_RFC3986;
+    case URL = \PHP_QUERY_RFC3986;
 }
 
 
@@ -70,136 +95,53 @@ enum encodings: int
  * @todo https://www.php.net/manual/en/ref.url.php   ?
  * @todo should be cleaned up, more aligned with dao; implement countable
  */
-class encoded_str extends dao implements \Stringable
+class query_str extends dao implements \Stringable
 {
-    protected $encoding = encodings::PHP_QUERY_RFC3986;     // PHP_QUERY_RFC1738 is the other option
-
-
-    public function __construct( public readonly array $pairs,encodings $encoding = null )
-    {
-        parent::__construct($pairs);
-        $this->encoding = $encoding->value ?? $this->encoding->value;
-    }
-
-    public function __get( string $label ): mixed
-    {
-        return isset($this->pairs[$label])?$this->pairs[$label]:null;
-    }
-
-    public function __set( string $label,mixed $value ): void
-    {
-        $this->pairs[$label] = $value;
-    }
+    use encoded_str;
+    
+    // encodings::PHP_QUERY_RFC1738 (+/POST) or encodings::PHP_QUERY_RFC3986 (%20/query string)
+    public str_encodings $_encoding = str_encodings::URL;
 
 
     /**
      * Create a new encoded from a string.
      *
      * @param string $str The encoded string to parse.
-     * @return \asm\types\encoded_str A encoded string.
+     * @return \asm\types\query_str A encoded query string.
      *
      * @note This uses parse_str().
      */
-    public static function str( string $str ): encoded_str
+    public static function str( string $str ): self
     {
         $Q = [];
         parse_str($str,$Q);
         return new self($Q);
     }
-
-
-    /**
-     * Create a new encoded string from an array.
-     * 
-     * @param array $arr Array of data, typically key/value pairs.
-     * @return \asm\types\encoded_str A encoded string.
-     */
-    public static function arr( array $arr ): encoded_str
-    {
-        return new self($arr);       
-    }
-
-
-    /**
-     * Counts the number of key/value pairs.
-     * 
-     * @return int The number of key/value pairs.
-     */
-    public function count(): int
-    {
-        return count($this->pairs);
-    }
-
-
-    /**
-     * Create a string from the encoded.
-     *
-     * @return string The URL encoded query string.
-     *
-     * @note This uses http_build_query() with $Encoding which defaults to PHP_QUERY_RFC3986.
-     * @note This uses arg_separator.output.
-     * @note A '?' is automatically prefixed.
-     */
+    
     public function __toString(): string
     {
-        if( !empty($this->pairs) )
-            return '?'.http_build_query($this->pairs,'',null,$this->encoding);
-        else
-            return '';
+        return $this->__toString();
     }
 }
 
-
-
 /**
- * @todo not implemented
+ * Tokens are class-specific actions and parameters, typically as key/value pairs
+ * where the value can be non-scalar.
+ *
+ * They are often used to represent configuration or containered actions and parameters,
+ * and commonly represented as query or JSON strings.
  */
-interface extension
+class token
 {
-
-}
-
-
-
-/**
- * Directives allow keys/values to be pushed from the config into an object.
- * 
- * @todo Not implemented; maybe done differently now?
- */
-interface directable
-{
-    /**
-     * Apply a directive.
-     *
-     * @param string $key The key - or name - of the directive to set.
-     * @param mixed $value The value of the directive.
-     */
-    public function apply( $key,$value );
-}
-
-/*
- * Implement directable interface.
- * 
- * @todo Not implemented; maybe done differently now?
- */
-trait directed
-{
-    /**
-     * @property array $Directives An associative array of key/value pairs set by Config.
-     */
-    protected $directives = [];
-
-    /**
-     * Set key/value pairs from Config directives in $Directives property.
-     *
-     * @param string $key The name of the key to set.
-     * @param mixed $value The value to set.
-     */
-    public function apply( $key,$value )
+    public function __construct( public string $name,
+                                 public string $type,
+                                 public mixed $value )
     {
-        $this->directives[$key] = $value;
+
     }
 }
+
+
 
 
 /**
@@ -530,9 +472,17 @@ class hostname extends dao implements \Stringable
 class url implements \Stringable
 {
     /**
+     * Generic for URL parts.
+     */
+    public static array $_generic = ['scheme'=>'','username'=>'',
+                                     'password'=>'','hostname'=>'',   // \asm\types\hostname
+                                     'port'=>'','path'=>'',            // \asm\types\path
+                                     'encoded'=>'','fragment'=>''];   // \asm\types\encoded_str
+
+    /**
      * true if the scheme is https.
      */
-    public bool $IsHTTPS;
+    public bool $https;
 
     /**
      * Create a new URL object.
@@ -544,8 +494,6 @@ class url implements \Stringable
     public function __construct(
         /**
          * Typically http or https without '://'
-         * 
-         * @note these should be "readonly" though it is handy to change (carefully) and re-string
          */
         public string $scheme,
 
@@ -555,40 +503,45 @@ class url implements \Stringable
 
         public \asm\types\hostname $hostname,
 
-        public string $port,
+        public mixed $port,
 
         public \asm\types\path $path,
 
-        public \asm\types\encoded_str $encoded,
+        public \asm\types\query_str $query_str,
 
         public string $fragment
     )
     {
-        $this->IsHTTPS = ($scheme === 'https');
-        $this->port = ($port === '80' || $port === '443' ? '' : $port);
+        $this->https = ($scheme === 'https');
+        $this->port = (int) (($port == 80 || $port == 443 ? 0 : $port));
     }
 
     public function __clone()
     {
         $this->hostname = clone $this->hostname;
         $this->path = clone $this->path;
-        $this->encoded = clone $this->encoded;
+        $this->query_str = clone $this->query_str;
+    }
+
+    public static function str( string $urlstr ): url
+    {
+        return new url(...self::from_string(($urlstr)));
     }
 
     /**
-     * Create a new URL from a string.
+     * Parse a string into it's constituent URL parts.
      *
      * This uses parse_url() and follows it's semantics, whereby some URL strings will be indeterminate.
      * 
      * @param string $url_str The URL string to parse.
      * @throws Exception Malformed URL '$url_str' (parse_url()).
-     * @return \asm\types\url A URL.
+     * @return array Parts of the URL as defined by $components. 
      *
      * @note This uses parse_url() and defaults to https if not specified. It attempts
      * to detect and auto-correct malformed URLs but it's not perfect; filename.html is
      * parsed as domain.com for example.
      */
-    public static function str( $url_str ): \asm\types\url|null
+    public static function from_string( $url_str ): array
     {
         if( !is_string($url_str) || empty($url_str = trim($url_str)) )
         {
@@ -627,10 +580,10 @@ class url implements \Stringable
 
         $path = path::url($T['path'] ?? '');
 
-        $encoded = encoded_str::str($T['encoded'] ?? '');
+        $encoded = query_str::str($T['encoded'] ?? '');
         $fragment = $T['fragment'] ?? '';
 
-        return new self($scheme,$username,$password,$hostname,$port,$path,$encoded,$fragment);
+        return [$scheme,$username,$password,$hostname,$port,$path,$encoded,$fragment];
     }
 
     /**
@@ -639,14 +592,14 @@ class url implements \Stringable
      * @return string URL string.
      *
      * @note Logic exists to handle an empty hostname in which case scheme/port/username/password isn't included
-     *       and thus a path-only "URL" is returned.
+     *       and thus a path-only "URL" URI is returned.
      */
     public function __toString(): string
     {
         $host = (string) $this->hostname;
         if( !empty($host) )
         {
-            if( $this->port && ($this->port != '80' && $this->port != '443') )
+            if( $this->port && ($this->port !== 80 && $this->port !== 443) )
                 $host .= ":{$this->port}";
 
             $auth = '';
@@ -661,11 +614,11 @@ class url implements \Stringable
         }
 
         $path = $this->path->as_abs();
-        $encoded = (string) $this->encoded;
+        $query_str = (string) $this->query_str;
         $frag = !empty($this->fragment) ? '#'.rawurlencode($this->fragment) : '';
 
         // @todo confirm that this correctly returns partial URLs, like a path only, etc. per below
-        return "{$host}{$path}{$encoded}{$frag}";
+        return "{$host}{$path}{$query_str}{$frag}";
 
         // // if a hostname is present, ensure a / for relative paths - otherwise use what path has
         // $Str .= (!empty($Str)&&empty($URL['path']['IsAbs'])?'/':'').path::ToString($URL['path'],'url');
@@ -675,3 +628,362 @@ class url implements \Stringable
 }
 
 
+
+/**
+ * 
+ * 
+ */
+
+trait linker
+{
+//    use tokened;
+    
+    /**
+     * Array of key/values representing a name and destination path.
+     * 
+     * Full URLs are generated based on the other parts of the URL.
+     * 
+     * These are typically app endpoints or FES prefixes.
+     */
+    public array $link_dests = [];
+
+    public function __construct( string|url $base_url )  // change string
+    {
+        if( is_string($base_url) )
+        {
+            $base_url = url::str($base_url);
+            if( $base_url === null )
+                throw new e500("Malformed URL '$base_url' (parse_url()).");
+        }
+    }
+
+}
+
+/**
+ * URLs support "change tokens" which can be used to change, the URL on an one-off
+ * temporary basis, for example when generating links.
+ * 
+ * Each token makes a change to a part of the URL, which can be accumalated as an array,
+ * in which case they are applied in the order they appear.
+ * 
+ *  - query string: change or remove a key/value pair.
+ *      [key,value] will change the value of the key.
+ *      [key,''|null] will remove a key.
+ * 
+ *  - path: change or remove a path segment, counted from zero.
+ *      [index,value] will change the value of the segment
+ *      [index,''|null] will remove a segment.
+ *                  
+ * - fragment: change or remove the fragment.   
+ * - fragment: change or remove the fragment.
+ */
+
+
+/**
+ * Create well-formed URLs based on endpoints and FES resources.
+ *
+ * URLs are generated based on $base_url, which defaults to the current fully normalized
+ * request URL, which can be modified, either for the lifetime of the object, or per-URL
+ * generation using "change-strings."
+ * 
+ * URLs can be generated by calling a method name corresponding to an endpoint or FES resource,
+ * or by calling the object itself, both of which support change-strings.
+ * 
+ * Additionally, a "change-string" can be passed, which will change the generated URL on
+ * the fly based on the below mechanics.
+ * 
+ * 
+ *  A LinkSet creates URLs calculated from a base URL.  Created URLs may also contain
+ * one-time changes, merged on the fly at the time of creation.
+ *
+ * A LinkSet is instantiated with a base URL and optional array of changes:
+ *     $ls = new LinkSet('www.stackware.com',array('district'=>'nyc'));
+ *     $ls = new LinkSet('www.stackware.com','district=nyc');
+ *
+ * Both lines do the same thing - all created URLs will be, by default, based on:
+ *     http://www.stackware.com/?district=nyc
+ *
+ * The $ls object is then called as a function with additional changes for creating the URLs:
+ *     $ls('<login');
+ *     $ls('>login');
+ *
+ * These prepend and append, respectively, a path segment and thus would produce the
+ * same URL in this example (our base URL has a root path):
+ *     http://www.stackware.com/login?district=nyc
+ *
+ * An array of change strings may be also be used.
+ *
+ * @see URL::Set() for details on the change string syntax.
+ * @note All path segments and query string keys/values are properly encoded.
+ *       Hostname/port/scheme are not encoded.
+ */
+
+ 
+//     /**
+//      * Form URL and perform a permanent redirect to it.
+//      *
+//      * @param string $File A filename with optional path or an empty string to use only the base URL.
+//      * @param array $Set Optional on-the-fly URL changes to apply.
+//      */
+//     public function Go( $File = NULL,$Set = array() )
+//     {
+//         HTTP::Location($this->__invoke($File,$Set));
+//     }
+// }
+
+
+//     /**
+//      * Return the base URL as a string.
+//      *
+//      * @retval string The current BaseURL.
+//      */
+//     public function __toString()
+//     {
+//         return URL::ToString($this->BaseURL);
+//     }
+
+//     /**
+//      * Build a URL for the provided Path or filename.
+//      *
+//      * The URLs are calculated from BaseURL and may incorporate one-time changes.
+//      *
+//      * @param string $File A filename with optional path or an empty string to use only the base URL.
+//      * @param array $Set Array of change strings for one-time changes to BaseURL.
+//      * @retval string A well-formed URL.
+//      */
+//     public function __invoke( $File = '',$Set = array() )
+//     {
+//         $Base = $this->BaseURL;
+
+//         if( !empty($File) )
+//             Path::Merge(Path::Init($File),$Base['Path']);
+
+//         if( !empty($Set) )
+//             URL::Set($Set,$Base);
+
+//         return URL::ToString($Base);
+//     }
+
+
+// -    public static function Set( $Needle,&$Haystack )
+// -    {
+// -        $Needle = trim($Needle);
+// -
+// -        if( $Needle[0] === '<' )
+// -            return static::Prepend(ltrim($Needle,'<'),$Haystack);
+// -        else if( $Needle[0] === '>' )
+// -            return static::Append(ltrim($Needle,'>'),$Haystack);
+// -        else
+// -            return NULL;
+// -    }
+// -    public static function Set( $Needle,&$Haystack )
+// -    {
+// -        $Needle = trim($Needle);
+// -
+// -        if( $Haystack['IsRoot'] === TRUE )
+// -        {
+// -            $Haystack['IsRoot'] = FALSE;
+// -            $Haystack['Segments'][0] = ltrim(ltrim($Needle,'<'),'>');
+// -            return count($Haystack['Segments']);
+// -        }
+// -
+// -        if( $Needle[0] === '<' )
+// -            return static::Prepend(ltrim($Needle,'<'),$Haystack);
+// -        else if( $Needle[0] === '>' )
+// -            return static::Append(ltrim($Needle,'>'),$Haystack);
+// -        else
+// -            return NULL;
+// -    }
+
+// public static function Set( $Needle,&$Haystack )
+// -    {
+// -        foreach( (array) $Needle as $K => $V )
+// -        {
+// -            if( is_array($V) )
+// -            {
+// -                URLEncoded::Set($V,$Haystack['Query']);
+// -                continue;
+// -            }
+// -            else if( !is_int($K) )
+// -            {
+// -                URLEncoded::Set(array(array($K=>$V)),$Haystack['Query']);
+// -                continue;
+// -            }
+// -
+// -            $V2 = explode('#',$V);
+// -            if( isset($V2[1]) )
+// -                static::SetFragment($V2[1],$Haystack);
+// -
+// -            $V2 = explode('?',$V2[0]);
+// -            if( isset($V2[1]) )
+// -                URLEncoded::Set($V2[1],$Haystack['Query']);
+// -
+// -            if( !empty($V2[0]) )
+// -            {
+// -                if( ($V2[0][0] === '>' || $V2[0][0] === '<') )
+// -                {
+// -                    Path::Set($V2[0],$Haystack['Path']);
+// -                    $Haystack['Path']['IsAbs'] = TRUE;
+// -                }
+// else
+// -                {
+// -                    trigger_error("URL::Set() Unrecognized change string '{$V}'");
+// -                }
+// -            }
+// -        }
+// -    }
+// -
+
+// * Add or remove key/values in a URLEncoded Struct.
+// -     *
+// -     * $Needle is change string, an array of change strings, or an array
+// -     * of associative array key/value pairs, defining the changes to make:
+// -     *  - @c ?key=value&key1=value1: set the key/value pairs from a string.  setting empty will delete the key.
+// -     *  - @c ?: remove all key/values
+// -     *  - @c array('key'=>'value'): set the key/value from an array
+// -     *  - @c array('key'=>NULL): remove the key/value, if it exists
+// -     *  - @c array(): remove all key/values
+// -     *
+// -     * @param array $Needle An array of key/values as strings or arrays.
+// -     * @param string $Needle A key=value change string.
+// -     * @param array &$Haystack URLEncoded Struct.
+// -     * @retval void
+// -     */
+// -    public static function Set( $Needle,&$Haystack )
+// -    {
+// -        foreach( (array) $Needle as $K => $V )
+// -        {
+// -            if( empty($V) || $V === '?' )
+// -            {
+// -                $Haystack = array();
+// -                continue;
+// -            }
+// -
+// -            if( is_string($V) )
+// -            {
+// -                parse_str(ltrim($V,'?'),$V2);
+// -            }
+// -            else if( is_array($V) )
+// -            {
+// -                $V2 = $V;
+// -            }
+
+// -
+// -            foreach( $V2 as $I => $J )
+// -            {
+// -                if( isset($Haystack[$I]) && empty($J) )
+// -                    static::Del($I,$Haystack);
+// -                else
+// -                    $Haystack[$I] = $J;
+// -            }
+// -        }
+// -    }
+// -
+
+// -    /**
+// -     * Prepend or append a subdomain in a Hostname.
+// -     *
+// -     * $Needle is a string defining the change to make:
+// -     *  - \c <subdomain: prepend the subdomain.
+// -     *  - \c >subdomain: append the subdomain.
+// -     *
+// -     * @param string $Needle Direction and subdomain to add.
+// -     * @param array $Haystack Hostname Struct.
+// -     * @retval int The position the subdomain was added.
+// -     * @retval NULL Operation not recognized.
+// -     *
+// -     * @todo This may be expanded slightly.
+// -     */
+// -    public static function Set( $Needle,&$Haystack )
+// -    {
+// -        $Needle = trim($Needle);
+// -
+// -        if( $Needle[0] === '<' )
+// -            return static::Prepend(ltrim($Needle,'<'),$Haystack);
+// -        else if( $Needle[0] === '>' )
+// -            return static::Append(ltrim($Needle,'>'),$Haystack);
+// -        else
+// -            return NULL;
+// -    }
+
+
+
+
+// public static function Set( $Needle,&$Haystack )
+// -    {
+// -        foreach( (array) $Needle as $K => $V )
+// -        {
+// -            if( is_array($V) )
+// -            {
+// -                URLEncoded::Set($V,$Haystack['Query']);
+// -                continue;
+// -            }
+// -            else if( !is_int($K) )
+// -            {
+// -                URLEncoded::Set(array(array($K=>$V)),$Haystack['Query']);
+// -                continue;
+// -            }
+// -
+// -            $V2 = explode('#',$V);
+// -            if( isset($V2[1]) )
+// -                static::SetFragment($V2[1],$Haystack);
+// -
+// -            $V2 = explode('?',$V2[0]);
+// -            if( isset($V2[1]) )
+// -                URLEncoded::Set($V2[1],$Haystack['Query']);
+// -
+// -            if( !empty($V2[0]) )
+// -            {
+// -                if( ($V2[0][0] === '>' || $V2[0][0] === '<') )
+// -                {
+// -                    Path::Set($V2[0],$Haystack['Path']);
+// -                    $Haystack['Path']['IsAbs'] = TRUE;
+// -                }
+// -                else
+// -                {
+// -                    trigger_error("URL::Set() Unrecognized change string '{$V}'");
+
+//  /**
+// -     * Add or remove key/values in a URLEncoded Struct.
+// -     *
+// -     * $Needle is change string, an array of change strings, or an array
+// -     * of associative array key/value pairs, defining the changes to make:
+// -     *  - @c ?key=value&key1=value1: set the key/value pairs from a string.  setting empty will delete the key.
+// -     *  - @c ?: remove all key/values
+// -     *  - @c array('key'=>'value'): set the key/value from an array
+// -     *  - @c array('key'=>NULL): remove the key/value, if it exists
+// -     *  - @c array(): remove all key/values
+// -     *
+// -     * @param array $Needle An array of key/values as strings or arrays.
+// -     * @param string $Needle A key=value change string.
+// -     * @param array &$Haystack URLEncoded Struct.
+// -     * @retval void
+// -     */
+// -    public static function Set( $Needle,&$Haystack )
+// -    {
+// -        foreach( (array) $Needle as $K => $V )
+// -        {
+// -            if( empty($V) || $V === '?' )
+// -            {
+// -                $Haystack = array();
+// -                continue;
+// -            }
+// -
+// -            if( is_string($V) )
+// -            {
+// -                parse_str(ltrim($V,'?'),$V2);
+// -            }
+// -            else if( is_array($V) )
+// -            {
+// -                $V2 = $V;
+
+// -            foreach( $V2 as $I => $J )
+// -            {
+// -                if( isset($Haystack[$I]) && empty($J) )
+// -                    static::Del($I,$Haystack);
+// -                else
+// -                    $Haystack[$I] = $J;
+// -            }
+// -        }
+// -    }
+// -

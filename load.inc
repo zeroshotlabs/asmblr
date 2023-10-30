@@ -26,6 +26,7 @@ define('CWD_ROOT',getcwd().DIRECTORY_SEPARATOR);
 /**
  * Require the asmblr source code - ordered.
  */
+require(ASM_ROOT.'core/traits.php');
 require(ASM_ROOT.'core/types.php');
 require(ASM_ROOT.'core/sys.php');
 require(ASM_ROOT.'core/provider.php');

@@ -8,7 +8,7 @@
  * @copyright See COPYRIGHT.txt.
  */
 namespace asm;
-use asm\_e\e400,asm\types\hostname,asm\types\encoded_str,asm\types\path,asm\types\url;
+use asm\_e\e400,asm\types\hostname,asm\types\query_str,asm\types\path,asm\types\url;
 use asm\http\http_headers;
 use asm\config;
 
@@ -91,7 +91,7 @@ class request
         if( self::is_cli() )
         {
             if( $_SERVER['argc'] < self::MIN_ARGC )
-                throw new e400("asmblr requires at least one argument:\n   php {$_SERVER['argv'][0]} {endpoint} args ...");
+                throw new e400("asmblr requires at least an endpoint:\n   php {$_SERVER['argv'][0]} {endpoint} args ...");
 
             $this->is_cli = true;
             $this->endpoint_name = $_SERVER['argv'][1];
@@ -133,7 +133,7 @@ class request
 
             // maintained as the original request, not altered; keep case for FES requests
             // @note $_POST and other methods arent touched, left to the app
-            $this->original_url = new url($scheme,'','',hostname::str($host),$port,path::url($path),encoded_str::arr($_GET),'');
+            $this->original_url = new url($scheme,'','',hostname::str($host),$port,path::url($path),query_str::arr($_GET),'');
 
             // active URL used for routing - lowercased, canonized by base_url;
             $this->url = clone $this->original_url;
@@ -241,27 +241,18 @@ class request
      * 
      * @param config $config The config object.
      * @param request $request The request object.
-     * @return bool false if the request's first segment was found in the endpoint <map name="
-     * @return int The line number the match was found.  This corresponds to the endpoint's index in $endpoint_map.
+     * @return bool false if the request's first segment was found as an endpoint, true if there isn't a match
      * 
      * @todo Make the length to compare variable (3 segments, etc).
-     * @todo As it is, an endpoint with a matching first segment will match recursively.
-     * @todo Optimize routing because this is executed first, which could eliminate a lot of potential endpoints (right?)
+     * @todo As it is, an endpoint with a matching first segment will match recursively, meaning it'd not run
      * @note This isn't bulletproof especially with large number of resources/endpoints.
-     * @note Advanced processing - such as running resources through PHP - can be performed
-     *       using a combination of routing endpoints and this (see sloppyjoe)
      */
-    public static function is_fes( config $config,request $request ): int|bool
+    public static function is_fes( config $config,request $request ): bool
     {
         if( $request->is_cli || (($first_segment = $request->url->path[0]) === '/') )
             return false;
 
-        $p1 = strpos($config->endpoints_url_blob,PHP_EOL.'/'.$first_segment);
-
-        if( $p1 === false )
-            return true;
-        else
-            return substr_count($config->endpoints_url_blob,PHP_EOL,0,$p1+1);
+        return !((bool)strpos($config->endpoints_url_blob,PHP_EOL.'/'.$first_segment));
     }
 
 

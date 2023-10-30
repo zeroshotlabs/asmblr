@@ -8,10 +8,6 @@
  * @copyright See COPYRIGHT.txt.
  */
 namespace asm;
-use asm\types\url;
-use asm\sys;
-use asm\http;
-use asm\cli;
 use asm\_e\e500;
 
 use function asm\sys\_stde;
@@ -203,7 +199,8 @@ abstract class app
         // @note Execute a routing or CLI endpoint which is instantiated and __invoked()'d.
         //       The executing object persists in $this->route_table[$exec[0]]['obj'] and will be
         //       reused if nessecary.
-        // @todo check namespaces.  this doesn't actually care about interface implementation.
+        // @todo check namespaces.  this doesn't actually care about interface implementation and
+        //       probably breaks across namespaces
         if( count($exec) == 1 )
         {
             if( !isset($this->route_table[$exec[0]]['obj']) )
@@ -216,7 +213,7 @@ abstract class app
 
             return $exec_obj($this->request,$endpoint);
         }
-        // @note Execute a leaf endpoint.
+        // @note Execute a leaf endpoint which is a method call.
         else if( count($exec) == 2 )
         {
             if( !isset($this->route_table[$exec[0]]['obj']) )
@@ -232,6 +229,6 @@ abstract class app
         else
             throw new e500("Malformed endpoint exec '{$endpoint['exec']}");
     }
-}
 
+}
 
