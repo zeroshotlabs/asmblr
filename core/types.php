@@ -124,24 +124,6 @@ class query_str extends dao implements \Stringable
     }
 }
 
-/**
- * Tokens are class-specific actions and parameters, typically as key/value pairs
- * where the value can be non-scalar.
- *
- * They are often used to represent configuration or containered actions and parameters,
- * and commonly represented as query or JSON strings.
- */
-class token
-{
-    public function __construct( public string $name,
-                                 public string $type,
-                                 public mixed $value )
-    {
-
-    }
-}
-
-
 
 
 /**
@@ -475,9 +457,9 @@ class url implements \Stringable
      * Generic for URL parts.
      */
     public static array $_generic = ['scheme'=>'','username'=>'',
-                                     'password'=>'','hostname'=>'',   // \asm\types\hostname
+                                     'password'=>'','hostname'=>'',    // \asm\types\hostname
                                      'port'=>'','path'=>'',            // \asm\types\path
-                                     'encoded'=>'','fragment'=>''];   // \asm\types\encoded_str
+                                     'encoded'=>'','fragment'=>''];    // \asm\types\query_str
 
     /**
      * true if the scheme is https.
@@ -660,7 +642,7 @@ trait linker
 }
 
 /**
- * URLs support "change tokens" which can be used to change, the URL on an one-off
+ * URLs support "change tokens" which can be used to change the URL on an one-off
  * temporary basis, for example when generating links.
  * 
  * Each token makes a change to a part of the URL, which can be accumalated as an array,
@@ -677,6 +659,24 @@ trait linker
  * - fragment: change or remove the fragment.   
  * - fragment: change or remove the fragment.
  */
+
+/**
+ * Tokens are class-specific actions and parameters, typically as key/value pairs
+ * where the value can be non-scalar.
+ *
+ * They are often used to represent configuration or containered actions and parameters,
+ * and commonly represented as query or JSON strings.
+ */
+class token
+{
+    public function __construct( public string $name,
+                                 public string $type,
+                                 public mixed $value )
+    {
+
+    }
+}
+
 
 
 /**
