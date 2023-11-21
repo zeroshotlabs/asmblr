@@ -11,7 +11,7 @@ namespace asm;
 
 
 use asm\types\dao,asm\types\path;
-use asm\_e\e500;
+use asm\_e\e500,asm\types\toke;
 use function asm\sys\_stde;
 
 
@@ -25,7 +25,7 @@ use function asm\sys\_stde;
  * @note This is a singleton.
  * @todo Put in an interface.
  */
-class config extends dao
+class config
 {
     public static $instance = null;
     public static $default_settings_path = APP_ROOT.'.settings.ini';
@@ -43,7 +43,7 @@ class config extends dao
     /**
      * Endpoint definitions.
      */
-    public dao $endpoints;
+    public array $endpoints;
     public array $endpoints_url_map = [];
     public string $endpoints_url_blob = '';
 
@@ -91,24 +91,16 @@ class config extends dao
         if( !is_readable($settings_path))
             throw new e500("Settings file not found: $settings_path");
         
-        $parsed_ini = parse_ini_file($settings_path,true,\INI_SCANNER_TYPED);
-
-        if( $parsed_ini )
-        {
-            parent::__construct($this->_build_config($parsed_ini));
+        try {
+            $parsed_ini = parse_ini_file($settings_path,true,\INI_SCANNER_TYPED);
+            $this->_build_config($parsed_ini);
         }
-        else
+        catch( \Throwable $e )
         {
-            _stde("invalid $settings_path");
-            return $this;
+            throw new e500("Settings file '$settings_path' is not valid: ".$e->getMessage());
         }
 
         $this->is_production = ($this->app->status === 'live');
-
-
-        // fast URL lookup string; line numbers correspond directly to $this->endpoints index.
-        // used primarily for is_fes()
-        $this->endpoints_url_blob = implode(PHP_EOL,array_keys($this->endpoints_url_map));
 
         // @todo future memory persistance (or in init)
         if( $cache )
@@ -117,18 +109,6 @@ class config extends dao
         }
     }
 
-//     /**
-//      * Read a config value by populated section:
-//      *   - app
-//      *   - endpoints
-//      *   - endpoints_url_map
-//      *   - templates
-//      *   - creds
-//      *   - meta
-//      * 
-//      * @return dao object of configuration directives, keyed on directive name.
-//      * @todo probably should cache objects.
-//      */
 //     public function offsetGet( $key ): mixed
 //     {
 // //        var_dump(parent::offsetGet($key));
@@ -141,14 +121,25 @@ class config extends dao
 //         return parent::offsetExists($key);
 //     }
 
-    public function _build_config( array $parsed_ini ): array
+    public function _build_config( array $parsed_ini ): bool
     {
-        $conf = ['app'=>[],'endpoints'=>[],'templates'=>[]];
+        $conf = ['app'=>[],'endpoints'=>[],'endpoints_url_map'=>[],'endpoints_url_blob'=>'','templates'=>[]];
 
-        $ptokens = function() {
-                                foreach( $v['tokens']??[] as $i => $j )
-                                    $endpoint['tokens'][$i] = $i::parse_tokens($j);
-                            };
+        $ptokens = function( $v ) {
+            $t = [];
+            foreach( $v as $i => $j )
+                $t[$i] = class_exists($i)?$i:toke::parse_tokens((array)$j);
+            return $t;
+        };
+
+        $ppath = function( $v ) {
+            if( empty($v) )
+                return '';
+            else if( $v === '//' )
+                return '//';
+            else
+                return ((string)path::url($v));
+        };
 
         foreach( $parsed_ini as $k => $v )
         {
@@ -159,18 +150,21 @@ class config extends dao
             else if( strpos($k,'endpoint_') === 0 )
             {
                 $endpoint = ['name'=>substr($k,9),
-                             'path'=>(string)path::url($v['path']??''),      // empty path means CLI
+                             'path'=>$ppath(trim($v['path']??'')),      // empty path means CLI
                            'greedy'=>((($v['path']??'') === '//') || (strpos(($v['path']??''),'//') > 0)),
                            'status'=>$v['status']??'',
                              'exec'=>self::_parse_exec($v['exec']??''),
                            'tokens'=>$ptokens($v['tokens']??[])];
 
+                if( $endpoint['path'] && isset($conf['endpoints_url_map'][$endpoint['path']]) )
+                    throw new e500("Duplicate endpoint path: {$endpoint['path']}");
+
                 if( isset($conf['endpoints'][$endpoint['name']]) )
-                    _stde("overwriting duplicate endpoint: {$endpoint['name']}");
+                    _stde("Overwriting duplicate endpoint name: {$endpoint['name']}");
 
                 $conf['endpoints'][$endpoint['name']] = $endpoint;
-                                       
-//                $this->endpoints[$lower_name] = ['name'=>$row[1],'url'=>'','greedy'=>false,'status'=>$row[3],'exec'=>$row[4],'directives'=>[]];
+
+                $conf['endpoints_url_map'][empty($endpoint['path'])?"_{$endpoint['name']}":$endpoint['path']] = &$conf['endpoints'][$endpoint['name']];
             }
             else if( strpos($k,'template_') === 0 )
             {
@@ -178,11 +172,18 @@ class config extends dao
                              'exec'=>self::_parse_exec($v['exec']??''),
                            'tokens'=>$ptokens($v['tokens']??[])];
  
-                $conf['endpoints'][substr($k,9)] = new dao($v);
+                $conf['templates'][substr($k,9)] = new dao($v);
             }
         }
 
-        return $conf;
+        // fast URL lookup string; line numbers correspond directly to $this->endpoints index.
+        // used primarily for is_fes()
+        $conf['endpoints_url_blob'] = implode(PHP_EOL,array_map(fn($v1,$v2): string => "$v1,$v2",array_keys($conf['endpoints_url_map']),array_keys($conf['endpoints'])));
+
+        foreach( $conf as $k => $v )
+            $this->{$k} = $v;
+
+        return true;
     }
 
     /**
