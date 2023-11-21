@@ -1,6 +1,6 @@
 <?php declare(strict_types=1);
 /**
- * @file provider.php Conherent interface for accessing external data, currently from the filesystem.
+ * @file provider.php Provides access to external data, currently from the filesystem.
  * @author @zaunere Zero Shot Labs
  * @version 5.0
  * @copyright Copyright (c) 2023 Zero Shot Laboratories, Inc. All Rights Reserved.
@@ -19,14 +19,12 @@ interface provider { }
 
 /**
  * Tools for working with files and directories:
- *   - Recursively loads files recursively from a directory and store them 
- *     into an URL keyed array, providing read access by URL.  The URL may
- *     optionally be rewritten (set_reroot()).
- *   - Retrieve a single file on request from a root directory,
- *     optionally rewrote (use_root())
+ *   - Recursively loads files from a directory and store them into an URL keyed
+ *     array, providing read access by URL.  The URL may optionally be aliased (reroot).
+ *   - Retrieve a single file on request from a root directory, optionally aliased.
  * 
  * Files and directories read from disk relative to self::$fs_root, which
- * defaults to APP_ROOT.
+ * defaults to APP_ROOT.  BUT: using a double slash is relative to the system root!!!
  * 
  * Blatant '..' bad behavior should be caught BUT THIS IS NOT A SECURITY MECHANISM!
  * 
@@ -60,14 +58,14 @@ class filesystem implements provider
 
     public $files = [];
 
-    /**
-     * Store reroot mapping.
-     * 
-     * @note This is used differently for load_dir() - DO NOT MIX USAGE WITH FILE GETS.
-     */
-    public $reroot = [];
+    // /**
+    //  * Store reroot mapping.
+    //  * 
+    //  * @note This is used differently for load_dir() - DO NOT MIX USAGE WITH FILE GETS.
+    //  */
+    // public $reroot = [];
 
-    // two slashes
+
     /**
      * Instantiate a new filesystem object, optionally rooted at a path, to
      * read files from.
@@ -86,7 +84,7 @@ class filesystem implements provider
      * @note Rerooting is done using str_replace - pay attention to the slashes.
      * @note Construct without values to use the object with load_dir().
      */
-    public function __construct( string $root_path = '',string|array $reroot = [],$include_exts = [] )
+    public function __construct( string $root_path = '',$include_exts = [] )
     {
         if( !empty($root_path) )
         {
@@ -95,8 +93,8 @@ class filesystem implements provider
             else
                 $this->fs_root = $this->fs_root.DIRECTORY_SEPARATOR.$root_path;
 
-            if( !empty($reroot) )
-                $this->reroot = is_string($reroot)?['/',$reroot]:$reroot;
+            // if( !empty($reroot) )
+            //     $this->reroot = is_string($reroot)?['/',$reroot]:$reroot;
             
             if( !empty($include_exts))
                 $this->include_exts = $include_exts;
@@ -111,11 +109,11 @@ class filesystem implements provider
      *  - requests for /index.html would fetch /var/www/html/index.html
      *  - requests for /admin/home/index.html would fetch /var/www/html/admin/home/index.html
      * 
-     * With a reroot of ['/prefix/','/']:
-     *  - requests for /prefix/index.html would fetch /var/www/html/index.html
+     * With a reroot of ['/admin/home/','/']:
+     *  - requests for /admin/home/index.html would fetch /var/www/html/index.html
      * 
-     * With a reroot of ['/','/prefix/']:
-     *  - requests for /index.html would fetch /var/www/html/prefix/index.html
+     * With a reroot of ['/','/admin/']:
+     *  - requests for /index.html would fetch /var/www/html/admin/index.html
      * 
      * @param string $url The URL path to load, relative to the established root/reroot.
      * 
@@ -131,35 +129,20 @@ class filesystem implements provider
         if( strpos($url,'/../') !== FALSE )
             throw new e404("Suspicious path: $url");
 
-        // if( !empty($this->reroot) )
-        //     $true_url = $this->fs_root.DIRECTORY_SEPARATOR.str_replace($this->reroot[0],$this->reroot[1],$url);
-        // else
-        //     $true_url = $url;
-
-
-//        $true_url = $this->fs_root.DIRECTORY_SEPARATOR.str_replace($this->reroot[0],$this->reroot[1],$url);
         $true_path = realpath($this->fs_root.DIRECTORY_SEPARATOR.$url);
-//        var_dump($this->fs_root.DIRECTORY_SEPARATOR.$url);
+
         if( !$true_path || is_file($true_path) === FALSE )
             throw new e404(($this->fs_root.DIRECTORY_SEPARATOR.$url)." ($url) not found");
 
-        // _stde("\n{$char_cnt}
-        $file = ['content_type'=>mime_by_name($url)??mime_by_name('asdfas.html'),
+        $file = ['content_type'=>mime_by_name($url)??mime_by_name('thedefault.html'),
                          'path'=>$true_path,
                       'content'=>file_get_contents($true_path)];
+
         $file['content_length'] = strlen($file['content']);
 
         return $file;
     }
 
-    //     $url = substr($full_path,strpos($full_path,$path));
-
-    //     if( !empty($reroot[0]) && !empty($reroot[1]) )
-    //         $url = str_replace($reroot[0],$reroot[1],$path);
-    //     else if( !empty($reroot[0]) )
-    //         $url = substr($path,strlen($reroot[0]));
-    //     else
-    //         $url = $path;
 
     /**
      * Given a root path, the path of a file, and a prefix, replace or
@@ -185,13 +168,15 @@ class filesystem implements provider
 
     /**
      * Recursively loads files of certain extensions into an URL keyed array,
-     * overwriting any conflicting entry in self::$dirs.
+     * overwriting any conflicting entries.
      * 
-     * If $load_content is false, only the array structure is created in $files,
-     * otherwise the file contents is also loaded.
+     * If $load_content is false, only the array structure is created in $files
+     * and the content needs to be loaded manually; otherwise the file contents
+     * is also loaded.
      * 
      * @param string $path The file path to load which will become the 'URL'.
-     * @param string $reroot The prefix of the path to remove, and optionally replace, relocating the root.
+     * @param string $reroot The prefix of the path to remove, and optionally
+     *               replace, relocating the root.
      * @param bool $load_content True to load full file content.
      * 
      * @note The URL is formed as the path and file name rooted at the specified directory.
@@ -224,6 +209,7 @@ class filesystem implements provider
                 if( $file_j->isFile() )
                 {
                     $ext = strtolower(pathinfo($pathname,PATHINFO_EXTENSION));
+                    
                     if( !empty($this->include_exts) && !in_array($ext,$this->include_exts) )
                         continue;
                     
@@ -247,5 +233,5 @@ class filesystem implements provider
         // @todo add debugging
         // return [$file_cnt,$char_cnt];
     }
-
 }
+

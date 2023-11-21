@@ -9,14 +9,15 @@
  */
 namespace asm\sys;
 use asm\_e\e500;
-use phpDocumentor\Descriptor\Tag\VersionDescriptor;
+
+
 
 /**
  * Determine whether we're executing in a Windows environment.
  *
- * @return bool TRUE if the application is executing in a Windows environment.
+ * @return bool True if the application is executing in a Windows environment.
  */
-function IsWindows()
+function is_windows()
 {
     return isset($_SERVER['SystemRoot']);
 }
@@ -37,8 +38,8 @@ function IsWindows()
  */
 function load_ext( $ext )
 {
-    if( is_file(ASM_ROOT.$ext.DIRECTORY_SEPARATOR."load.inc") )
-        require(ASM_ROOT.$ext.DIRECTORY_SEPARATOR."load.inc");
+    if( is_file(\ASM_ROOT.$ext.DIRECTORY_SEPARATOR."load.inc") )
+        require(\ASM_ROOT.$ext.DIRECTORY_SEPARATOR."load.inc");
     else
         throw new e500("Extension '$ext' not found.");
 }
@@ -199,11 +200,12 @@ function mime_by_name( $name ): string
 }
 
 /**
- * Recursively includes files of certain extensions into the PHP runtime.
+ * Recursively includes files of certain extensions from a directory, into the PHP runtime.
  * 
- * They are included into the clean global scope.
+ * They are included into the clean global scope.  A single file can also be specified.
  * 
- * @param string $path The directory to include files from - WHICH COULD BE /etc !!
+ * @param string $path The directory to include files from, or a single file, relative to APP_ROOT.
+ * @param string $path_prefix Optional prefix, which replaces APP_ROOT - DANGEROUS!
  * 
  * @note Generally used when caching/production.
  * @important This is not a security mechanism; pay attention.
@@ -224,6 +226,12 @@ function include_dir( string $path,string $path_prefix = '',array $include_exts 
 
     try
     {
+        if( is_file($abs_path) )
+        {
+            include($abs_path);
+            return;
+        }
+
         $file_i = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($abs_path,\FilesystemIterator::KEY_AS_PATHNAME & \FilesystemIterator::SKIP_DOTS & \RecursiveIteratorIterator::CATCH_GET_CHILD));
 
         foreach( $file_i as $pathname => $file_j )
