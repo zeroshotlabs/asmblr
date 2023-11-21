@@ -52,7 +52,7 @@ abstract class app
      * 
      * These are executed for CLI requests as well.
      */
-    public array|null $super_root;
+    public array $super_root;
 
     /**
      * The route table controls app execution according to matched
@@ -73,7 +73,7 @@ abstract class app
         $this->is_production = $this->config->is_production;
         $this->is_cli = $this->request->is_cli;
 
-        $this->super_root = $this->config->endpoints_url_map['//'] ?? NULL;
+        $this->super_root = $this->config->endpoints_url_map['//'] ?? [];
     }
 
 
@@ -94,7 +94,7 @@ abstract class app
      *  - request: /admin/users/username
      *    matches: /admin/ and /admin/users/ but not /admin nor /admin/users
      *  
-     * The super-root (//) is always executed first.
+     * The super-root (//) is always executed first by default for both CLI and web.
      * 
      * Similarly, double trailing slashes of an endpoint will make it execute
      * for directory and non-directory (leaf) requests, i.e.
@@ -105,12 +105,14 @@ abstract class app
      * 
      * @return array &$route_table Reference to the endpoints execution queue, in order.
      * @todo Abstract this out as it's own closure/class for custom routers; for now extend the class.
-     * @note This is for ALL web requests and will determine if it's a FES request.
      * @note Be minful when using greedy roots on top-level endpoints, including FES requests.
      * @note This should be called once.
      */
     public function &route(): array
     {
+        if( !empty($this->super_root) )
+            $this->route_table[] = $this->super_root;
+
         foreach( $this->request->route_path->ordered() as $path )
         {
             if( isset($this->config->endpoints_url_map[$path.'//']) )
@@ -133,16 +135,20 @@ abstract class app
      * @param string $Name The name of the endpoint to execute which
      *               shouldn't have a configured URL.
      */
-    public function exec_cli( string $name ): mixed
+    public function exec_cli( string|array $endpoint ): mixed
     {
-        !$this->is_cli
-            ?? _stde("Warning: '$name' exec_cli requested but not running on CLI.");
+        if( is_string($endpoint) )
+            $endpoint = $this->config->endpoints[$endpoint]
+                ?? throw new e500("CLI endpoint '$endpoint' not found.");
 
-        $endpoint = $this->config->endpoints[$name]
-            ?? throw new e500("CLI endpoint '$name' not found.");
+        if( !$this->is_cli )
+            _stde("Warning: '{$endpoint['name']}' exec_cli requested but not running on CLI.");
+
+        $endpoint = $this->config->endpoints[$endpoint['name']]
+            ?? throw new e500("CLI endpoint '{$endpoint['name']}' not found.");
         
         !empty($endpoint['url'])
-            ?? _stde("Warning: '$name' exec_cli requested endpoint has URL '{$endpoint['url']}'");
+            ?? _stde("Warning: '{$endpoint['name']}' exec_cli requested endpoint has URL '{$endpoint['url']}'");
 
         return $this->_exec_endpoint($endpoint);
     }
@@ -155,16 +161,17 @@ abstract class app
      * 
      * @param string $name The name of the endpoint to execute, that has a URL.
      */
-    public function exec_web( string $name ): mixed
+    public function exec_web( string|array $endpoint ): mixed
     {
-        $endpoint = $this->config->endpoints[$name]
-            ?? throw new e500("Web endpoint '$name' not found.");
+        if( is_string($endpoint) )
+            $endpoint = $this->config->endpoints[$endpoint]
+                ?? throw new e500("Web endpoint '$endpoint' not found.");
 
         $this->is_cli
-            ?? _stde("Warning: '$name' exec_web requested but not running on the web.");
+            ?? _stde("Warning: '{$endpoint['name']}' exec_web requested but not running on the web.");
 
         empty($endpoint['url'])
-            ?? _stde("Warning: '$name' exec_web requested endpoint has no URL");
+            ?? _stde("Warning: '{$endpoint['name']}' exec_web requested endpoint has no URL");
 
         return $this->_exec_endpoint($endpoint);
     }
@@ -194,40 +201,38 @@ abstract class app
                 throw new e500("Endpoint '$endpoint' not found.");
         }
 
-        $exec = explode('.',$endpoint['exec']??'');
-
         // @note Execute a routing or CLI endpoint which is instantiated and __invoked()'d.
         //       The executing object persists in $this->route_table[$exec[0]]['obj'] and will be
         //       reused if nessecary.
         // @todo check namespaces.  this doesn't actually care about interface implementation and
         //       probably breaks across namespaces
-        if( count($exec) == 1 )
+        if( count($endpoint['exec']) === 1 )
         {
-            if( !isset($this->route_table[$exec[0]]['obj']) )
+            if( !isset($this->route_table[$endpoint['exec'][0]]['obj']) )
             {
-                $e = "\\$exec[0]";                
-                $exec_obj = $this->route_table[$exec[0]]['obj'] = new $e($this);
+                $e = "\\{$endpoint['exec'][0]}";                
+                $exec_obj = $this->route_table[$endpoint['exec'][0]]['obj'] = new $e($this);
             }
             else
-                $exec_obj = $this->route_table[$exec[0]]['obj'];
+                $exec_obj = $this->route_table[$endpoint['exec'][0]]['obj'];
 
             return $exec_obj($this->request,$endpoint);
         }
         // @note Execute a leaf endpoint which is a method call.
-        else if( count($exec) == 2 )
+        else if( count($endpoint['exec']) === 2 )
         {
-            if( !isset($this->route_table[$exec[0]]['obj']) )
+            if( !isset($this->route_table[$endpoint['exec'][0]]['obj']) )
             {
-                $e = "\\$exec[0]";
-                $exec_obj = $this->route_table[$exec[0]]['obj'] = new $e($this);
+                $e = "\\{$endpoint['exec'][0]}";
+                $exec_obj = $this->route_table[$endpoint['exec'][0]]['obj'] = new $e($this);
             }
             else
-                $exec_obj = $this->route_table[$exec[0]]['obj'];
+                $exec_obj = $this->route_table[$endpoint['exec'][0]]['obj'];
 
-            return $exec_obj->{$exec[1]}($this->request,$endpoint);
+            return $exec_obj->{$endpoint['exec'][1]}($this->request,$endpoint);
         }
         else
-            throw new e500("Malformed endpoint exec '{$endpoint['exec']}");
+            throw new e500("Malformed endpoint exec for '{$endpoint['name']}");
     }
 
 }
