@@ -1,7 +1,10 @@
 {
     "name": "zeroshotlabs/asmblr",
-    "description": "Lightweight utility-driven PHP framework with serverless, FPM and CLI runtimes.",
-    "type": "project",
+    "description": "Lightweight utilitarian PHP framework supporting serverless, FPM, and async/CLI runtimes for rapid application development.",
+    "type": "library",
+    "keywords": [
+        "lightweight","generative","web","API","modern","prompted-dev","CLI","async","swoole","reactive","google-sheets","serverless","agile","loosely-coupled"
+    ],
     "license": "GPL-3.0-or-later",
     "authors": [
         {
@@ -9,5 +12,12 @@
             "email": "zaunere@gmail.com"
         }
     ],
-    "require": {}
+    "autoload": {
+        "files": ["./load.inc"]
+    },
+    "require": {
+        "php": ">=8.3"
+    }
 }
+
+
