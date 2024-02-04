@@ -34,9 +34,10 @@ namespace asm\extensions\restr;
  * @todo GET/POST may not gracefully handle redirects and the headers from each.
  * @todo Enable setting of timeouts and other connection preferences, including client SSL.
  */
-class restr extends \asm\LinkSet implements Debuggable
+trait restr
+// extends \asm\LinkSet implements Debuggable
 {
-    use Debugged;
+//    use Debugged;
 
     /**
      * @var array $EndPoints

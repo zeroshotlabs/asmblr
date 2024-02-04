@@ -1,6 +1,6 @@
 <?php declare(strict_types=1);
 /**
- * @file Template.php Text templating and rendering.
+ * @file Template.php Text manipulation, including templating and rendering.
  * @author @zaunere Zero Shot Labs
  * @version 5.0
  * @copyright Copyright (c) 2023 Zero Shot Laboratories, Inc. All Rights Reserved.
@@ -12,12 +12,30 @@ namespace asm;
 
 /**
  * A Template is a block of text that can be rendered in some way, for instance
- * by PHP and then some other mechanism.
+ * by PHP and then some other mechanism, such as a browser, node, etc., adding
+ * server-side rendering for dynamic sites.
  *
- * A Template contains a Name, an optional executeable, and a body.  The Name
- * must be unique within a TemplateSet.
- *
- * If a function is present, it is executed before rendering occurs.  If the
+ * A Template contains a Name, an optional executeable, and a body.  A Name can
+ * contain multiple templates that are "sub-rendered" in the order they appear in
+ * the array, though custom logic can be implemented by overriding __call().
+ * 
+ * A named template is rendered within another template by calling it, such as:
+ *    <?=$this->header_nav( $args, ... )?>
+ * 
+ * If there are no arguments to pass, it can be rendered as a variable call:
+ *    <?=$this->header_nav?>
+ * 
+ * If there is no function defined for the template, it is rendered by the caller,
+ * which is usually a provider, like filesystem, and the output is handled accordingly.
+ * 
+ * If there is a function defined - which can be done in the same way as functions
+ * are defined for endpoints 
+ * 
+ * 
+ * If a function is present, it is executed before rendering occurs, and can
+ * control the remaining processing.
+ * 
+ * .  If the
  * function returns FALSE, rendering will not occur. A template function should
  * be prototyped as:
  *  @code funcname( $Connected,$Args,$App ) @endcode

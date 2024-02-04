@@ -1,9 +1,9 @@
 {
     "name": "zeroshotlabs/asmblr",
-    "description": "Lightweight utilitarian PHP framework supporting serverless, FPM, and async/CLI runtimes for rapid application development.",
+    "description": "Async server kernel for http2, providing a lightweight utilitarian PHP framework supporting serverless, FPM, and async/CLI runtimes for rapid development.",
     "type": "library",
     "keywords": [
-        "lightweight","generative","web","API","modern","prompted-dev","CLI","async","swoole","reactive","google-sheets","serverless","agile","loosely-coupled"
+        "async","lightweight","generative","web","API","modern","prompted","CLI","swoole","reactive","google-sheets","serverless","agile","loosely-coupled"
     ],
     "license": "GPL-3.0-or-later",
     "authors": [
