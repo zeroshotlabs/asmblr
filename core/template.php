@@ -75,7 +75,7 @@ abstract class Template extends Struct
         $Template['Path'] = $Path;
 
         if( is_string($Body) === FALSE && empty($Body) === FALSE )
-            throw new Exception("Template Body not a string with '$Name'.");
+            throw new \Exception("Template Body not a string with '$Name'.");
 
         $Template['Body'] = (string) $Body;
 
