@@ -58,14 +58,14 @@ class filesystem implements provider
 
     public $files = [];
 
-    // /**
-    //  * Store reroot mapping.
-    //  * 
-    //  * @note This is used differently for load_dir() - DO NOT MIX USAGE WITH FILE GETS.
-    //  */
-    // public $reroot = [];
+    /**
+     * Store reroot mapping.
+     * 
+     * @note This is used differently for load_dir() - DO NOT MIX USAGE WITH FILE GETS.
+     */
+    public $reroot = [];
 
-
+    // two slashes
     /**
      * Instantiate a new filesystem object, optionally rooted at a path, to
      * read files from.
@@ -84,7 +84,7 @@ class filesystem implements provider
      * @note Rerooting is done using str_replace - pay attention to the slashes.
      * @note Construct without values to use the object with load_dir().
      */
-    public function __construct( string $root_path = '',$include_exts = [] )
+    public function __construct( string $root_path = '',string|array $reroot = [],$include_exts = [] )
     {
         if( !empty($root_path) )
         {
@@ -93,8 +93,8 @@ class filesystem implements provider
             else
                 $this->fs_root = $this->fs_root.DIRECTORY_SEPARATOR.$root_path;
 
-            // if( !empty($reroot) )
-            //     $this->reroot = is_string($reroot)?['/',$reroot]:$reroot;
+            if( !empty($reroot) )
+                $this->reroot = is_string($reroot)?['/',$reroot]:$reroot;
             
             if( !empty($include_exts))
                 $this->include_exts = $include_exts;

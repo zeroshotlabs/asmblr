@@ -125,7 +125,6 @@ class query_str extends dao implements \Stringable
 }
 
 
-
 /**
  * Tools for working with a UNIX or URL path.
  *
