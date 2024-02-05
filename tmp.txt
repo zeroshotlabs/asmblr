@@ -1,0 +1,12 @@
+/**
+ * 1. original site: open site, right-click on page, select inspect element.
+ *    in dev tools, right-click on body tag, select copy element
+ * 2. open tab with blank sloppyjoe site; double click the body tag, modal pops up, paste full element content from previous page.
+ *     a. on blur, process the HTML pasted such as:
+ *        i) add a unqiue 3 digit ID to every element; if there is an ID already, skip;
+ *        ii) for all internal URLs replace with the prefix of https://new.slpyj.feta.ph/the-rest-of-the-original-url
+ *            don't replace external URLs, such as those to a CDN
+ *        iii) beautify all the code
+ *         iv) finally post the entire formatted content to the endpoint https://new.slpyj.feta.ph/new-page\
+ * 
+ */
